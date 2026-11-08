@@ -5,6 +5,8 @@ pub mod claude;
 
 use std::collections::HashMap;
 
+use serde::Serialize;
+
 use crate::card::{CardKind, SourceKind};
 use crate::detect::find_in_assistant_text;
 use crate::fingerprint::Fingerprint;
@@ -15,7 +17,7 @@ use claude::{EventKind, SessionEvent};
 pub const MIN_REPEATED_ERRORS: u32 = 2;
 
 /// Una tarjeta sacada de las sesiones, todavía sin guardar.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SessionCard {
     pub fingerprint: Fingerprint,
     pub kind: CardKind,
