@@ -65,12 +65,10 @@ export function SummaryView() {
   const [exportedPath, setExportedPath] = useState<string | null>(null);
 
   useEffect(() => {
-    const load = () => {
-      fetchDashboardData().then(setData);
-    };
-    load();
-    window.addEventListener('wakeline:rescan', load);
-    return () => window.removeEventListener('wakeline:rescan', load);
+    fetchDashboardData().then(setData);
+    const reload = () => fetchDashboardData({ force: true }).then(setData);
+    window.addEventListener('wakeline:rescan', reload);
+    return () => window.removeEventListener('wakeline:rescan', reload);
   }, []);
 
   const handleExport = async () => {
