@@ -334,12 +334,10 @@ export function CardsView() {
             mb: 3,
             gap: 2,
             display: 'flex',
-            flexWrap: 'wrap',
             alignItems: 'flex-start',
-            justifyContent: 'space-between',
           }}
         >
-          <Box sx={{ maxWidth: 740 }}>
+          <Box sx={{ maxWidth: 740, minWidth: 0 }}>
             <Box sx={{ gap: 1, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
               <KindBadge kind={selectedCard.kind} />
               <StatusBadge status={selectedCard.status} />
@@ -368,6 +366,7 @@ export function CardsView() {
               display: 'flex',
               flexWrap: 'wrap',
               maxWidth: 460,
+              ml: 'auto',
               justifyContent: 'flex-end',
             }}
           >
