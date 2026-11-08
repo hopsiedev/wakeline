@@ -274,7 +274,10 @@ function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
-export async function fetchDashboardData(): Promise<DashboardPayload> {
+let cachedDashboard: DashboardPayload | null = null;
+let dashboardRequest: Promise<DashboardPayload> | null = null;
+
+async function loadDashboardData(): Promise<DashboardPayload> {
   if (!isTauri()) {
     return FALLBACK_PAYLOAD;
   }
@@ -285,10 +288,45 @@ export async function fetchDashboardData(): Promise<DashboardPayload> {
   }
 }
 
+export function invalidateDashboardCache(): void {
+  cachedDashboard = null;
+  dashboardRequest = null;
+}
+
+export function fetchDashboardData(options?: { force?: boolean }): Promise<DashboardPayload> {
+  if (options?.force) {
+    invalidateDashboardCache();
+  } else if (cachedDashboard) {
+    return Promise.resolve(cachedDashboard);
+  }
+
+  if (!dashboardRequest) {
+    const request = loadDashboardData().then(
+      (payload) => {
+        if (dashboardRequest === request) {
+          cachedDashboard = payload;
+          dashboardRequest = null;
+        }
+        return payload;
+      },
+      (error: unknown) => {
+        if (dashboardRequest === request) {
+          dashboardRequest = null;
+        }
+        throw error;
+      }
+    );
+    dashboardRequest = request;
+  }
+
+  return dashboardRequest;
+}
+
 export async function updateCardStatus(fingerprint: string, status: CardStatus): Promise<void> {
   if (isTauri()) {
     await invoke('set_card_status', { input: { fingerprint, status } });
   }
+  invalidateDashboardCache();
 }
 
 export async function createManualCard(
@@ -299,6 +337,7 @@ export async function createManualCard(
   if (isTauri()) {
     await invoke('create_card', { input: { title, kind, project } });
   }
+  invalidateDashboardCache();
 }
 
 export async function exportProjectTodo(projectName?: string): Promise<string> {
