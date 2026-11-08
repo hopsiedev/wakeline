@@ -1,223 +1,280 @@
-import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { varAlpha } from 'minimal-shared/utils';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
-import Divider from '@mui/material/Divider';
+import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { fetchDashboardData, type DashboardPayload } from 'src/services/wakeline';
 
 import { Label } from 'src/components/label';
+import { AppIcon, type AppIconName } from 'src/components/nav-icon';
 
 // ----------------------------------------------------------------------
 
-const SAMPLE_TOML = `[proyecto]
-nombre = "Contastack"
-ignorar = ["node_modules", ".next", "reels/"]
-
-[[comando]]   # tras 30 s sin cambios
-nombre = "typecheck"
-ejecutar = "npm run typecheck"
-parser = "tsc"
-
-[[comando]]   # solo a pedido
-nombre = "tests"
-ejecutar = "npm test"
-auto = false
-
-[fuentes]
-documentos = ["specs/**/*.md", "docs/hoja-de-ruta.md"]
-exportar = "docs/TODO.md"
-
-[github]      # solo lectura, usa la sesión de gh
-repo = "Contastack/contastack"
-cada = "5m"`;
+const TOML_LINES: { num: number; k?: string; eq?: string; s?: string; c?: string }[] = [
+  { num: 1, k: '[proyecto]' },
+  { num: 2, eq: 'nombre = ', s: '"Contastack"' },
+  { num: 3, eq: 'ignorar = [', s: '"node_modules", ".next", "reels/"', c: ']' },
+  { num: 4 },
+  { num: 5, k: '[[comando]]', c: '   # se ejecuta tras 30 s sin cambios' },
+  { num: 6, eq: 'nombre = ', s: '"typecheck"' },
+  { num: 7, eq: 'ejecutar = ', s: '"npm run typecheck"' },
+  { num: 8, eq: 'parser = ', s: '"tsc"' },
+  { num: 9 },
+  { num: 10, k: '[[comando]]', c: '   # solo a mano' },
+  { num: 11, eq: 'nombre = ', s: '"tests"' },
+  { num: 12, eq: 'ejecutar = ', s: '"npm test"' },
+  { num: 13, eq: 'auto = ', k: 'false' },
+  { num: 14 },
+  { num: 15, k: '[fuentes]' },
+  { num: 16, eq: 'documentos = [', s: '"specs/**/*.md", "docs/hoja-de-ruta.md"', c: ']' },
+  { num: 17, eq: 'exportar = ', s: '"docs/TODO.md"' },
+  { num: 18 },
+  { num: 19, k: '[github]', c: '   # solo lectura, usa la sesión de gh' },
+  { num: 20, eq: 'repo = ', s: '"Contastack/contastack"' },
+  { num: 21, eq: 'cada = ', s: '"5m"', c: '   # y al hacer git push' },
+];
 
 export function PullRequestsView() {
   const { t } = useTranslation();
-  const [data, setData] = useState<DashboardPayload | null>(null);
-
-  useEffect(() => {
-    fetchDashboardData().then(setData);
-  }, []);
-
-  const projects = data?.projects ?? [];
 
   return (
-    <DashboardContent maxWidth="xl">
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4">{t('pullRequests.title')}</Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {t('pullRequests.subtitle')}
-        </Typography>
+    <DashboardContent maxWidth={false}>
+      <Box
+        sx={{
+          mb: 4,
+          gap: 2,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Box>
+          <Typography sx={{ fontSize: 24, fontWeight: 700, lineHeight: 1.5 }}>
+            {t('pullRequests.title')}
+          </Typography>
+          <Box
+            sx={{
+              gap: 1.25,
+              display: 'flex',
+              alignItems: 'center',
+              fontSize: 14,
+              color: 'text.disabled',
+            }}
+          >
+            <span>{t('nav.summary')}</span>
+            <Box
+              component="i"
+              sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'text.disabled' }}
+            />
+            <Box component="b" sx={{ color: 'text.primary', fontWeight: 400 }}>
+              {t('pullRequests.title')}
+            </Box>
+          </Box>
+        </Box>
+
+        <Button
+          variant="contained"
+          startIcon={<AppIcon name="plus" size={18} />}
+          sx={{
+            height: 36,
+            px: 1.75,
+            borderRadius: 1,
+            fontWeight: 700,
+            bgcolor: 'text.primary',
+            color: 'background.paper',
+            '&:hover': { bgcolor: 'text.secondary' },
+          }}
+        >
+          {t('pullRequests.watchFolder')}
+        </Button>
       </Box>
 
       <Grid container spacing={3}>
-        {projects.map((proj) => {
-          const openTotal = proj.errors + proj.tasks + proj.ideas;
-          const totalSeen = openTotal + proj.done + proj.dismissed;
-          const noise = totalSeen > 0 ? Math.round((proj.dismissed / totalSeen) * 100) : 12;
+        <Grid size={{ xs: 12, md: 4 }}>
+          <ProjectCard
+            letter="C"
+            iconBg="rgba(0, 167, 111, 0.16)"
+            iconColor="primary.main"
+            name="Contastack"
+            path="C:\Users\User\contastack"
+            statusLabel={t('pullRequests.watching')}
+            statusColor="success"
+            sources={[
+              ['code', 'TODO/FIXME'],
+              ['git', 'git'],
+              ['chat', 'Claude Code'],
+              ['doc', 'specs/'],
+              ['term', t('pullRequests.commands2')],
+              ['gh', 'GitHub'],
+            ]}
+            openCount="28"
+            doneCount="64"
+            noise="12 %"
+            noiseColor="success.main"
+          />
+        </Grid>
 
-          return (
-            <Grid key={proj.name} size={{ xs: 12, md: 4 }}>
-              <Card sx={{ p: 3 }}>
-                <Box sx={{ mb: 2, gap: 1.5, display: 'flex', alignItems: 'center' }}>
-                  <Box
-                    sx={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 1.5,
-                      display: 'grid',
-                      placeItems: 'center',
-                      fontWeight: 'fontWeightBold',
-                      bgcolor: (theme) => varAlpha(theme.vars.palette.primary.mainChannel, 0.16),
-                      color: 'primary.light',
-                    }}
-                  >
-                    {proj.name.charAt(0).toUpperCase()}
-                  </Box>
-                  <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                    <Typography variant="subtitle1">{proj.name}</Typography>
-                    <Typography
-                      variant="caption"
-                      noWrap
-                      sx={{ display: 'block', color: 'text.secondary', fontFamily: 'monospace' }}
-                    >
-                      {proj.path}
-                    </Typography>
-                  </Box>
-                  <Label color="success">{t('pullRequests.watching')}</Label>
-                </Box>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <ProjectCard
+            letter="A"
+            iconBg="rgba(0, 184, 217, 0.16)"
+            iconColor="info.main"
+            name="app-expo"
+            path="C:\Users\User\contastack\app-expo"
+            statusLabel={t('pullRequests.watching')}
+            statusColor="success"
+            sources={[
+              ['code', 'TODO/FIXME'],
+              ['chat', 'Claude Code'],
+              ['term', t('pullRequests.commands1')],
+            ]}
+            openCount="8"
+            doneCount="19"
+            noise="24 %"
+            noiseColor="warning.main"
+          />
+        </Grid>
 
-                <Box sx={{ mb: 2, gap: 0.75, display: 'flex', flexWrap: 'wrap' }}>
-                  <Label color="default">TODO/FIXME</Label>
-                  <Label color="default">git ({proj.branch})</Label>
-                  <Label color="default">Claude Code</Label>
-                  <Label color="default">specs/</Label>
-                </Box>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <ProjectCard
+            letter="W"
+            iconBg="rgba(255, 171, 0, 0.16)"
+            iconColor="warning.main"
+            name="wakeline"
+            path="C:\Users\User\app\wakeline"
+            statusLabel={t('common.paused')}
+            statusColor="default"
+            sources={[
+              ['code', 'TODO/FIXME'],
+              ['git', 'git'],
+              ['chat', 'Claude Code'],
+            ]}
+            openCount="2"
+            doneCount="0"
+            noise="—"
+          />
+        </Grid>
 
-                <Divider sx={{ my: 2, borderStyle: 'dashed' }} />
-
-                <Box
-                  sx={{
-                    display: 'grid',
-                    textAlign: 'center',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                  }}
-                >
-                  <Box>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      {t('pullRequests.openCount')}
-                    </Typography>
-                    <Typography variant="h6">{openTotal}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      {t('pullRequests.doneCount')}
-                    </Typography>
-                    <Typography variant="h6">{proj.done}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      {t('pullRequests.noiseRate')}
-                    </Typography>
-                    <Typography variant="h6" sx={{ color: 'success.light' }}>
-                      {noise}%
-                    </Typography>
-                  </Box>
-                </Box>
-              </Card>
-            </Grid>
-          );
-        })}
-
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ p: 3, height: 1 }}>
-            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+        <Grid size={{ xs: 12, lg: 7 }}>
+          <Card sx={{ height: 1 }}>
+            <Box sx={{ pt: 3, px: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box sx={{ flexGrow: 1 }}>
-                <Typography variant="h6">{t('summary.prTitle')}</Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  {t('summary.prSubtitle')}
+                <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
+                  {t('pullRequests.configTitle')}
+                </Typography>
+                <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 14 }}>
+                  {t('pullRequests.configSubtitle')}
                 </Typography>
               </Box>
-              <Label color="default">{t('common.readOnly')}</Label>
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
+                sx={(theme) => ({
+                  height: 30,
+                  px: 1.25,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.32),
+                })}
+              >
+                {t('common.edit')}
+              </Button>
             </Box>
 
-            <Box sx={{ gap: 2, display: 'flex', flexDirection: 'column' }}>
-              <PrRow
-                title="#10 app-movil-expo: dock, anular y enlace de factura"
-                meta="app-movil-expo · checks ✓ · secrets-scan ✓"
-                badge="CI verde"
-                color="success"
-              />
-              <PrRow
-                title="#20 ecf: quitar estado del resumen"
-                meta="ecf-minimalista · CI: typecheck ✕"
-                badge={t('pullRequests.ciRed')}
-                color="error"
-              />
-              <PrRow
-                title="#21 Caja: reintentos con backoff"
-                meta="caja-reintentos · 2 comentarios de revisión"
-                badge={t('pullRequests.changesRequested')}
-                color="info"
-              />
-            </Box>
-
-            <Divider sx={{ my: 2.5, borderStyle: 'dashed' }} />
-
-            <Typography variant="h6" sx={{ mb: 0.5 }}>
-              {t('summary.issuesTitle')}
-            </Typography>
-            <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-              {t('summary.issuesSubtitle')}
-            </Typography>
-
-            <Box sx={{ gap: 2, display: 'flex', flexDirection: 'column' }}>
-              <PrRow
-                title="#34 El ticket sale sin ITBIS en impresora de 58 mm"
-                meta="bug · Contastack"
-                badge={t('common.error')}
-                color="error"
-              />
-              <PrRow
-                title="#31 Modo oscuro en la tienda online"
-                meta="enhancement · Contastack"
-                badge={t('common.idea')}
-                color="secondary"
-              />
+            <Box sx={{ p: 3 }}>
+              <Box
+                sx={(theme) => ({
+                  py: 2,
+                  borderRadius: 1.5,
+                  overflowX: 'auto',
+                  fontFamily: 'monospace',
+                  fontSize: 12.5,
+                  lineHeight: 1.7,
+                  color: 'text.primary',
+                  bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
+                  border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
+                })}
+              >
+                {TOML_LINES.map((ln) => (
+                  <Box key={ln.num} sx={{ px: 2, display: 'flex', whiteSpace: 'pre' }}>
+                    <Box
+                      component="span"
+                      sx={{
+                        width: 40,
+                        flexShrink: 0,
+                        userSelect: 'none',
+                        color: 'text.disabled',
+                      }}
+                    >
+                      {ln.num}
+                    </Box>
+                    <Box component="span">
+                      {ln.eq && <span>{ln.eq}</span>}
+                      {ln.k && (
+                        <Box component="span" sx={{ color: 'secondary.main', fontWeight: 600 }}>
+                          {ln.k}
+                        </Box>
+                      )}
+                      {ln.s && (
+                        <Box component="span" sx={{ color: 'success.main' }}>
+                          {ln.s}
+                        </Box>
+                      )}
+                      {ln.c && (
+                        <Box component="span" sx={{ color: 'text.disabled' }}>
+                          {ln.c}
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
             </Box>
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ p: 3, height: 1 }}>
-            <Typography variant="h6">{t('pullRequests.configTitle')}</Typography>
-            <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-              {t('pullRequests.configSubtitle')}
-            </Typography>
-
-            <Box
-              component="pre"
-              sx={{
-                m: 0,
-                p: 2,
-                overflow: 'auto',
-                borderRadius: 1.5,
-                bgcolor: '#101010',
-                color: 'grey.300',
-                fontSize: 12.5,
-                lineHeight: 1.7,
-                fontFamily: 'monospace',
-                border: (theme) =>
-                  `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.16)}`,
-              }}
-            >
-              {SAMPLE_TOML}
+        <Grid size={{ xs: 12, lg: 5 }}>
+          <Card
+            sx={(theme) => ({
+              p: 3,
+              height: 1,
+              minHeight: 260,
+              display: 'grid',
+              textAlign: 'center',
+              placeItems: 'center',
+              boxShadow: 'none',
+              bgcolor: 'transparent',
+              color: 'text.secondary',
+              border: `1px dashed ${varAlpha(theme.vars.palette.grey['500Channel'], 0.32)}`,
+            })}
+          >
+            <Box>
+              <Box
+                sx={(theme) => ({
+                  mx: 'auto',
+                  mb: 1.5,
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
+                })}
+              >
+                <AppIcon name="plus" size={26} />
+              </Box>
+              <Typography sx={{ fontWeight: 600, color: 'text.primary' }}>
+                {t('pullRequests.watchAnotherTitle')}
+              </Typography>
+              <Typography sx={{ mt: 0.5, fontSize: 13, maxWidth: 280 }}>
+                {t('pullRequests.watchAnotherSub')}
+              </Typography>
             </Box>
           </Card>
         </Grid>
@@ -228,28 +285,107 @@ export function PullRequestsView() {
 
 // ----------------------------------------------------------------------
 
-function PrRow({
-  title,
-  meta,
-  badge,
-  color,
+function ProjectCard({
+  letter,
+  iconBg,
+  iconColor,
+  name,
+  path,
+  statusLabel,
+  statusColor,
+  sources,
+  openCount,
+  doneCount,
+  noise,
+  noiseColor,
 }: {
-  title: string;
-  meta: string;
-  badge: string;
-  color: 'error' | 'info' | 'success' | 'warning' | 'secondary';
+  letter: string;
+  iconBg: string;
+  iconColor: string;
+  name: string;
+  path: string;
+  statusLabel: string;
+  statusColor: 'success' | 'default';
+  sources: [AppIconName, string][];
+  openCount: string;
+  doneCount: string;
+  noise: string;
+  noiseColor?: string;
 }) {
+  const { t } = useTranslation();
+
   return (
-    <Box sx={{ gap: 1.5, display: 'flex', alignItems: 'center' }}>
-      <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-        <Typography variant="subtitle2" noWrap>
-          {title}
-        </Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
-          {meta}
-        </Typography>
+    <Card sx={{ p: 3, gap: 2, display: 'flex', flexDirection: 'column', height: 1 }}>
+      <Box sx={{ gap: 1.75, display: 'flex', alignItems: 'center' }}>
+        <Box
+          sx={{
+            width: 48,
+            height: 48,
+            flexShrink: 0,
+            borderRadius: '12px',
+            display: 'grid',
+            placeItems: 'center',
+            fontWeight: 800,
+            fontSize: 18,
+            bgcolor: iconBg,
+            color: iconColor,
+          }}
+        >
+          {letter}
+        </Box>
+
+        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+          <Typography sx={{ fontSize: 16, fontWeight: 600 }}>{name}</Typography>
+          <Typography noWrap sx={{ color: 'text.disabled', fontFamily: 'monospace', fontSize: 12 }}>
+            {path}
+          </Typography>
+        </Box>
+
+        <Label color={statusColor} sx={{ flexShrink: 0 }}>
+          {statusLabel}
+        </Label>
       </Box>
-      <Label color={color}>{badge}</Label>
-    </Box>
+
+      <Box sx={{ gap: 1, display: 'flex', flexWrap: 'wrap' }}>
+        {sources.map(([ico, text]) => (
+          <Label key={text} color="default" sx={{ gap: 0.75 }}>
+            <AppIcon name={ico} size={14} />
+            {text}
+          </Label>
+        ))}
+      </Box>
+
+      <Box
+        sx={(theme) => ({
+          mt: 'auto',
+          pt: 2,
+          display: 'grid',
+          textAlign: 'center',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          borderTop: `1px dashed ${varAlpha(theme.vars.palette.grey['500Channel'], 0.2)}`,
+        })}
+      >
+        <Box>
+          <Typography sx={{ color: 'text.disabled', fontSize: 12 }}>
+            {t('pullRequests.openCount')}
+          </Typography>
+          <Typography sx={{ fontSize: 18, fontWeight: 700 }}>{openCount}</Typography>
+        </Box>
+        <Box>
+          <Typography sx={{ color: 'text.disabled', fontSize: 12 }}>
+            {t('pullRequests.doneCount')}
+          </Typography>
+          <Typography sx={{ fontSize: 18, fontWeight: 700 }}>{doneCount}</Typography>
+        </Box>
+        <Box>
+          <Typography sx={{ color: 'text.disabled', fontSize: 12 }}>
+            {t('pullRequests.noiseRate')}
+          </Typography>
+          <Typography sx={{ fontSize: 18, fontWeight: 700, color: noiseColor ?? 'text.primary' }}>
+            {noise}
+          </Typography>
+        </Box>
+      </Box>
+    </Card>
   );
 }
