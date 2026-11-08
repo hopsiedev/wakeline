@@ -7,9 +7,12 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use crate::card::{CardKind, SourceKind};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Fingerprint(String);
 
 impl Fingerprint {
