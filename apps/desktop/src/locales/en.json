@@ -1,0 +1,38 @@
+{
+  "nav": {
+    "summary": "Summary",
+    "cards": "Cards",
+    "pullRequests": "Pull requests",
+    "settings": "Settings",
+    "projects": "Projects"
+  },
+  "common": {
+    "comingSoon": "Under construction: coming in the next steps of 0.1."
+  },
+  "summary": {
+    "title": "Summary",
+    "subtitle": "What your AI left pending across your projects."
+  },
+  "cards": {
+    "title": "Cards",
+    "subtitle": "Errors, tasks and ideas from every project."
+  },
+  "pullRequests": {
+    "title": "Pull requests",
+    "subtitle": "GitHub pull requests and issues, read-only."
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "language": "Language",
+    "languageHint": "The system language is used on install.",
+    "theme": "Theme",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "themeSystem": "System"
+  },
+  "notFound": {
+    "title": "We couldn't find this page",
+    "back": "Back to summary"
+  }
+}
