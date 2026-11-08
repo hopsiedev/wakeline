@@ -60,14 +60,8 @@ fn main() -> Result<()> {
             all_projects,
         }),
         Command::Watch => not_yet("watch"),
-        Command::Export { .. } => not_yet("export"),
-        Command::Mcp => {
-            eprintln!(
-                "Herramientas MCP previstas: {}",
-                wakeline_mcp::TOOL_NAMES.join(", ")
-            );
-            not_yet("mcp")
-        }
+        Command::Export { path } => scan::export(path),
+        Command::Mcp => Ok(wakeline_mcp::serve_stdio()?),
     }
 }
 

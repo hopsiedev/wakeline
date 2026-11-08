@@ -16,5 +16,7 @@ crate-type = ["rlib"]
 tauri-build = { version = "2.7.4", features = [] }
 
 [dependencies]
+serde.workspace = true
+serde_json.workspace = true
 tauri = { version = "2.12.5", features = [] }
 wakeline-core.workspace = true
