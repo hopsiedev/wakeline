@@ -76,7 +76,13 @@ pub struct CreateCardInput {
 }
 
 #[tauri::command]
-fn get_dashboard_data() -> Result<DashboardPayload, String> {
+async fn get_dashboard_data() -> Result<DashboardPayload, String> {
+    tauri::async_runtime::spawn_blocking(scan_dashboard)
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn scan_dashboard() -> Result<DashboardPayload, String> {
     let started = Instant::now();
     let state_path = LocalState::default_path();
     let state = LocalState::load(&state_path);
@@ -254,8 +260,14 @@ fn create_card(input: CreateCardInput) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn export_todo(project_name: Option<String>) -> Result<String, String> {
-    let payload = get_dashboard_data()?;
+async fn export_todo(project_name: Option<String>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || export_todo_impl(project_name))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn export_todo_impl(project_name: Option<String>) -> Result<String, String> {
+    let payload = scan_dashboard()?;
     let target_project = project_name.unwrap_or_else(|| "Contastack".into());
     let items: Vec<ExportItem<'_>> = payload
         .cards
