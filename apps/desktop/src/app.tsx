@@ -26,6 +26,7 @@ function useScrollToTop() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    document.querySelector<HTMLElement>('[class*="layout__main"]')?.scrollTo(0, 0);
   }, [pathname]);
 
   return null;
