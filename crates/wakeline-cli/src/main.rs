@@ -1,3 +1,5 @@
+mod scan;
+
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
@@ -18,6 +20,18 @@ enum Command {
         /// Carpeta del proyecto (por defecto, la actual).
         #[arg(default_value = ".")]
         path: PathBuf,
+        /// Días de historial de sesiones a revisar.
+        #[arg(long, default_value_t = 30, conflicts_with = "all_history")]
+        days: u64,
+        /// Revisa todo el historial de sesiones, sin límite de días.
+        #[arg(long)]
+        all_history: bool,
+        /// Muestra las tarjetas de todos los proyectos, no solo de `path`.
+        #[arg(long)]
+        all_projects: bool,
+        /// Carpeta de sesiones de Claude Code (por defecto, ~/.claude/projects).
+        #[arg(long)]
+        sessions_dir: Option<PathBuf>,
     },
     /// Vigila los proyectos configurados y actualiza las tarjetas al momento.
     Watch,
@@ -33,7 +47,18 @@ enum Command {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Scan { .. } => not_yet("scan"),
+        Command::Scan {
+            path,
+            days,
+            all_history,
+            all_projects,
+            sessions_dir,
+        } => scan::run(scan::ScanOptions {
+            project: path,
+            sessions_dir,
+            days: (!all_history).then_some(days),
+            all_projects,
+        }),
         Command::Watch => not_yet("watch"),
         Command::Export { .. } => not_yet("export"),
         Command::Mcp => {
