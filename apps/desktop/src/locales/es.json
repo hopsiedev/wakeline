@@ -1,0 +1,38 @@
+{
+  "nav": {
+    "summary": "Resumen",
+    "cards": "Tarjetas",
+    "pullRequests": "Pull requests",
+    "settings": "Configuración",
+    "projects": "Proyectos"
+  },
+  "common": {
+    "comingSoon": "En construcción: llega en los próximos pasos de la 0.1."
+  },
+  "summary": {
+    "title": "Resumen",
+    "subtitle": "Lo que tu IA dejó pendiente en tus proyectos."
+  },
+  "cards": {
+    "title": "Tarjetas",
+    "subtitle": "Errores, tareas e ideas de todos los proyectos."
+  },
+  "pullRequests": {
+    "title": "Pull requests",
+    "subtitle": "PR e issues de GitHub, en solo lectura."
+  },
+  "settings": {
+    "title": "Configuración",
+    "general": "General",
+    "language": "Idioma",
+    "languageHint": "Al instalar se usa el del sistema.",
+    "theme": "Tema",
+    "themeDark": "Oscuro",
+    "themeLight": "Claro",
+    "themeSystem": "Sistema"
+  },
+  "notFound": {
+    "title": "No encontramos esta página",
+    "back": "Volver al resumen"
+  }
+}

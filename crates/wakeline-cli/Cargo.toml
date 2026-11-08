@@ -1,0 +1,19 @@
+[package]
+name = "wakeline-cli"
+description = "Command line for Wakeline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "wakeline"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+wakeline-core.workspace = true
+wakeline-mcp.workspace = true
