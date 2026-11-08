@@ -7,6 +7,7 @@ import { varAlpha } from 'minimal-shared/utils';
 import Box from '@mui/material/Box';
 import ListItem from '@mui/material/ListItem';
 import { useTheme } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
 import ListItemButton from '@mui/material/ListItemButton';
 import Drawer, { drawerClasses } from '@mui/material/Drawer';
 
@@ -167,6 +168,90 @@ export function NavContent({ data, slots, sx }: NavContentProps) {
                 </ListItem>
               );
             })}
+          </Box>
+
+          <Typography
+            variant="caption"
+            sx={{
+              px: 1.25,
+              pt: 2.5,
+              pb: 0.75,
+              fontWeight: 600,
+              color: 'text.disabled',
+            }}
+          >
+            {t('nav.projects')}
+          </Typography>
+
+          <Box sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
+            {[
+              { name: 'contastack', branch: 'main', color: 'error.main' },
+              { name: 'app-expo', branch: 'app-movil-expo', color: 'info.main' },
+              { name: 'wakeline', branch: 'main', color: 'primary.main' },
+            ].map((p) => (
+              <ListItemButton
+                key={p.name}
+                disableGutters
+                component={RouterLink}
+                href="/pull-requests"
+                sx={{
+                  px: 1.25,
+                  minHeight: 32,
+                  borderRadius: 1,
+                  gap: 1.25,
+                  typography: 'body2',
+                  color: 'text.secondary',
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    bgcolor: p.color,
+                  }}
+                />
+                <Box component="span" sx={{ flexGrow: 1, fontWeight: 500, color: 'text.primary' }}>
+                  {p.name}
+                </Box>
+                <Typography
+                  variant="caption"
+                  sx={{ color: 'text.disabled', fontFamily: 'monospace', fontSize: 11 }}
+                >
+                  {p.branch}
+                </Typography>
+              </ListItemButton>
+            ))}
+          </Box>
+
+          <Box
+            sx={(theme) => ({
+              mt: 'auto',
+              pt: 1.5,
+              pb: 1.5,
+              px: 1.25,
+              borderTop: `1px solid ${varAlpha(theme.vars.palette.common.whiteChannel, 0.06)}`,
+            })}
+          >
+            <Box sx={{ gap: 1, display: 'flex', alignItems: 'center', mb: 0.25 }}>
+              <Box
+                sx={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  bgcolor: 'success.main',
+                }}
+              />
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                {t('nav.watching')}
+              </Typography>
+            </Box>
+            <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled' }}>
+              {t('nav.lastSignal')}
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled' }}>
+              {t('nav.metrics')}
+            </Typography>
           </Box>
         </Box>
       </Scrollbar>

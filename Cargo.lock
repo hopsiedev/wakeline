@@ -3731,6 +3731,8 @@ dependencies = [
 name = "wakeline-app"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
  "wakeline-core",
@@ -3758,6 +3760,8 @@ dependencies = [
 name = "wakeline-mcp"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "wakeline-core",
 ]
 

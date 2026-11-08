@@ -6,7 +6,9 @@ use std::time::{Duration, Instant, SystemTime};
 
 use anyhow::{Context, Result};
 use wakeline_core::CardKind;
+use wakeline_core::docs;
 use wakeline_core::sessions::{SessionCard, cards_from_events, claude};
+use wakeline_core::store::{ExportItem, LocalState, format_todo_markdown};
 
 pub struct ScanOptions {
     pub project: PathBuf,
@@ -68,6 +70,63 @@ pub fn run(options: ScanOptions) -> Result<()> {
         total_time,
         &cards,
     );
+    Ok(())
+}
+
+pub fn export(project_path: PathBuf) -> Result<()> {
+    let canonical = std::fs::canonicalize(&project_path)
+        .with_context(|| format!("no existe la carpeta {}", project_path.display()))?;
+    let project = normalize(&canonical);
+    let project_name = canonical
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "Proyecto".into());
+
+    let root = default_sessions_dir()?;
+    let cutoff = SystemTime::now() - Duration::from_secs(30 * 24 * 3600);
+    let mut files = claude::discover(&root).unwrap_or_default();
+    files.retain(|f| modified(&f.path).is_none_or(|m| m >= cutoff));
+
+    let mut events = Vec::new();
+    for file in &files {
+        if let Ok(read) = claude::read_from(&file.path, 0) {
+            events.extend(read.events);
+        }
+    }
+    events.retain(|e| {
+        e.cwd
+            .as_deref()
+            .is_some_and(|cwd| belongs_to(cwd, &project))
+    });
+    let session_cards = cards_from_events(&events);
+    let doc_cards = docs::scan_project_docs(&canonical).unwrap_or_default();
+    let state = LocalState::load(&LocalState::default_path());
+
+    let mut items: Vec<ExportItem<'_>> = Vec::new();
+    for c in &session_cards {
+        items.push(ExportItem {
+            kind: c.kind,
+            title: &c.title,
+            origin: "Sesión IA",
+            status: state.status_for(c.fingerprint.as_str()),
+        });
+    }
+    for d in &doc_cards {
+        items.push(ExportItem {
+            kind: d.kind,
+            title: &d.title,
+            origin: &d.location,
+            status: state.status_for(d.fingerprint.as_str()),
+        });
+    }
+
+    let md = format_todo_markdown(&project_name, &items);
+    let out_path = canonical.join("docs").join("TODO.md");
+    if let Some(parent) = out_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&out_path, md)?;
+    println!("Exportadas tarjetas abiertas en {}", out_path.display());
     Ok(())
 }
 

@@ -1,6 +1,6 @@
 import { CONFIG } from 'src/config-global';
 
-import { PlaceholderView } from 'src/sections/placeholder/placeholder-view';
+import { SummaryView } from 'src/sections/summary/summary-view';
 
 // ----------------------------------------------------------------------
 
@@ -8,7 +8,7 @@ export default function Page() {
   return (
     <>
       <title>{CONFIG.appName}</title>
-      <PlaceholderView section="summary" />
+      <SummaryView />
     </>
   );
 }
