@@ -9,6 +9,7 @@ use wakeline_core::CardKind;
 use wakeline_core::code::{CodeCard, CodeScanner};
 use wakeline_core::commands::{self as wl_commands, ChangeRouter, CommandResults, CommandRunner};
 use wakeline_core::docs;
+use wakeline_core::github::{self, GithubCache, GithubPoller};
 use wakeline_core::sessions::{SessionCard, claude, scan_files_incremental};
 use wakeline_core::store::{ExportItem, LocalState, format_todo_markdown};
 use wakeline_core::watcher::DirWatcher;
@@ -153,6 +154,21 @@ pub fn export(project_path: PathBuf) -> Result<()> {
         });
     }
 
+    let github_cache = GithubCache::load(&github::cache_path());
+    let github_cards = github_cache
+        .get(&canonical)
+        .map(|s| s.cards.as_slice())
+        .unwrap_or_default();
+    let github_locations: Vec<String> = github_cards.iter().map(|c| c.location()).collect();
+    for (c, location) in github_cards.iter().zip(&github_locations) {
+        items.push(ExportItem {
+            kind: c.kind,
+            title: &c.title,
+            origin: location,
+            status: state.status_for(c.fingerprint.as_str()),
+        });
+    }
+
     let md = format_todo_markdown(&project_name, &items);
     let out_path = canonical.join("docs").join("TODO.md");
     if let Some(parent) = out_path.parent() {
@@ -273,6 +289,12 @@ pub fn watch_with_state_path(options: WatchOptions, state_path: &Path) -> Result
         Duration::from_secs(wl_commands::IDLE_DELAY_SECS),
         crate::commands::print_result,
     );
+    let poller = GithubPoller::spawn(
+        state_path.to_path_buf(),
+        github::cache_path(),
+        Duration::from_secs(github::POLL_SECS),
+        print_github,
+    );
 
     let debounce = Duration::from_millis(options.debounce_ms.max(50));
     let (mut watcher, stopper) = DirWatcher::new(debounce, debounce * 10)
@@ -296,6 +318,9 @@ pub fn watch_with_state_path(options: WatchOptions, state_path: &Path) -> Result
         for path in &batch {
             if let Some(project) = router.route(path) {
                 runner.changed(project);
+            }
+            if let Some(project) = router.pushed_project(path) {
+                poller.pushed(project);
             }
         }
         if let Some(last_path) = batch.last() {
@@ -350,6 +375,54 @@ fn print_report(
         }
         println!();
     }
+}
+
+pub fn github_once(project: PathBuf) -> Result<()> {
+    let canonical = std::fs::canonicalize(&project)
+        .with_context(|| format!("no existe la carpeta {}", project.display()))?;
+    let text = canonical.to_string_lossy();
+    let root = PathBuf::from(text.strip_prefix(r"\\?\").unwrap_or(&text));
+    match github::status(&github::SystemGh) {
+        github::GhStatus::NotInstalled => anyhow::bail!("gh no está instalado"),
+        github::GhStatus::NotLoggedIn => {
+            anyhow::bail!("gh no tiene sesión; ejecuta tú `gh auth login`")
+        }
+        github::GhStatus::Connected { login } => println!("GitHub: conectado como @{login}"),
+    }
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or_default();
+    match github::refresh(&github::SystemGh, &root, &github::cache_path(), now) {
+        None => anyhow::bail!("{} no tiene un remoto origin en github.com", root.display()),
+        Some(Err(error)) => anyhow::bail!("no se pudo leer GitHub: {error}"),
+        Some(Ok(())) => print_github(&root),
+    }
+    Ok(())
+}
+
+fn print_github(project: &Path) {
+    let cache = GithubCache::load(&github::cache_path());
+    if let Some(error) = cache.error(project) {
+        println!("GitHub ({}): {error}", project.display());
+        return;
+    }
+    let Some(snapshot) = cache.get(project) else {
+        return;
+    };
+    println!(
+        "GitHub {}: {} PR abiertos, {} tarjeta(s)",
+        snapshot.repo,
+        snapshot.pull_requests.len(),
+        snapshot.cards.len()
+    );
+    for card in &snapshot.cards {
+        println!(
+            "  ×{:<3} {:<9} {}",
+            card.occurrences, card.label, card.title
+        );
+    }
+    println!();
 }
 
 fn print_command_results(project: &Path) {

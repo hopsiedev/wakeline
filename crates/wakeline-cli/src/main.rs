@@ -62,6 +62,11 @@ enum Command {
         #[arg(long)]
         yes: bool,
     },
+    /// Consulta GitHub una vez (solo lectura, con la sesión de `gh`) y muestra lo leído.
+    Github {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
     /// Ejecuta ya un comando aprobado de `wakeline.toml`.
     Run {
         /// Nombre del comando (`name` en `wakeline.toml`).
@@ -103,6 +108,7 @@ fn main() -> Result<()> {
         Command::Export { path } => scan::export(path),
         Command::Trust { path, yes } => commands::trust(path, yes),
         Command::Run { name, path } => commands::run(path, name),
+        Command::Github { path } => scan::github_once(path),
         Command::Mcp => Ok(wakeline_mcp::serve_stdio()?),
     }
 }
