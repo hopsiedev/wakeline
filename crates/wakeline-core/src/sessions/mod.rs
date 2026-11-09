@@ -4,20 +4,22 @@
 pub mod claude;
 
 use std::collections::HashMap;
+use std::io;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::card::{CardKind, SourceKind};
 use crate::detect::find_in_assistant_text;
 use crate::fingerprint::Fingerprint;
 use crate::redact::redact;
-use claude::{EventKind, SessionEvent};
+use crate::store::LocalState;
+use claude::{EventKind, SessionEvent, SessionFile};
 
 /// Un error de comando cuenta como tarjeta a partir de esta cantidad de apariciones.
 pub const MIN_REPEATED_ERRORS: u32 = 2;
 
 /// Una tarjeta sacada de las sesiones, todavía sin guardar.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionCard {
     pub fingerprint: Fingerprint,
     pub kind: CardKind,
@@ -33,14 +35,31 @@ pub struct SessionCard {
     pub last_seen: Option<String>,
 }
 
-/// Convierte eventos en tarjetas, sin duplicados:
-/// - frases de pendientes e ideas de las respuestas finales;
-/// - errores de comandos repetidos al menos [`MIN_REPEATED_ERRORS`] veces.
-pub fn cards_from_events<'a>(
+/// Resultado de un escaneo incremental de archivos de sesión.
+#[derive(Debug, Default)]
+pub struct IncrementalScanReport {
+    /// Cantidad de archivos revisados.
+    pub files_scanned: usize,
+    /// Bytes nuevos leídos desde el último offset guardado (0 si nada cambió).
+    pub bytes_read: u64,
+    /// Líneas JSON inválidas encontradas en los tramos nuevos.
+    pub bad_lines: usize,
+    /// Eventos nuevos extraídos en esta pasada.
+    pub events_read: usize,
+    /// Tarjetas consolidadas entre los archivos indicados.
+    pub cards: Vec<SessionCard>,
+}
+
+/// Acumula eventos en un vector de tarjetas (sin filtrar todavía por `MIN_REPEATED_ERRORS`).
+pub fn ingest_events<'a>(
+    cards: &mut Vec<SessionCard>,
     events: impl IntoIterator<Item = &'a SessionEvent>,
-) -> Vec<SessionCard> {
-    let mut cards: Vec<SessionCard> = Vec::new();
-    let mut index: HashMap<Fingerprint, usize> = HashMap::new();
+) {
+    let mut index: HashMap<Fingerprint, usize> = cards
+        .iter()
+        .enumerate()
+        .map(|(i, c)| (c.fingerprint.clone(), i))
+        .collect();
 
     let mut add = |kind: CardKind, title: String, evidence: &str, event: &SessionEvent| {
         let title = redact(&title);
@@ -93,9 +112,104 @@ pub fn cards_from_events<'a>(
             } => add(CardKind::Error, message.clone(), output, event),
         }
     }
+}
 
+fn merge_session_card(
+    cards: &mut Vec<SessionCard>,
+    index: &mut HashMap<Fingerprint, usize>,
+    incoming: SessionCard,
+) {
+    if let Some(&i) = index.get(&incoming.fingerprint) {
+        let card = &mut cards[i];
+        card.occurrences += incoming.occurrences;
+        if incoming.last_seen > card.last_seen {
+            card.last_seen = incoming.last_seen;
+        }
+        if card.first_seen.is_none()
+            || (incoming.first_seen.is_some() && incoming.first_seen < card.first_seen)
+        {
+            card.first_seen = incoming.first_seen;
+        }
+        if card.git_branch.is_none() && incoming.git_branch.is_some() {
+            card.git_branch = incoming.git_branch;
+        }
+        if card.cwd.is_none() && incoming.cwd.is_some() {
+            card.cwd = incoming.cwd;
+        }
+        if card.evidence.is_none() && incoming.evidence.is_some() {
+            card.evidence = incoming.evidence;
+        }
+    } else {
+        index.insert(incoming.fingerprint.clone(), cards.len());
+        cards.push(incoming);
+    }
+}
+
+/// Convierte eventos en tarjetas, sin duplicados:
+/// - frases de pendientes e ideas de las respuestas finales;
+/// - errores de comandos repetidos al menos [`MIN_REPEATED_ERRORS`] veces.
+pub fn cards_from_events<'a>(
+    events: impl IntoIterator<Item = &'a SessionEvent>,
+) -> Vec<SessionCard> {
+    let mut cards: Vec<SessionCard> = Vec::new();
+    ingest_events(&mut cards, events);
     cards.retain(|c| c.kind != CardKind::Error || c.occurrences >= MIN_REPEATED_ERRORS);
     cards
+}
+
+/// Escanea una lista de archivos de sesión de forma incremental reutilizando los offsets
+/// guardados en `state`. Procesa cada archivo por separado sin acumular todos los eventos
+/// en memoria, y si un archivo es menor que su offset guardado lo relee desde 0.
+pub fn scan_files_incremental(
+    files: &[SessionFile],
+    state: &mut LocalState,
+) -> io::Result<IncrementalScanReport> {
+    let mut report = IncrementalScanReport {
+        files_scanned: files.len(),
+        ..Default::default()
+    };
+    let mut merged: Vec<SessionCard> = Vec::new();
+    let mut merged_index: HashMap<Fingerprint, usize> = HashMap::new();
+
+    for file in files {
+        let key = file.path.to_string_lossy().into_owned();
+        let file_len = std::fs::metadata(&file.path)?.len();
+        let saved_offset = state.session_offsets.get(&key).copied().unwrap_or(0);
+        let has_cached_cards = state.session_file_cards.contains_key(&key);
+
+        let (start_offset, mut file_cards) =
+            if saved_offset == 0 || file_len < saved_offset || !has_cached_cards {
+                (0, Vec::new())
+            } else {
+                (
+                    saved_offset,
+                    state
+                        .session_file_cards
+                        .get(&key)
+                        .cloned()
+                        .unwrap_or_default(),
+                )
+            };
+
+        if start_offset < file_len || start_offset == 0 {
+            let read = claude::read_from(&file.path, start_offset)?;
+            let delta = read.offset.saturating_sub(start_offset);
+            report.bytes_read += delta;
+            report.bad_lines += read.bad_lines;
+            report.events_read += read.events.len();
+            ingest_events(&mut file_cards, &read.events);
+            state.session_offsets.insert(key.clone(), read.offset);
+            state.session_file_cards.insert(key, file_cards.clone());
+        }
+
+        for card in file_cards {
+            merge_session_card(&mut merged, &mut merged_index, card);
+        }
+    }
+
+    merged.retain(|c| c.kind != CardKind::Error || c.occurrences >= MIN_REPEATED_ERRORS);
+    report.cards = merged;
+    Ok(report)
 }
 
 #[cfg(test)]
@@ -197,5 +311,55 @@ mod tests {
                 .unwrap_or_default()
                 .contains("abcdefghijklmnop1234")
         );
+    }
+
+    #[test]
+    fn incremental_scan_persists_offsets_skips_unchanged_and_rereads_truncated() {
+        let path =
+            std::env::temp_dir().join(format!("wakeline-inc-session-{}.jsonl", std::process::id()));
+        let line1 = r#"{"type":"assistant","sessionId":"s1","cwd":"C:\\proj","gitBranch":"main","timestamp":"2026-11-08T10:00:00Z","message":{"stop_reason":"end_turn","content":[{"type":"text","text":"Queda pendiente revisar el cierre de mes."}]}}"#;
+        let line2 = r#"{"type":"assistant","sessionId":"s1","cwd":"C:\\proj","gitBranch":"main","timestamp":"2026-11-08T11:00:00Z","message":{"stop_reason":"end_turn","content":[{"type":"text","text":"Queda pendiente revisar el cierre de mes."}]}}"#;
+        let initial_content = format!("{line1}\n");
+        std::fs::write(&path, &initial_content).unwrap();
+
+        let files = [SessionFile {
+            path: path.clone(),
+            is_subagent: false,
+        }];
+        let mut state = LocalState::default();
+
+        // 1. Primera lectura: lee todo el archivo y guarda el offset.
+        let first = scan_files_incremental(&files, &mut state).unwrap();
+        assert_eq!(first.bytes_read, initial_content.len() as u64);
+        assert_eq!(first.cards.len(), 1);
+        assert_eq!(first.cards[0].occurrences, 1);
+
+        // 2. Segunda lectura sin cambios: 0 bytes releídos y conserva las tarjetas.
+        let second = scan_files_incremental(&files, &mut state).unwrap();
+        assert_eq!(second.bytes_read, 0);
+        assert_eq!(second.events_read, 0);
+        assert_eq!(second.cards.len(), 1);
+        assert_eq!(second.cards[0].occurrences, 1);
+
+        // 3. Crecimiento incremental: solo lee los bytes nuevos y suma ocurrencias.
+        let appended_content = format!("{line1}\n{line2}\n");
+        std::fs::write(&path, &appended_content).unwrap();
+        let third = scan_files_incremental(&files, &mut state).unwrap();
+        assert_eq!(third.bytes_read, (line2.len() + 1) as u64);
+        assert_eq!(third.cards.len(), 1);
+        assert_eq!(third.cards[0].occurrences, 2);
+
+        // 4. Archivo truncado/rotado (más corto que el offset guardado): relee entero desde 0.
+        let truncated_line = r#"{"type":"assistant","sessionId":"s2","cwd":"C:\\proj","gitBranch":"main","timestamp":"2026-11-09T09:00:00Z","message":{"stop_reason":"end_turn","content":[{"type":"text","text":"Falta añadir prueba de humo."}]}}"#;
+        let truncated_content = format!("{truncated_line}\n");
+        assert!(truncated_content.len() < appended_content.len());
+        std::fs::write(&path, &truncated_content).unwrap();
+
+        let fourth = scan_files_incremental(&files, &mut state).unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(fourth.bytes_read, truncated_content.len() as u64);
+        assert_eq!(fourth.cards.len(), 1);
+        assert!(fourth.cards[0].title.contains("prueba de humo"));
+        assert_eq!(fourth.cards[0].occurrences, 1);
     }
 }
