@@ -1,11 +1,14 @@
 import type { Theme, SxProps, Breakpoint } from '@mui/material/styles';
+import type { UiCard, DashboardPayload, UiProjectSummary } from 'src/services/wakeline';
 
-import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { varAlpha } from 'minimal-shared/utils';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
-import ListItem from '@mui/material/ListItem';
+import Tooltip from '@mui/material/Tooltip';
+import Popover from '@mui/material/Popover';
+import Collapse from '@mui/material/Collapse';
 import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
@@ -15,8 +18,12 @@ import Drawer, { drawerClasses } from '@mui/material/Drawer';
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { fetchDashboardData } from 'src/services/wakeline';
+
 import { Logo } from 'src/components/logo';
 import { NavIcon } from 'src/components/nav-icon';
+
+import { AccountSection } from '../components/account-section';
 
 import type { NavItem } from '../nav-config-dashboard';
 
@@ -24,46 +31,45 @@ import type { NavItem } from '../nav-config-dashboard';
 
 export type NavContentProps = {
   data: NavItem[];
-  onOpenToast?: () => void;
-  slots?: {
-    topArea?: React.ReactNode;
-    bottomArea?: React.ReactNode;
-  };
+  /** Riel de íconos (barra colapsada). */
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   sx?: SxProps<Theme>;
 };
 
 export function NavDesktop({
-  sx,
-  data,
-  slots,
   layoutQuery,
-  onOpenToast,
+  ...props
 }: NavContentProps & { layoutQuery: Breakpoint }) {
   const theme = useTheme();
 
   return (
     <Box
-      sx={{
-        pt: 1.25,
-        pb: 1.5,
-        px: 1.25,
-        top: 0,
-        left: 0,
-        height: 1,
-        display: 'none',
-        position: 'fixed',
-        overflow: 'hidden',
-        flexDirection: 'column',
-        zIndex: 'var(--layout-nav-zIndex)',
-        width: 'var(--layout-nav-vertical-width)',
-        borderRight: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.14)}`,
-        [theme.breakpoints.up(layoutQuery)]: {
-          display: 'flex',
+      sx={[
+        {
+          pt: 1.25,
+          pb: 1.25,
+          px: props.collapsed ? 1 : 1.25,
+          top: 0,
+          left: 0,
+          height: 1,
+          display: 'none',
+          position: 'fixed',
+          overflow: 'hidden',
+          flexDirection: 'column',
+          zIndex: 'var(--layout-nav-zIndex)',
+          width: 'var(--layout-nav-vertical-width)',
+          // Fondo opaco: si el contenido pasa por debajo un instante, no se ve a través.
+          bgcolor: 'background.default',
+          borderRight: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.14)}`,
+          [theme.breakpoints.up(layoutQuery)]: { display: 'flex' },
         },
-        ...sx,
-      }}
+        theme.applyStyles('dark', {
+          background: 'linear-gradient(180deg, #131313 0%, #050505 100%)',
+        }),
+      ]}
     >
-      <NavContent data={data} slots={slots} onOpenToast={onOpenToast} />
+      <NavContent {...props} />
     </Box>
   );
 }
@@ -71,12 +77,9 @@ export function NavDesktop({
 // ----------------------------------------------------------------------
 
 export function NavMobile({
-  sx,
-  data,
   open,
-  slots,
   onClose,
-  onOpenToast,
+  ...props
 }: NavContentProps & { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
 
@@ -94,99 +97,104 @@ export function NavMobile({
       sx={{
         [`& .${drawerClasses.paper}`]: {
           pt: 1.25,
-          pb: 1.5,
+          pb: 1.25,
           px: 1.25,
           overflow: 'hidden',
           width: 'var(--layout-nav-mobile-width)',
-          ...sx,
         },
       }}
     >
-      <NavContent data={data} slots={slots} onOpenToast={onOpenToast} />
+      <NavContent {...props} collapsed={false} />
     </Drawer>
   );
 }
 
 // ----------------------------------------------------------------------
 
-export function NavContent({ data, slots, sx, onOpenToast }: NavContentProps) {
+function useDashboard() {
+  const [payload, setPayload] = useState<DashboardPayload | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const load = (force?: boolean) =>
+      fetchDashboardData({ force }).then((p) => alive && setPayload(p));
+    load();
+    const onRescan = () => load(true);
+    window.addEventListener('wakeline:rescan', onRescan);
+    return () => {
+      alive = false;
+      window.removeEventListener('wakeline:rescan', onRescan);
+    };
+  }, []);
+
+  return payload;
+}
+
+const isOpen = (c: UiCard) => c.status === 'new' || c.status === 'accepted';
+
+type BranchRow = { name: string; open: number; hasErrors: boolean };
+
+function branchesOf(project: UiProjectSummary, cards: UiCard[]): BranchRow[] {
+  const map = new Map<string, BranchRow>();
+  for (const card of cards) {
+    if (!isOpen(card) || card.project.toLowerCase() !== project.name.toLowerCase()) continue;
+    const row = map.get(card.branch) ?? { name: card.branch, open: 0, hasErrors: false };
+    row.open += 1;
+    row.hasErrors ||= card.kind === 'error';
+    map.set(card.branch, row);
+  }
+  return [...map.values()].sort(
+    (a, b) => Number(b.hasErrors) - Number(a.hasErrors) || b.open - a.open
+  );
+}
+
+// ----------------------------------------------------------------------
+
+export function NavContent({ data, collapsed = false, onToggleCollapse, sx }: NavContentProps) {
   const pathname = usePathname();
   const { t } = useTranslation();
+  const payload = useDashboard();
+  const [alertsAnchor, setAlertsAnchor] = useState<HTMLElement | null>(null);
+
+  const cards = useMemo(() => payload?.cards ?? [], [payload]);
+  const projects = payload?.projects ?? [];
+  const newCards = cards.filter((c) => c.status === 'new');
+  const newErrors = newCards.filter((c) => c.kind === 'error');
 
   return (
     <Box
       sx={[
-        {
-          height: 1,
-          minHeight: 0,
-          display: 'flex',
-          flexDirection: 'column',
-        },
+        { height: 1, minHeight: 0, display: 'flex', flexDirection: 'column' },
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
     >
+      {/* Marca y botón para ocultar la barra */}
       <Box
         sx={{
-          pt: 0.75,
-          pb: 1.75,
-          px: 1,
-          gap: 0.75,
+          pt: 0.5,
+          pb: 1.5,
+          px: collapsed ? 0 : 0.75,
+          gap: 1,
           display: 'flex',
           alignItems: 'center',
+          flexDirection: collapsed ? 'column' : 'row',
         }}
       >
-        <Logo isSingle={false} />
-        <Box component="span" sx={{ color: 'text.disabled', display: 'inline-flex', ml: -0.25 }}>
-          <NavIcon name="chev" size={14} />
-        </Box>
-
-        <Box sx={{ flexGrow: 1 }} />
-
-        <IconButton
-          size="small"
-          aria-label={t('nav.notifications')}
-          onClick={onOpenToast}
-          sx={{
-            width: 30,
-            height: 30,
-            borderRadius: 1,
-            color: 'text.secondary',
-            position: 'relative',
-          }}
-        >
-          <NavIcon name="bell" size={18} />
-          <Box
-            component="span"
-            sx={(theme) => ({
-              top: 5,
-              right: 6,
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              position: 'absolute',
-              bgcolor: '#8E7CFF',
-              boxShadow: `0 0 0 2px ${theme.vars.palette.background.default}`,
-            })}
-          />
-        </IconButton>
-
-        <IconButton
-          size="small"
-          component={RouterLink}
-          href="/cards"
-          aria-label={t('nav.search')}
-          sx={{
-            width: 30,
-            height: 30,
-            borderRadius: 1,
-            color: 'text.secondary',
-          }}
-        >
-          <NavIcon name="search" size={18} />
-        </IconButton>
+        <Logo isSingle={collapsed} />
+        {!collapsed && <Box sx={{ flexGrow: 1 }} />}
+        {onToggleCollapse && (
+          <Tooltip title={collapsed ? t('nav.expand') : t('nav.collapse')} placement="right">
+            <IconButton
+              size="small"
+              onClick={onToggleCollapse}
+              aria-label={collapsed ? t('nav.expand') : t('nav.collapse')}
+              sx={{ width: 30, height: 30, borderRadius: 1, color: 'text.secondary' }}
+            >
+              <NavIcon name="panel" size={18} />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
-
-      {slots?.topArea}
 
       <Box
         component="nav"
@@ -194,6 +202,7 @@ export function NavContent({ data, slots, sx, onOpenToast }: NavContentProps) {
           flex: '1 1 auto',
           minHeight: 0,
           overflowY: 'auto',
+          overflowX: 'hidden',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': { display: 'none' },
           display: 'flex',
@@ -201,268 +210,364 @@ export function NavContent({ data, slots, sx, onOpenToast }: NavContentProps) {
         }}
       >
         <Box component="ul" sx={{ gap: 0.25, display: 'flex', flexDirection: 'column' }}>
-          {data.map((item) => {
-            const isActive = item.path === pathname;
+          {data.map((item) => (
+            <NavRow
+              key={item.path}
+              href={item.path}
+              icon={item.icon}
+              label={t(item.titleKey)}
+              active={item.path === pathname}
+              collapsed={collapsed}
+              trailing={
+                item.path === '/cards' && newCards.length > 0 ? (
+                  <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'error.main' }}>
+                    {t('nav.newCount', { count: newCards.length })}
+                  </Typography>
+                ) : undefined
+              }
+            />
+          ))}
 
-            return (
-              <ListItem disableGutters disablePadding key={item.path}>
-                <ListItemButton
-                  disableGutters
-                  component={RouterLink}
-                  href={item.path}
-                  sx={[
-                    (theme) => ({
-                      px: 1.25,
-                      gap: 1.5,
-                      minHeight: 36,
-                      borderRadius: 1,
-                      fontSize: 14.5,
-                      fontWeight: 500,
-                      color: theme.vars.palette.text.primary,
-                      '& svg': { color: theme.vars.palette.text.secondary },
-                      ...(isActive && {
-                        bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.14),
-                        fontWeight: 600,
-                        '& svg': { color: theme.vars.palette.text.primary },
-                        '&:hover': {
-                          bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.18),
-                        },
-                      }),
-                    }),
-                  ]}
-                >
-                  <Box component="span" sx={{ width: 19, height: 19, display: 'flex' }}>
-                    {item.icon}
-                  </Box>
-
-                  <Box component="span" sx={{ flexGrow: 1 }}>
-                    {t(item.titleKey)}
-                  </Box>
-
-                  {item.path === '/cards' && (
-                    <Typography
-                      variant="caption"
-                      sx={{ fontWeight: 600, color: 'error.main', fontSize: 12 }}
-                    >
-                      {t('nav.newBadge')}
-                    </Typography>
-                  )}
-
-                  {item.path === '/pull-requests' && (
-                    <Typography
-                      variant="caption"
-                      sx={{ fontWeight: 600, color: 'text.secondary', fontSize: 12 }}
-                    >
-                      3
-                    </Typography>
-                  )}
-
-                  {item.info && item.info}
-                </ListItemButton>
-              </ListItem>
-            );
-          })}
+          <NavRow
+            icon={<NavIcon name="bell" />}
+            label={t('nav.notifications')}
+            collapsed={collapsed}
+            badge={newErrors.length}
+            onClick={(e) => setAlertsAnchor(e.currentTarget)}
+            trailing={
+              newErrors.length > 0 ? (
+                <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'text.secondary' }}>
+                  {newErrors.length}
+                </Typography>
+              ) : undefined
+            }
+          />
         </Box>
 
-        <Box
-          sx={{
-            pt: 2.25,
-            pb: 0.75,
-            pl: 1.25,
-            pr: 0.5,
-            gap: 0.5,
-            display: 'flex',
-            alignItems: 'center',
-            color: 'text.disabled',
-          }}
-        >
-          <Typography variant="caption" sx={{ fontWeight: 500, fontSize: 13 }}>
-            {t('nav.projects')}
-          </Typography>
-          <NavIcon name="chev" size={13} />
-          <Box sx={{ flexGrow: 1 }} />
-          <IconButton
-            size="small"
-            aria-label={t('nav.sort')}
-            sx={{ width: 26, height: 26, borderRadius: 1, color: 'text.disabled' }}
-          >
-            <NavIcon name="filter" size={16} />
-          </IconButton>
-          <IconButton
-            size="small"
-            component={RouterLink}
-            href="/pull-requests"
-            aria-label={t('nav.watchFolder')}
-            sx={{ width: 26, height: 26, borderRadius: 1, color: 'text.disabled' }}
-          >
-            <NavIcon name="folderPlus" size={16} />
-          </IconButton>
-        </Box>
-
-        <Box sx={{ gap: 0.25, display: 'flex', flexDirection: 'column' }}>
-          <TreeFolder name="contastack" />
-          <TreeBranch
-            icon="bug"
-            iconColor="error.main"
-            name="ecf-minimalista"
-            count={3}
-            href="/cards?detail=V-142"
-          />
-          <TreeBranch
-            icon="branch"
-            iconColor="info.main"
-            name="caja-reintentos"
-            count={2}
-            href="/cards"
-          />
-          <TreeBranch icon="branch" iconColor="text.disabled" name="clientes-merge" href="/cards" />
-
-          <TreeFolder name="app-expo" />
-          <TreeBranch
-            icon="branch"
-            iconColor="warning.main"
-            name="pantalla-cobros"
-            dot
-            href="/cards"
-          />
-
-          <TreeFolder name="wakeline" />
-        </Box>
-      </Box>
-
-      <Box
-        sx={(theme) => ({
-          mt: 'auto',
-          pt: 1.5,
-          px: 1.25,
-          borderTop: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.14)}`,
-        })}
-      >
-        <Box sx={{ gap: 1, display: 'flex', alignItems: 'center', mb: 0.4 }}>
+        {/* PROYECTOS */}
+        {collapsed ? (
           <Box
-            sx={{
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              bgcolor: 'success.main',
-              boxShadow: '0 0 0 3px rgba(34, 197, 94, 0.16)',
-            }}
-          />
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: 13 }}>
-            {t('nav.watching')}
-          </Typography>
-        </Box>
-        <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled' }}>
-          {t('nav.lastSignal')}
-        </Typography>
-        <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled' }}>
-          {t('nav.metrics')}
-        </Typography>
+            sx={{ mt: 2, gap: 0.5, display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+          >
+            {projects.map((p) => (
+              <Tooltip key={p.name} title={p.name} placement="right">
+                <IconButton
+                  component={RouterLink}
+                  href="/pull-requests"
+                  sx={{ width: 36, height: 36, borderRadius: 1, fontSize: 14, fontWeight: 700 }}
+                >
+                  {p.name.slice(0, 1).toUpperCase()}
+                </IconButton>
+              </Tooltip>
+            ))}
+          </Box>
+        ) : (
+          <>
+            <SectionHeader
+              title={t('nav.projects')}
+              actionLabel={t('nav.watchFolder')}
+              actionHref="/pull-requests"
+            />
+            {projects.length === 0 ? (
+              <AddPlaceholder label={t('nav.addFirstProject')} href="/pull-requests" />
+            ) : (
+              <Box sx={{ gap: 0.25, display: 'flex', flexDirection: 'column' }}>
+                {projects.map((p) => (
+                  <ProjectTree key={p.name} project={p} branches={branchesOf(p, cards)} />
+                ))}
+              </Box>
+            )}
+          </>
+        )}
       </Box>
 
-      {slots?.bottomArea}
+      <AccountSection collapsed={collapsed} />
+
+      <Popover
+        open={!!alertsAnchor}
+        anchorEl={alertsAnchor}
+        onClose={() => setAlertsAnchor(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ paper: { sx: { width: 340, p: 1 } } }}
+      >
+        <Typography sx={{ px: 1, py: 0.75, fontSize: 12, fontWeight: 700, color: 'text.disabled' }}>
+          {t('nav.alertsTitle').toUpperCase()}
+        </Typography>
+        {newErrors.length === 0 ? (
+          <Typography sx={{ px: 1, pb: 1, fontSize: 14, color: 'text.secondary' }}>
+            {t('nav.noAlerts')}
+          </Typography>
+        ) : (
+          newErrors.slice(0, 6).map((card) => (
+            <ListItemButton
+              key={card.fingerprint}
+              component={RouterLink}
+              href={`/cards?detail=${card.short_id}`}
+              onClick={() => setAlertsAnchor(null)}
+              sx={{ gap: 1.25, borderRadius: 1, alignItems: 'flex-start', py: 1 }}
+            >
+              <Box sx={{ color: 'error.main', mt: 0.25 }}>
+                <NavIcon name="bug" size={17} />
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 600 }} noWrap>
+                  {card.title}
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: 'text.secondary' }} noWrap>
+                  {card.project} · {card.branch} · ×{card.occurrences}
+                </Typography>
+              </Box>
+            </ListItemButton>
+          ))
+        )}
+      </Popover>
     </Box>
   );
 }
 
 // ----------------------------------------------------------------------
 
-function TreeFolder({ name }: { name: string }) {
-  return (
+function NavRow({
+  icon,
+  label,
+  href,
+  active = false,
+  collapsed,
+  trailing,
+  badge,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  href?: string;
+  active?: boolean;
+  collapsed: boolean;
+  trailing?: React.ReactNode;
+  badge?: number;
+  onClick?: (event: React.MouseEvent<HTMLElement>) => void;
+}) {
+  const linkProps = href ? { component: RouterLink, href } : { onClick };
+
+  const button = (
     <ListItemButton
       disableGutters
-      component={RouterLink}
-      href="/pull-requests"
-      sx={{
-        mt: 0.75,
+      {...linkProps}
+      sx={(theme) => ({
         px: 1.25,
-        gap: 1,
-        minHeight: 30,
-        borderRadius: 1,
-        fontSize: 14,
-        color: 'text.secondary',
-      }}
+        gap: 1.5,
+        minHeight: 38,
+        borderRadius: 1.25,
+        fontSize: 14.5,
+        fontWeight: 500,
+        position: 'relative',
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        color: theme.vars.palette.text.primary,
+        '& svg': { color: theme.vars.palette.text.secondary },
+        ...(active && {
+          fontWeight: 600,
+          bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.14),
+          '& svg': { color: theme.vars.palette.text.primary },
+          '&::before': {
+            content: '""',
+            left: 0,
+            top: 8,
+            bottom: 8,
+            width: 3,
+            borderRadius: 2,
+            position: 'absolute',
+            bgcolor: 'primary.main',
+          },
+          '&:hover': { bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.18) },
+        }),
+      })}
     >
-      <NavIcon name="folder" size={17} />
-      <Box component="span">{name}</Box>
+      <Box component="span" sx={{ width: 20, height: 20, display: 'flex', position: 'relative' }}>
+        {icon}
+        {collapsed && !!badge && (
+          <Box
+            component="span"
+            sx={(theme) => ({
+              top: -2,
+              right: -3,
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              position: 'absolute',
+              bgcolor: 'error.main',
+              boxShadow: `0 0 0 2px ${theme.vars.palette.background.default}`,
+            })}
+          />
+        )}
+      </Box>
+      {!collapsed && (
+        <>
+          <Box component="span" sx={{ flexGrow: 1 }}>
+            {label}
+          </Box>
+          {trailing}
+        </>
+      )}
+    </ListItemButton>
+  );
+
+  return (
+    <Box component="li">
+      {collapsed ? (
+        <Tooltip title={label} placement="right">
+          {button}
+        </Tooltip>
+      ) : (
+        button
+      )}
+    </Box>
+  );
+}
+
+function SectionHeader({
+  title,
+  actionLabel,
+  actionHref,
+}: {
+  title: string;
+  actionLabel: string;
+  actionHref: string;
+}) {
+  return (
+    <Box sx={{ pt: 2.5, pb: 0.75, pl: 1.25, pr: 0.25, display: 'flex', alignItems: 'center' }}>
+      <Typography
+        sx={{
+          flexGrow: 1,
+          fontSize: 11.5,
+          fontWeight: 700,
+          letterSpacing: 1,
+          color: 'text.disabled',
+          textTransform: 'uppercase',
+        }}
+      >
+        {title}
+      </Typography>
+      <Tooltip title={actionLabel}>
+        <IconButton
+          size="small"
+          component={RouterLink}
+          href={actionHref}
+          aria-label={actionLabel}
+          sx={{ width: 26, height: 26, borderRadius: 1, color: 'text.disabled' }}
+        >
+          <NavIcon name="plus" size={16} />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+}
+
+function AddPlaceholder({ label, href }: { label: string; href: string }) {
+  return (
+    <ListItemButton
+      component={RouterLink}
+      href={href}
+      sx={(theme) => ({
+        mx: 0.25,
+        px: 1.5,
+        py: 1.25,
+        gap: 1,
+        fontSize: 13.5,
+        borderRadius: 1.5,
+        color: 'text.secondary',
+        border: `1px dashed ${varAlpha(theme.vars.palette.grey['500Channel'], 0.32)}`,
+      })}
+    >
+      <NavIcon name="plus" size={15} />
+      {label}
     </ListItemButton>
   );
 }
 
-function TreeBranch({
-  icon,
-  iconColor,
-  name,
-  count,
-  dot,
-  href,
-}: {
-  icon: 'bug' | 'branch';
-  iconColor: string;
-  name: string;
-  count?: number;
-  dot?: boolean;
-  href: string;
-}) {
+function ProjectTree({ project, branches }: { project: UiProjectSummary; branches: BranchRow[] }) {
+  const storageKey = `wakeline-project-open:${project.name}`;
+  const [open, setOpen] = useState(() => localStorage.getItem(storageKey) !== 'false');
+
+  const toggle = () => {
+    localStorage.setItem(storageKey, String(!open));
+    setOpen(!open);
+  };
+
   return (
-    <ListItemButton
-      disableGutters
-      component={RouterLink}
-      href={href}
-      sx={{
-        px: 1.25,
-        gap: 1.25,
-        minHeight: 34,
-        borderRadius: 1,
-        fontSize: 14,
-        fontWeight: 500,
-        color: 'text.primary',
-      }}
-    >
-      <Box
-        component="span"
+    <Box>
+      <ListItemButton
+        disableGutters
+        onClick={toggle}
         sx={{
-          width: 18,
-          height: 18,
-          display: 'grid',
-          placeItems: 'center',
-          color: iconColor,
-          flexShrink: 0,
+          px: 1.25,
+          gap: 1,
+          minHeight: 32,
+          borderRadius: 1,
+          fontSize: 14,
+          color: 'text.secondary',
         }}
       >
-        <NavIcon name={icon} size={17} />
-      </Box>
-      <Box
-        component="span"
-        sx={{
-          flexGrow: 1,
-          minWidth: 0,
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-          textOverflow: 'ellipsis',
-        }}
-      >
-        {name}
-      </Box>
-      {count !== undefined && (
-        <Typography
-          variant="caption"
-          sx={{ color: 'text.disabled', fontWeight: 600, fontSize: 12 }}
-        >
-          {count}
-        </Typography>
-      )}
-      {dot && (
         <Box
+          component="span"
           sx={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            bgcolor: 'text.secondary',
-            flexShrink: 0,
+            display: 'flex',
+            transition: 'transform 120ms',
+            transform: open ? 'rotate(90deg)' : 'none',
           }}
-        />
-      )}
-    </ListItemButton>
+        >
+          <NavIcon name="chevRight" size={14} />
+        </Box>
+        <NavIcon name="folder" size={17} />
+        <Box component="span" sx={{ flexGrow: 1, minWidth: 0 }}>
+          {project.name}
+        </Box>
+        {project.errors > 0 && (
+          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main' }} />
+        )}
+      </ListItemButton>
+
+      <Collapse in={open} unmountOnExit>
+        <Box sx={{ pl: 2.25, gap: 0.25, display: 'flex', flexDirection: 'column' }}>
+          {branches.map((b) => (
+            <ListItemButton
+              key={b.name}
+              disableGutters
+              component={RouterLink}
+              href={`/cards?project=${encodeURIComponent(project.name)}&branch=${encodeURIComponent(b.name)}`}
+              sx={{
+                px: 1.25,
+                gap: 1.25,
+                minHeight: 32,
+                borderRadius: 1,
+                fontSize: 14,
+                fontWeight: 500,
+                color: 'text.primary',
+              }}
+            >
+              <Box
+                component="span"
+                sx={{ display: 'flex', color: b.hasErrors ? 'error.main' : 'info.main' }}
+              >
+                <NavIcon name={b.hasErrors ? 'bug' : 'branch'} size={16} />
+              </Box>
+              <Box
+                component="span"
+                sx={{
+                  flexGrow: 1,
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {b.name}
+              </Box>
+              <Typography sx={{ color: 'text.disabled', fontWeight: 600, fontSize: 12 }}>
+                {b.open}
+              </Typography>
+            </ListItemButton>
+          ))}
+        </Box>
+      </Collapse>
+    </Box>
   );
 }

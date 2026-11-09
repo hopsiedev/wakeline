@@ -340,6 +340,58 @@ export async function createManualCard(
   invalidateDashboardCache();
 }
 
+// ----------------------------------------------------------------------
+// Cuenta y conexiones
+
+export type GithubUser = {
+  login: string;
+  name: string | null;
+  avatar_url: string;
+};
+
+export type AccountInfo = {
+  /** `null` si `gh` no está instalado o no tiene sesión. */
+  github: GithubUser | null;
+  claude_code: boolean;
+  ollama: boolean;
+  version: string;
+};
+
+const FALLBACK_ACCOUNT: AccountInfo = {
+  github: null,
+  claude_code: true,
+  ollama: false,
+  version: '0.1.0',
+};
+
+let accountRequest: Promise<AccountInfo> | null = null;
+
+export function fetchAccount(): Promise<AccountInfo> {
+  if (!accountRequest) {
+    accountRequest = isTauri()
+      ? invoke<AccountInfo>('get_account').catch(() => FALLBACK_ACCOUNT)
+      : Promise.resolve(FALLBACK_ACCOUNT);
+  }
+  return accountRequest;
+}
+
+export async function quitApp(): Promise<void> {
+  if (isTauri()) {
+    await invoke('quit_app');
+  }
+}
+
+export async function openExternal(url: string): Promise<void> {
+  if (isTauri()) {
+    const { openUrl } = await import('@tauri-apps/plugin-opener');
+    await openUrl(url);
+  } else {
+    window.open(url, '_blank', 'noopener');
+  }
+}
+
+export const REPO_URL = 'https://github.com/hopsiedev/wakeline';
+
 export async function exportProjectTodo(projectName?: string): Promise<string> {
   if (isTauri()) {
     return invoke<string>('export_todo', { projectName: projectName ?? 'Contastack' });

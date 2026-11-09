@@ -19,4 +19,5 @@ tauri-build = { version = "2.7.4", features = [] }
 serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2.12.5", features = [] }
+tauri-plugin-opener = "2.7.2"
 wakeline-core.workspace = true
