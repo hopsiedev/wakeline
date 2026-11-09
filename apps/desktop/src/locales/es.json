@@ -236,7 +236,16 @@
     "copyConfig": "Copiar configuración",
     "copiedAlert": "Configuración de {{label}} copiada al portapapeles.",
     "alertsTest": "Probar aviso",
-    "alertsTestFailed": "No se pudo mostrar el aviso"
+    "alertsTestFailed": "No se pudo mostrar el aviso",
+    "updates": "Actualizaciones",
+    "updatesHint": "Versiones firmadas desde GitHub Releases",
+    "checkUpdates": "Buscar",
+    "checkingUpdates": "Buscando…",
+    "upToDate": "Tienes la última versión ({{version}})",
+    "updateAvailable": "Hay una versión nueva: {{version}}",
+    "installUpdate": "Instalar y reiniciar",
+    "installingUpdate": "Instalando…",
+    "updateFailed": "No se pudo comprobar"
   },
   "notFound": {
     "title": "No encontramos esta página",
