@@ -2,7 +2,7 @@ mod scan;
 
 use std::path::PathBuf;
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 /// Wakeline: la estela que deja tu IA, convertida en una lista de tareas.
@@ -34,7 +34,20 @@ enum Command {
         sessions_dir: Option<PathBuf>,
     },
     /// Vigila los proyectos configurados y actualiza las tarjetas al momento.
-    Watch,
+    Watch {
+        /// Carpeta a vigilar si no hay carpetas en state.json (por defecto, las de state.json o `.`).
+        #[arg(long)]
+        path: Option<PathBuf>,
+        /// Carpeta de sesiones de Claude Code (por defecto, ~/.claude/projects).
+        #[arg(long)]
+        sessions_dir: Option<PathBuf>,
+        /// Tiempo de agrupación (debounce) en milisegundos tras un cambio.
+        #[arg(long, default_value_t = 1200)]
+        debounce_ms: u64,
+        /// Sale tras detectar y procesar el primer cambio (para pruebas).
+        #[arg(long, hide = true)]
+        once: bool,
+    },
     /// Escribe las tarjetas abiertas en el TODO.md del proyecto.
     Export {
         #[arg(default_value = ".")]
@@ -59,14 +72,20 @@ fn main() -> Result<()> {
             days: (!all_history).then_some(days),
             all_projects,
         }),
-        Command::Watch => not_yet("watch"),
+        Command::Watch {
+            path,
+            sessions_dir,
+            debounce_ms,
+            once,
+        } => scan::watch(scan::WatchOptions {
+            extra_path: path,
+            sessions_dir,
+            debounce_ms,
+            once,
+        }),
         Command::Export { path } => scan::export(path),
         Command::Mcp => Ok(wakeline_mcp::serve_stdio()?),
     }
-}
-
-fn not_yet(command: &str) -> Result<()> {
-    bail!("`wakeline {command}` todavía no está implementado (Wakeline 0.1 en desarrollo)")
 }
 
 #[cfg(test)]
