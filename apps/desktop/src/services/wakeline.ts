@@ -24,6 +24,16 @@ export type UiCard = {
   occurrences: number;
   first_seen: string;
   last_seen: string;
+  fingerprints: string[];
+  origins: UiOrigin[];
+};
+
+export type UiOrigin = {
+  fingerprint: string;
+  source_kind: SourceKind;
+  source_label: string;
+  location: string;
+  occurrences: number;
 };
 
 export type UiProjectSummary = {
@@ -36,6 +46,29 @@ export type UiProjectSummary = {
   ideas: number;
   done: number;
   dismissed: number;
+  commands_pending: boolean;
+};
+
+export type CommandTrigger = 'idle' | 'manual';
+export type RunStatus = 'passed' | 'failed' | 'timed_out' | 'not_started';
+export type TrustStatus = 'approved' | 'pending' | 'changed';
+
+export type UiCommand = {
+  name: string;
+  run: string[];
+  cwd: string | null;
+  on: CommandTrigger;
+  last_status: RunStatus | null;
+  last_detail: string | null;
+  last_finished_at: number | null;
+};
+
+export type UiProjectCommands = {
+  has_config: boolean;
+  error: string | null;
+  hash: string | null;
+  trust: TrustStatus | null;
+  commands: UiCommand[];
 };
 
 export type UiFileEntry = {
@@ -135,6 +168,27 @@ export function subscribeToChanges(): () => void {
   };
 }
 
+export async function getProjectCommands(path: string): Promise<UiProjectCommands | null> {
+  if (!isTauri()) return null;
+  return invoke<UiProjectCommands>('get_project_commands', { path });
+}
+
+// Se manda el hash que vio el usuario: si wakeline.toml cambió, el backend no aprueba.
+export async function approveProjectCommands(path: string, hash: string): Promise<void> {
+  if (!isTauri()) return;
+  await invoke('approve_project_commands', { path, hash });
+  invalidateDashboardCache();
+  window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+}
+
+export async function runProjectCommand(path: string, name: string): Promise<RunStatus | null> {
+  if (!isTauri()) return null;
+  const status = await invoke<RunStatus>('run_project_command', { path, name });
+  invalidateDashboardCache();
+  window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+  return status;
+}
+
 export function invalidateDashboardCache(): void {
   cachedDashboard = null;
   dashboardRequest = null;
@@ -175,9 +229,14 @@ export function fetchDashboardData(options?: { force?: boolean }): Promise<Dashb
   return dashboardRequest;
 }
 
-export async function updateCardStatus(fingerprint: string, status: CardStatus): Promise<void> {
+// Una tarjeta con varios orígenes guarda el estado en todas sus huellas.
+export async function updateCardStatus(
+  fingerprint: string,
+  status: CardStatus,
+  fingerprints: string[] = []
+): Promise<void> {
   if (isTauri()) {
-    await invoke('set_card_status', { input: { fingerprint, status } });
+    await invoke('set_card_status', { input: { fingerprint, fingerprints, status } });
   }
   invalidateDashboardCache();
   if (typeof window !== 'undefined') {
