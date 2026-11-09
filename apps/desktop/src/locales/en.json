@@ -5,16 +5,16 @@
     "pullRequests": "Pull requests",
     "settings": "Settings",
     "projects": "Projects",
-    "newBadge": "4 new",
-    "watching": "Watching 3 projects",
-    "lastSignal": "Last signal 12s ago · MCP active",
-    "metrics": "0.3% CPU · 61 MB · 512 MB read",
     "rescan": "Scan now",
     "rescanning": "Scanning…",
     "notifications": "Notifications",
-    "search": "Search",
-    "sort": "Sort",
-    "watchFolder": "Watch folder"
+    "watchFolder": "Watch folder",
+    "alertsTitle": "New errors",
+    "noAlerts": "No new errors.",
+    "addFirstProject": "Watch your first project",
+    "collapse": "Hide sidebar (Ctrl+B)",
+    "expand": "Show sidebar (Ctrl+B)",
+    "newCount": "{{count}} new"
   },
   "toast": {
     "title": "New error in Contastack",
@@ -50,10 +50,10 @@
     "active": "Active",
     "paused": "Paused",
     "soon": "Coming soon",
-    "copied": "✓ Copied"
+    "copied": "Copied"
   },
   "summary": {
-    "title": "Here is what happened today 👋",
+    "title": "Here is what happened today",
     "subtitle": "Sunday, November 8 · 3 Claude Code sessions · 14 commits",
     "exportTodo": "Export TODO.md",
     "exportedTo": "Exported to",
@@ -204,5 +204,30 @@
   "notFound": {
     "title": "We couldn't find this page",
     "back": "Back to summary"
+  },
+  "account": {
+    "you": "You",
+    "localProfile": "Local profile",
+    "githubAccount": "GitHub account",
+    "githubMissing": "GitHub is not signed in. Run «gh auth login» to see your account.",
+    "rename": "Change name",
+    "renamePrompt": "What should Wakeline call you?",
+    "connections": "Connections",
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "optional": "Optional",
+    "claudeCode": "Claude Code",
+    "github": "GitHub",
+    "ollama": "Ollama",
+    "settings": "Settings",
+    "shortcuts": "Keyboard shortcuts",
+    "version": "Version {{version}}",
+    "checkUpdates": "Check for updates",
+    "updatesSoon": "Comes with the installer",
+    "report": "Report a problem",
+    "quit": "Quit Wakeline",
+    "shortcutToggle": "Show or hide the sidebar",
+    "shortcutSettings": "Open settings",
+    "close": "Close"
   }
 }
