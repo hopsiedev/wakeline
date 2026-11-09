@@ -4515,12 +4515,14 @@ dependencies = [
  "notify",
  "serde",
  "serde_json",
+ "sha2",
  "toml 1.2.1+spec-1.1.0",
  "tree-sitter",
  "tree-sitter-javascript",
  "tree-sitter-python",
  "tree-sitter-rust",
  "tree-sitter-typescript",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

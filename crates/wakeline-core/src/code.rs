@@ -112,6 +112,8 @@ pub fn is_code_file(path: &Path) -> bool {
 #[derive(Default)]
 pub struct CodeScanner {
     parsers: HashMap<Lang, Parser>,
+    /// Archivos de código que no se pudieron leer en el último recorrido.
+    read_errors: usize,
 }
 
 impl CodeScanner {
@@ -121,6 +123,7 @@ impl CodeScanner {
 
     /// Recorre el proyecto entero y devuelve sus tarjetas de código.
     pub fn scan_project(&mut self, root: &Path) -> Vec<CodeCard> {
+        self.read_errors = 0;
         let walker = ignore::WalkBuilder::new(root)
             .require_git(false)
             .filter_entry(|entry| {
@@ -149,6 +152,7 @@ impl CodeScanner {
             return Vec::new();
         }
         let Ok(bytes) = std::fs::read(path) else {
+            self.read_errors += 1;
             return Vec::new();
         };
         if bytes.contains(&0) {
@@ -159,6 +163,12 @@ impl CodeScanner {
         };
         let rel = relative_path(root, path);
         self.scan_source(lang, &rel, &source)
+    }
+
+    /// `true` si el último [`scan_project`](Self::scan_project) leyó todos los archivos.
+    /// Un recorrido incompleto no puede cerrar tarjetas (Q54).
+    pub fn last_scan_complete(&self) -> bool {
+        self.read_errors == 0
     }
 
     fn scan_source(&mut self, lang: Lang, rel_path: &str, source: &str) -> Vec<CodeCard> {

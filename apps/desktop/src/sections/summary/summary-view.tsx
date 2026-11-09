@@ -482,6 +482,7 @@ export function SummaryView() {
                       errors={proj.errors}
                       tasks={proj.tasks}
                       ideas={proj.ideas}
+                      commandsPending={proj.commands_pending}
                       isLast={idx === projects.length - 1}
                     />
                   );
@@ -695,6 +696,7 @@ function ProjectSummaryRow({
   errors,
   tasks,
   ideas,
+  commandsPending,
   isLast,
 }: {
   letter: string;
@@ -705,8 +707,10 @@ function ProjectSummaryRow({
   errors: number;
   tasks: number;
   ideas: number;
+  commandsPending?: boolean;
   isLast?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <Box
       sx={(theme) => ({
@@ -744,6 +748,7 @@ function ProjectSummaryRow({
       </Box>
 
       <Box sx={{ gap: 0.75, display: 'flex' }}>
+        {commandsPending && <Label color="warning">{t('commands.pendingBadge')}</Label>}
         <Label color={errors > 0 ? 'error' : 'default'}>{errors}</Label>
         <Label color="info">{tasks}</Label>
         <Label color="secondary">{ideas}</Label>
