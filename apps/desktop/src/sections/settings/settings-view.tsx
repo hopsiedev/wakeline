@@ -11,7 +11,8 @@ import Typography from '@mui/material/Typography';
 import { useColorScheme } from '@mui/material/styles';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { type Language, changeLanguage } from 'src/locales/i18n';
+import { sendTestNotification } from 'src/services/wakeline';
+import { type Language, alertsEnabled, changeLanguage, setAlertsEnabled } from 'src/locales/i18n';
 
 import { Label } from 'src/components/label';
 import { AppIcon } from 'src/components/nav-icon';
@@ -28,7 +29,7 @@ export function SettingsView() {
   const [startWithWin, setStartWithWin] = useState(true);
   const [claudeEnabled, setClaudeEnabled] = useState(true);
   const [githubEnabled, setGithubEnabled] = useState(true);
-  const [winToast, setWinToast] = useState(true);
+  const [winToast, setWinToast] = useState(alertsEnabled);
   const [trayBadge, setTrayBadge] = useState(true);
   const [dailySummary, setDailySummary] = useState(false);
 
@@ -302,7 +303,24 @@ export function SettingsView() {
               </Typography>
 
               <SettingRow label={t('settings.alertsWin')} hint={t('settings.alertsWinHint')}>
-                <Switch checked={winToast} onChange={(e) => setWinToast(e.target.checked)} />
+                <Box sx={{ gap: 1, display: 'flex', alignItems: 'center' }}>
+                  <Button
+                    size="small"
+                    color="inherit"
+                    variant="outlined"
+                    disabled={!winToast}
+                    onClick={() => sendTestNotification()}
+                  >
+                    {t('settings.alertsTest')}
+                  </Button>
+                  <Switch
+                    checked={winToast}
+                    onChange={(e) => {
+                      setWinToast(e.target.checked);
+                      setAlertsEnabled(e.target.checked);
+                    }}
+                  />
+                </Box>
               </SettingRow>
 
               <SettingRow label={t('settings.alertsTray')} hint={t('settings.alertsTrayHint')}>
