@@ -10,6 +10,7 @@ authors.workspace = true
 
 [dependencies]
 ignore = "0.4.34"
+notify = "8.2.2"
 serde.workspace = true
 serde_json.workspace = true
 toml = "1.2.1"
