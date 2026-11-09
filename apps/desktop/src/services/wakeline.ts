@@ -24,6 +24,16 @@ export type UiCard = {
   occurrences: number;
   first_seen: string;
   last_seen: string;
+  fingerprints: string[];
+  origins: UiOrigin[];
+};
+
+export type UiOrigin = {
+  fingerprint: string;
+  source_kind: SourceKind;
+  source_label: string;
+  location: string;
+  occurrences: number;
 };
 
 export type UiProjectSummary = {
@@ -219,9 +229,14 @@ export function fetchDashboardData(options?: { force?: boolean }): Promise<Dashb
   return dashboardRequest;
 }
 
-export async function updateCardStatus(fingerprint: string, status: CardStatus): Promise<void> {
+// Una tarjeta con varios orígenes guarda el estado en todas sus huellas.
+export async function updateCardStatus(
+  fingerprint: string,
+  status: CardStatus,
+  fingerprints: string[] = []
+): Promise<void> {
   if (isTauri()) {
-    await invoke('set_card_status', { input: { fingerprint, status } });
+    await invoke('set_card_status', { input: { fingerprint, fingerprints, status } });
   }
   invalidateDashboardCache();
   if (typeof window !== 'undefined') {

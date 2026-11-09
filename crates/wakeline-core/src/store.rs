@@ -5,7 +5,7 @@
 //! (tarjetas aceptadas, hechas o descartadas) y las tarjetas creadas a mano o desde el
 //! servidor MCP, indexadas por huella estable.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::card::{CardKind, CardStatus};
 use crate::sessions::SessionCard;
+use crate::signals::SignalMemo;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManualCard {
@@ -43,6 +44,12 @@ pub struct LocalState {
     /// SHA-256 del `wakeline.toml` aprobado por proyecto (`ruta normalizada -> hash`).
     #[serde(default)]
     pub trusted_commands: HashMap<String, String>,
+    /// Señales vistas por fuentes que se cierran solas (`huella -> memoria`).
+    #[serde(default)]
+    pub signals: HashMap<String, SignalMemo>,
+    /// Huellas que Wakeline cerró sola; si reaparecen vuelven a «nueva» (Q47).
+    #[serde(default)]
+    pub auto_closed: HashSet<String>,
 }
 
 impl LocalState {
