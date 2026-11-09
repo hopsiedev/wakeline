@@ -28,6 +28,25 @@ root.render(
   </StrictMode>
 );
 
+// Es una app de escritorio: sin el menú del navegador (Atrás, Recargar, Imprimir…).
+// En campos de texto se deja, para copiar y pegar.
+window.addEventListener('contextmenu', (event) => {
+  const target = event.target as HTMLElement | null;
+  if (!target?.closest('input, textarea, [contenteditable="true"]')) {
+    event.preventDefault();
+  }
+});
+
+// Fuera de desarrollo, F5 y Ctrl+R no recargan la app ni Ctrl+P la imprime.
+if (!import.meta.env.DEV) {
+  window.addEventListener('keydown', (event) => {
+    const key = event.key.toLowerCase();
+    if (key === 'f5' || (event.ctrlKey && (key === 'r' || key === 'p'))) {
+      event.preventDefault();
+    }
+  });
+}
+
 // La ventana nace oculta (tauri.conf.json) para no enseñar un primer pintado a medias.
 // Se muestra tras dos fotogramas, cuando el diseño ya está en su sitio.
 if ('__TAURI_INTERNALS__' in window) {

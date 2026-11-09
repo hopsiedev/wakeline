@@ -1,5 +1,6 @@
 //! Cuenta y conexiones. Wakeline no tiene inicio de sesión propio: la identidad sale
-//! de la sesión de `gh` que el usuario ya tiene, en solo lectura.
+//! de la sesión de `gh` que el usuario ya tiene, en solo lectura. Lo usan la app de
+//! escritorio y la CLI.
 
 use std::net::{SocketAddr, TcpStream};
 use std::path::Path;

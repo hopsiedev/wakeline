@@ -8,6 +8,7 @@ import { useMemo, useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Tooltip from '@mui/material/Tooltip';
 import Popover from '@mui/material/Popover';
+import Skeleton from '@mui/material/Skeleton';
 import Collapse from '@mui/material/Collapse';
 import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
@@ -59,6 +60,7 @@ export function NavDesktop({
           flexDirection: 'column',
           zIndex: 'var(--layout-nav-zIndex)',
           width: 'var(--layout-nav-vertical-width)',
+          transition: `width ${NAV_ANIMATION}, padding ${NAV_ANIMATION}`,
           // Fondo opaco: si el contenido pasa por debajo un instante, no se ve a través.
           bgcolor: 'background.default',
           borderRight: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.14)}`,
@@ -129,6 +131,9 @@ function useDashboard() {
 
   return payload;
 }
+
+/** Duración de la animación al plegar o desplegar la barra (igual en el contenido). */
+export const NAV_ANIMATION = '200ms cubic-bezier(0.2, 0, 0, 1)';
 
 const isOpen = (c: UiCard) => c.status === 'new' || c.status === 'accepted';
 
@@ -268,7 +273,9 @@ export function NavContent({ data, collapsed = false, onToggleCollapse, sx }: Na
               actionLabel={t('nav.watchFolder')}
               actionHref="/pull-requests"
             />
-            {projects.length === 0 ? (
+            {!payload ? (
+              <ProjectsSkeleton />
+            ) : projects.length === 0 ? (
               <AddPlaceholder label={t('nav.addFirstProject')} href="/pull-requests" />
             ) : (
               <Box sx={{ gap: 0.25, display: 'flex', flexDirection: 'column' }}>
@@ -461,12 +468,27 @@ function SectionHeader({
   );
 }
 
+function ProjectsSkeleton() {
+  return (
+    <Box sx={{ px: 1.25, gap: 1.25, display: 'flex', flexDirection: 'column' }}>
+      {[70, 52, 60, 44, 66].map((width, i) => (
+        <Box key={i} sx={{ gap: 1, display: 'flex', alignItems: 'center', pl: i % 3 ? 2.25 : 0 }}>
+          <Skeleton variant="rounded" width={16} height={16} />
+          <Skeleton variant="text" width={`${width}%`} sx={{ fontSize: 14 }} />
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
 function AddPlaceholder({ label, href }: { label: string; href: string }) {
   return (
     <ListItemButton
       component={RouterLink}
       href={href}
       sx={(theme) => ({
+        // ListItemButton crece por defecto: sin esto ocupa toda la barra.
+        flexGrow: 0,
         mx: 0.25,
         px: 1.5,
         py: 1.25,

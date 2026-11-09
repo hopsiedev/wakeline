@@ -1,8 +1,8 @@
 import type { AccountInfo } from 'src/services/wakeline';
 
-import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { varAlpha } from 'minimal-shared/utils';
+import { useRef, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Menu from '@mui/material/Menu';
@@ -47,6 +47,8 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [connAnchor, setConnAnchor] = useState<HTMLElement | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // Ancla estable: el elemento del menú desaparece al cerrarlo.
+  const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let alive = true;
@@ -139,6 +141,7 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
   return (
     <>
       <Box
+        ref={rowRef}
         sx={(theme) => ({
           mt: 'auto',
           pt: 1.25,
@@ -225,9 +228,9 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
         )}
         <Divider />
         <MenuItem
-          onClick={(e) => {
-            setConnAnchor(e.currentTarget);
+          onClick={() => {
             closeMenu();
+            setConnAnchor(rowRef.current);
           }}
         >
           <AppIcon name="plug" size={17} />
