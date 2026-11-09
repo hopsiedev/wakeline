@@ -1,5 +1,5 @@
-//! `wakeline scan`: revisa las sesiones de Claude Code de un proyecto y muestra las
-//! tarjetas encontradas. Todavía no guarda nada (el almacenamiento llega después).
+//! `wakeline scan`: revisa las sesiones de Claude Code de un proyecto de forma
+//! incremental (guardando el offset por archivo en `state.json`) y muestra las tarjetas.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
@@ -7,7 +7,7 @@ use std::time::{Duration, Instant, SystemTime};
 use anyhow::{Context, Result};
 use wakeline_core::CardKind;
 use wakeline_core::docs;
-use wakeline_core::sessions::{SessionCard, cards_from_events, claude};
+use wakeline_core::sessions::{SessionCard, claude, scan_files_incremental};
 use wakeline_core::store::{ExportItem, LocalState, format_todo_markdown};
 
 pub struct ScanOptions {
@@ -39,33 +39,28 @@ pub fn run(options: ScanOptions) -> Result<()> {
         files.retain(|f| modified(&f.path).is_none_or(|m| m >= cutoff));
     }
 
-    let mut bytes = 0u64;
-    let mut bad_lines = 0usize;
-    let mut events = Vec::new();
-    for file in &files {
-        let read = claude::read_from(&file.path, 0)
-            .with_context(|| format!("no se pudo leer {}", file.path.display()))?;
-        bytes += read.offset;
-        bad_lines += read.bad_lines;
-        events.extend(read.events);
-    }
+    let state_path = LocalState::default_path();
+    let mut state = LocalState::load(&state_path);
+    let report = scan_files_incremental(&files, &mut state)
+        .with_context(|| format!("no se pudo escanear {}", root.display()))?;
+    let _ = state.save(&state_path);
     let read_time = started.elapsed();
 
+    let mut cards = report.cards;
     if !options.all_projects {
-        events.retain(|e| {
-            e.cwd
+        cards.retain(|c| {
+            c.cwd
                 .as_deref()
                 .is_some_and(|cwd| belongs_to(cwd, &project))
         });
     }
-    let cards = cards_from_events(&events);
     let total_time = started.elapsed();
 
     print_report(
         &files.len(),
-        bytes,
-        bad_lines,
-        events.len(),
+        report.bytes_read,
+        report.bad_lines,
+        report.events_read,
         read_time,
         total_time,
         &cards,
@@ -87,20 +82,20 @@ pub fn export(project_path: PathBuf) -> Result<()> {
     let mut files = claude::discover(&root).unwrap_or_default();
     files.retain(|f| modified(&f.path).is_none_or(|m| m >= cutoff));
 
-    let mut events = Vec::new();
-    for file in &files {
-        if let Ok(read) = claude::read_from(&file.path, 0) {
-            events.extend(read.events);
-        }
-    }
-    events.retain(|e| {
-        e.cwd
-            .as_deref()
-            .is_some_and(|cwd| belongs_to(cwd, &project))
-    });
-    let session_cards = cards_from_events(&events);
+    let state_path = LocalState::default_path();
+    let mut state = LocalState::load(&state_path);
+    let report = scan_files_incremental(&files, &mut state).unwrap_or_default();
+    let _ = state.save(&state_path);
+    let session_cards: Vec<_> = report
+        .cards
+        .into_iter()
+        .filter(|c| {
+            c.cwd
+                .as_deref()
+                .is_some_and(|cwd| belongs_to(cwd, &project))
+        })
+        .collect();
     let doc_cards = docs::scan_project_docs(&canonical).unwrap_or_default();
-    let state = LocalState::load(&LocalState::default_path());
 
     let mut items: Vec<ExportItem<'_>> = Vec::new();
     for c in &session_cards {
