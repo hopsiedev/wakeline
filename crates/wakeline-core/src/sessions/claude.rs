@@ -233,9 +233,19 @@ fn parse_line(
         session_id: raw.session_id,
         timestamp: raw.timestamp,
         cwd: raw.cwd,
-        git_branch: raw.git_branch,
+        git_branch: clean_branch(raw.git_branch),
         kind,
     }))
+}
+
+fn clean_branch(branch: Option<String>) -> Option<String> {
+    let branch = branch?;
+    let trimmed = branch.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("HEAD") {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }
 
 /// La línea más útil de un error: prioriza cabeceras de excepción o compilador
@@ -270,6 +280,10 @@ fn error_message(content: &Value) -> Option<String> {
                 && !l.starts_with('>')
                 && !l.starts_with("Traceback ")
                 && !l.starts_with("File \"")
+                && !l.starts_with("+ ")
+                && !l.starts_with("At line:")
+                && !l.contains("\"/tmp/")
+                && !l.contains("'/tmp/")
         })
         .collect();
     let best = lines
@@ -279,13 +293,24 @@ fn error_message(content: &Value) -> Option<String> {
         .or_else(|| {
             lines.iter().copied().find(|l| {
                 let ll = l.to_lowercase();
-                (ll.contains("error") && !ll.contains(".errors"))
+                (has_error_word(&ll) && !ll.contains(".errors"))
                     || ll.contains("failed")
                     || ll.contains("falló")
                     || ll.contains("command not found")
             })
         })?;
     Some(best.chars().take(240).collect())
+}
+
+/// Comprueba que aparezca la palabra `error` (no dentro de otra palabra como «Terror»).
+fn has_error_word(lower: &str) -> bool {
+    for (idx, _) in lower.match_indices("error") {
+        let prev = lower[..idx].chars().next_back();
+        if !prev.is_some_and(|c| c.is_alphabetic()) {
+            return true;
+        }
+    }
+    false
 }
 
 fn is_strong_error_line(line: &str) -> bool {
@@ -455,5 +480,29 @@ mod tests {
         let result = read_from(&file, 0).unwrap();
         assert_eq!(result.bad_lines, 1);
         assert_eq!(result.events.len(), 1);
+    }
+
+    #[test]
+    fn head_and_empty_branches_are_treated_as_none() {
+        assert_eq!(clean_branch(Some("HEAD".into())), None);
+        assert_eq!(clean_branch(Some(" head ".into())), None);
+        assert_eq!(clean_branch(Some("   ".into())), None);
+        assert_eq!(clean_branch(Some("main".into())), Some("main".into()));
+    }
+
+    #[test]
+    fn words_containing_error_substring_and_powershell_footers_are_ignored() {
+        assert_eq!(
+            error_message(&Value::String(
+                r#"1|{"ok":true,"title":"Peli De Terror"}"#.into()
+            )),
+            None
+        );
+        assert_eq!(
+            error_message(&Value::String(
+                "+ FullyQualifiedErrorId : CommandNotFoundException".into()
+            )),
+            None
+        );
     }
 }
