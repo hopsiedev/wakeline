@@ -1,7 +1,9 @@
-//! Almacenamiento local en `%APPDATA%\wakeline` y exportación manual a `docs/TODO.md`.
+//! Almacenamiento local en `%APPDATA%\wakeline\state.json` y exportación manual a `docs/TODO.md`.
 //!
-//! Guarda las decisiones del usuario (tarjetas aceptadas, hechas o descartadas) y las
-//! tarjetas creadas a mano o desde el servidor MCP, indexadas por huella estable.
+//! En la versión 0.1 el estado persiste en `state.json` (decisión Q37; la migración a
+//! SQLite queda para la 0.2). Guarda las carpetas vigiladas, las decisiones del usuario
+//! (tarjetas aceptadas, hechas o descartadas) y las tarjetas creadas a mano o desde el
+//! servidor MCP, indexadas por huella estable.
 
 use std::collections::HashMap;
 use std::io;
