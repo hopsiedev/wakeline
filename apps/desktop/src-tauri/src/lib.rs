@@ -4,7 +4,7 @@
 //! Claude Code y documentos `specs/`), cambiar su estado en `%APPDATA%\wakeline` y
 //! exportar `docs/TODO.md` a pedido.
 
-mod account;
+mod shell;
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
@@ -396,11 +396,13 @@ fn build_project_summaries(home: &Path, cards: &[UiCard]) -> Vec<UiProjectSummar
 
 /// Identidad de GitHub (vía `gh`) y estado de Claude Code y Ollama.
 #[tauri::command]
-async fn get_account(app: tauri::AppHandle) -> Result<account::AccountInfo, String> {
+async fn get_account(app: tauri::AppHandle) -> Result<wakeline_core::account::AccountInfo, String> {
     let version = app.package_info().version.to_string();
-    tauri::async_runtime::spawn_blocking(move || account::read_account(&user_home(), version))
-        .await
-        .map_err(|error| error.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        wakeline_core::account::read_account(&user_home(), version)
+    })
+    .await
+    .map_err(|error| error.to_string())
 }
 
 /// «Salir de Wakeline» desde el menú de la cuenta.
@@ -409,19 +411,47 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+/// La interfaz cambia el idioma del menú de la bandeja.
+#[tauri::command]
+fn set_tray_labels(
+    labels: tauri::State<'_, shell::TrayLabels>,
+    open: String,
+    quit: String,
+) -> Result<(), String> {
+    labels.set(&open, &quit).map_err(|e| e.to_string())
+}
+
 /// Arranca la app de escritorio con los comandos del núcleo registrados.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Una sola copia: abrir Wakeline otra vez trae al frente la que ya corre.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            shell::show_main(app);
+        }))
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            if let Some(window) = app.get_webview_window("main") {
+            let labels = shell::create_tray(app.handle())?;
+            app.manage(labels);
+
+            if let Some(window) = app.get_webview_window(shell::MAIN_WINDOW) {
+                shell::fit_to_screen(&window);
+                // La página muestra la ventana cuando ya pintó; esto es por si no llega.
                 std::thread::spawn(move || {
                     std::thread::sleep(Duration::from_secs(3));
                     let _ = window.show();
                 });
             }
             Ok(())
+        })
+        // La ✕ esconde la ventana en la bandeja en vez de cerrar la app.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event
+                && window.label() == shell::MAIN_WINDOW
+            {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_dashboard_data,
@@ -430,6 +460,7 @@ pub fn run() {
             export_todo,
             get_account,
             quit_app,
+            set_tray_labels,
         ])
         .run(tauri::generate_context!())
         .expect("no se pudo iniciar Wakeline");

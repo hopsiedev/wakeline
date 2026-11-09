@@ -229,5 +229,9 @@
     "shortcutToggle": "Show or hide the sidebar",
     "shortcutSettings": "Open settings",
     "close": "Close"
+  },
+  "tray": {
+    "open": "Open Wakeline",
+    "quit": "Quit Wakeline"
   }
 }

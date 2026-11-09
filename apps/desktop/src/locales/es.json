@@ -229,5 +229,9 @@
     "shortcutToggle": "Mostrar u ocultar la barra lateral",
     "shortcutSettings": "Abrir la configuración",
     "close": "Cerrar"
+  },
+  "tray": {
+    "open": "Abrir Wakeline",
+    "quit": "Cerrar Wakeline"
   }
 }

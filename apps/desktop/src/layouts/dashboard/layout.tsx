@@ -15,7 +15,6 @@ import { useRouter } from 'src/routes/hooks';
 
 import { AppIcon } from 'src/components/nav-icon';
 
-import { NavMobile, NavDesktop } from './nav';
 import { layoutClasses } from '../core/classes';
 import { dashboardLayoutVars } from './css-vars';
 import { navData } from '../nav-config-dashboard';
@@ -23,6 +22,7 @@ import { MainSection } from '../core/main-section';
 import { MenuButton } from '../components/menu-button';
 import { HeaderSection } from '../core/header-section';
 import { LayoutSection } from '../core/layout-section';
+import { NavMobile, NavDesktop, NAV_ANIMATION } from './nav';
 
 import type { MainSectionProps } from '../core/main-section';
 import type { HeaderSectionProps } from '../core/header-section';
@@ -178,6 +178,7 @@ export function DashboardLayout({
           [`& .${layoutClasses.sidebarContainer}`]: {
             [theme.breakpoints.up(layoutQuery)]: {
               pl: 'var(--layout-nav-vertical-width)',
+              transition: `padding-left ${NAV_ANIMATION}`,
             },
           },
         },
