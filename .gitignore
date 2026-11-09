@@ -22,5 +22,10 @@ apps/desktop/src-tauri/gen/
 .DS_Store
 Thumbs.db
 
-# Maquetas y capturas: solo en local, fuera del repo
+# Maquetas, notas de diseño y archivos locales de agentes (quedan en tu disco, fuera del repo)
 design/
+docs/
+CLAUDE.md
+.claude/
+.agents/
+.gemini/
