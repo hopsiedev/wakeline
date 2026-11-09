@@ -22,6 +22,7 @@ use wakeline_core::docs;
 use wakeline_core::exclusions;
 use wakeline_core::redact::redact;
 use wakeline_core::sessions::{claude, scan_files_incremental};
+use wakeline_core::signals;
 use wakeline_core::store::{ExportItem, LocalState, ManualCard, format_todo_markdown};
 use wakeline_core::watch::{is_within, normalized_path};
 use wakeline_core::{CardKind, CardStatus, Fingerprint, SourceKind};
@@ -44,6 +45,19 @@ pub struct UiCard {
     pub occurrences: u32,
     pub first_seen: String,
     pub last_seen: String,
+    /// Todas las huellas del grupo; cambiar el estado las escribe todas (Q52).
+    pub fingerprints: Vec<String>,
+    /// Un elemento por origen, para los chips y el Detalle (Q62).
+    pub origins: Vec<UiOrigin>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UiOrigin {
+    pub fingerprint: String,
+    pub source_kind: SourceKind,
+    pub source_label: String,
+    pub location: String,
+    pub occurrences: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -89,6 +103,9 @@ pub struct DashboardPayload {
 #[derive(Debug, Deserialize)]
 pub struct StatusInput {
     pub fingerprint: String,
+    /// Huellas del grupo; si falta, solo `fingerprint`.
+    #[serde(default)]
+    pub fingerprints: Vec<String>,
     pub status: CardStatus,
 }
 
@@ -201,10 +218,16 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             occurrences: sc.occurrences,
             first_seen,
             last_seen,
+            fingerprints: Vec::new(),
+            origins: Vec::new(),
         });
     }
 
     let mut spec_gaps = Vec::new();
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or_default();
     let mut code_scanner = CodeScanner::new();
     let command_results = CommandResults::load(&wl_commands::results_path());
 
@@ -253,11 +276,24 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
                 occurrences: 1,
                 first_seen: today_date(),
                 last_seen: today_date(),
+                fingerprints: Vec::new(),
+                origins: Vec::new(),
             });
         }
 
         let branch = read_git_branch(&watched_project.path, "—");
-        for cc in code_scanner.scan_project(&watched_project.path) {
+        let known_branch = (branch != "—").then_some(branch.as_str());
+        let code_cards = code_scanner.scan_project(&watched_project.path);
+        signals::reconcile_code(
+            &mut state,
+            &watched_project.path,
+            &watched_project.name,
+            known_branch,
+            &code_cards,
+            code_scanner.last_scan_complete(),
+            now,
+        );
+        for cc in code_cards {
             let fp_str = cc.fingerprint.as_str().to_string();
             let status = state.status_for(&fp_str);
             let short_id = format!("W-{:03}", cards.len() + 1);
@@ -282,10 +318,20 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
                 occurrences: cc.occurrences,
                 first_seen: today_date(),
                 last_seen: today_date(),
+                fingerprints: Vec::new(),
+                origins: Vec::new(),
             });
         }
 
         for result in command_results.for_project(&watched_project.path) {
+            signals::reconcile_command(
+                &mut state,
+                &watched_project.path,
+                &watched_project.name,
+                known_branch,
+                result,
+                now,
+            );
             let finished = unix_date(result.finished_at);
             for card in &result.cards {
                 let fp_str = card.fingerprint.as_str().to_string();
@@ -316,6 +362,8 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
                     occurrences: card.occurrences,
                     first_seen: finished.clone(),
                     last_seen: finished.clone(),
+                    fingerprints: Vec::new(),
+                    origins: Vec::new(),
                 });
             }
         }
@@ -345,8 +393,39 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             occurrences: 1,
             first_seen: mc.created_at.clone(),
             last_seen: mc.created_at.clone(),
+            fingerprints: Vec::new(),
+            origins: Vec::new(),
         });
     }
+
+    // Señales que se cerraron solas: se siguen viendo como hechas un tiempo.
+    for watched_project in &watched {
+        for (fp, memo) in signals::closed_in_project(&state, &watched_project.path) {
+            let seen = unix_date(memo.last_seen);
+            cards.push(UiCard {
+                fingerprint: fp.clone(),
+                short_id: String::new(),
+                kind: memo.kind,
+                status: CardStatus::Done,
+                title: memo.title.clone(),
+                project: watched_project.name.clone(),
+                branch: memo.branch.clone().unwrap_or_else(|| "—".into()),
+                source_kind: memo.source,
+                source_label: memo.label.clone(),
+                location: memo.location.clone().unwrap_or_default(),
+                code_excerpt: None,
+                evidence: None,
+                session_id: None,
+                occurrences: 0,
+                first_seen: seen.clone(),
+                last_seen: seen,
+                fingerprints: Vec::new(),
+                origins: Vec::new(),
+            });
+        }
+    }
+    let _ = state.save(&state_path);
+    let mut cards = group_cards(cards, &state);
 
     cards.sort_by(|a, b| {
         kind_rank(a.kind)
@@ -373,7 +452,11 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
 fn set_card_status(input: StatusInput) -> Result<(), String> {
     let path = LocalState::default_path();
     let mut state = LocalState::load(&path);
-    state.set_status(input.fingerprint, input.status);
+    let mut fingerprints = input.fingerprints;
+    if !fingerprints.contains(&input.fingerprint) {
+        fingerprints.push(input.fingerprint);
+    }
+    signals::set_group_status(&mut state, &fingerprints, input.status);
     state.save(&path).map_err(|e| e.to_string())
 }
 
@@ -435,6 +518,68 @@ fn export_todo_impl(project_name: Option<String>) -> Result<String, String> {
     }
     std::fs::write(&out_path, md).map_err(|e| e.to_string())?;
     Ok(out_path.display().to_string())
+}
+
+/// Junta en una tarjeta los orígenes con la misma clave de grupo (Q52, Q62).
+fn group_cards(cards: Vec<UiCard>, state: &LocalState) -> Vec<UiCard> {
+    let keys: Vec<String> = cards
+        .iter()
+        .map(|card| {
+            let branch = (card.branch != "—").then_some(card.branch.as_str());
+            let path = matches!(
+                card.source_kind,
+                SourceKind::Comment | SourceKind::Command | SourceKind::Document
+            )
+            .then_some(card.location.as_str());
+            format!(
+                "{}\u{1f}{}",
+                card.project.to_lowercase(),
+                signals::group_key(card.kind, branch, path, &card.title)
+            )
+        })
+        .collect();
+    let mut slots: Vec<Option<UiCard>> = cards.into_iter().map(Some).collect();
+    let mut grouped = Vec::new();
+    for members in signals::group_indices(&keys) {
+        let mut parts: Vec<UiCard> = members
+            .iter()
+            .filter_map(|&idx| slots[idx].take())
+            .collect();
+        // La tarjeta visible es la del origen abierto más reciente.
+        parts.sort_by(|a, b| {
+            (a.status == CardStatus::Done)
+                .cmp(&(b.status == CardStatus::Done))
+                .then_with(|| b.last_seen.cmp(&a.last_seen))
+        });
+        let mut card = parts[0].clone();
+        let members: Vec<(&str, SourceKind)> = parts
+            .iter()
+            .map(|p| (p.fingerprint.as_str(), p.source_kind))
+            .collect();
+        card.status = signals::group_status(state, &members);
+        card.occurrences = parts.iter().map(|p| p.occurrences).sum();
+        card.first_seen = parts
+            .iter()
+            .map(|p| p.first_seen.clone())
+            .min()
+            .unwrap_or_default();
+        card.fingerprints = parts.iter().map(|p| p.fingerprint.clone()).collect();
+        card.origins = parts
+            .iter()
+            .map(|p| UiOrigin {
+                fingerprint: p.fingerprint.clone(),
+                source_kind: p.source_kind,
+                source_label: p.source_label.clone(),
+                location: p.location.clone(),
+                occurrences: p.occurrences,
+            })
+            .collect();
+        grouped.push(card);
+    }
+    for (idx, card) in grouped.iter_mut().enumerate() {
+        card.short_id = format!("W-{:03}", idx + 1);
+    }
+    grouped
 }
 
 fn kind_rank(kind: CardKind) -> u8 {

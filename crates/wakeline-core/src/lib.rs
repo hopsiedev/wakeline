@@ -12,6 +12,7 @@ pub mod exclusions;
 pub mod fingerprint;
 pub mod redact;
 pub mod sessions;
+pub mod signals;
 pub mod store;
 pub mod watch;
 pub mod watcher;

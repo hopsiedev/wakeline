@@ -132,7 +132,7 @@ export function CardsView() {
   );
 
   const handleStatusChange = async (card: UiCard, status: CardStatus) => {
-    await updateCardStatus(card.fingerprint, status);
+    await updateCardStatus(card.fingerprint, status, card.fingerprints);
     setCards((prev) =>
       prev.map((c) => (c.fingerprint === card.fingerprint ? { ...c, status } : c))
     );
@@ -377,7 +377,19 @@ export function CardsView() {
                   <b>{t('cards.metaBranch')}:</b> {selectedCard.branch}
                 </Box>
                 <Box>
-                  <b>{t('cards.metaOrigin')}:</b> {selectedCard.source_label}
+                  <b>{t('cards.metaOrigin')}:</b>
+                  {selectedCard.origins.length > 1 ? (
+                    <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+                      {selectedCard.origins.map((origin) => (
+                        <li key={origin.fingerprint}>
+                          {origin.source_label}
+                          {origin.location ? ` · ${origin.location}` : ''}
+                        </li>
+                      ))}
+                    </Box>
+                  ) : (
+                    ` ${selectedCard.source_label}`
+                  )}
                 </Box>
                 <Box>
                   <b>{t('cards.whereTitle')}:</b> {selectedCard.location}
@@ -990,27 +1002,40 @@ function StatusBadge({ status }: { status: CardStatus }) {
   return <Label color="default">{t('common.accepted')}</Label>;
 }
 
+function sourceIcon(kind: UiCard['source_kind']): AppIconName {
+  if (kind === 'comment' || kind === 'command') return 'code';
+  if (kind === 'document') return 'doc';
+  if (kind === 'pull_request') return 'pr';
+  if (kind === 'issue') return 'issue';
+  return 'chat';
+}
+
+// Un chip por origen: «tsc · CI» cuando la tarjeta junta varios (Q62).
 function SourcePill({ card }: { card: UiCard }) {
-  let ico: AppIconName = 'chat';
-  if (card.source_kind === 'comment' || card.source_kind === 'command') ico = 'code';
-  else if (card.source_kind === 'document') ico = 'doc';
-  else if (card.source_kind === 'pull_request') ico = 'pr';
-  else if (card.source_kind === 'issue') ico = 'issue';
+  const origins =
+    card.origins.length > 0
+      ? card.origins
+      : [{ source_kind: card.source_kind, source_label: card.source_label }];
 
   return (
-    <Box
-      component="span"
-      sx={{
-        gap: 0.75,
-        display: 'inline-flex',
-        alignItems: 'center',
-        fontSize: 13,
-        color: 'text.secondary',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      <AppIcon name={ico} size={16} />
-      {card.source_label}
+    <Box component="span" sx={{ gap: 1, display: 'inline-flex', alignItems: 'center' }}>
+      {origins.map((origin, idx) => (
+        <Box
+          key={`${origin.source_label}-${idx}`}
+          component="span"
+          sx={{
+            gap: 0.75,
+            display: 'inline-flex',
+            alignItems: 'center',
+            fontSize: 13,
+            color: 'text.secondary',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <AppIcon name={sourceIcon(origin.source_kind)} size={16} />
+          {origin.source_label}
+        </Box>
+      ))}
     </Box>
   );
 }
