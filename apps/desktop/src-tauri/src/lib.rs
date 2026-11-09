@@ -11,6 +11,7 @@ mod github_source;
 mod live;
 mod project_commands;
 mod shell;
+mod updates;
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
@@ -1093,6 +1094,7 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let labels = shell::create_tray(app.handle())?;
             app.manage(labels);
@@ -1140,6 +1142,8 @@ pub fn run() {
             project_commands::approve_project_commands,
             project_commands::run_project_command,
             github_source::get_github_status,
+            updates::check_update,
+            updates::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("no se pudo iniciar Wakeline");

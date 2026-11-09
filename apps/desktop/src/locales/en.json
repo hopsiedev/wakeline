@@ -236,7 +236,16 @@
     "copyConfig": "Copy configuration",
     "copiedAlert": "{{label}} configuration copied to clipboard.",
     "alertsTest": "Send test",
-    "alertsTestFailed": "Could not show the notification"
+    "alertsTestFailed": "Could not show the notification",
+    "updates": "Updates",
+    "updatesHint": "Signed releases from GitHub Releases",
+    "checkUpdates": "Check",
+    "checkingUpdates": "Checking…",
+    "upToDate": "You have the latest version ({{version}})",
+    "updateAvailable": "A new version is available: {{version}}",
+    "installUpdate": "Install and restart",
+    "installingUpdate": "Installing…",
+    "updateFailed": "Could not check"
   },
   "notFound": {
     "title": "We couldn't find this page",
