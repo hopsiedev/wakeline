@@ -76,7 +76,7 @@ elige probándolo en el equipo, no de memoria.
 
 ## Interfaz
 
-Ver `design/mockup.html`.
+La maqueta de referencia vive fuera del repo (`design/mockup.html`, solo en local).
 
 - **Tema oscuro:** fondo en degradado vertical `#131313` → `#050505`, tarjetas `#1B1B1B`,
   superficies `#262626`, grises neutros, acento verde `#00A76F`.

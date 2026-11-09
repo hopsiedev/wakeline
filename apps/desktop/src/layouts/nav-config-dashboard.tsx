@@ -14,5 +14,4 @@ export const navData: NavItem[] = [
   { titleKey: 'nav.summary', path: '/', icon: <NavIcon name="home" /> },
   { titleKey: 'nav.cards', path: '/cards', icon: <NavIcon name="cards" /> },
   { titleKey: 'nav.pullRequests', path: '/pull-requests', icon: <NavIcon name="pr" /> },
-  { titleKey: 'nav.settings', path: '/settings', icon: <NavIcon name="settings" /> },
 ];
