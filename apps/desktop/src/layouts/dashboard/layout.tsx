@@ -13,7 +13,7 @@ import { useTheme } from '@mui/material/styles';
 
 import { useRouter } from 'src/routes/hooks';
 
-import { invalidateDashboardCache } from 'src/services/wakeline';
+import { subscribeToChanges, invalidateDashboardCache } from 'src/services/wakeline';
 
 import { AppIcon } from 'src/components/nav-icon';
 
@@ -67,6 +67,8 @@ export function DashboardLayout({
       return !prev;
     });
   }, []);
+
+  useEffect(() => subscribeToChanges(), []);
 
   // Atajos: Ctrl+B oculta o muestra la barra; Ctrl+, abre la configuración.
   useEffect(() => {

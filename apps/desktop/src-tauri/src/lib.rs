@@ -7,6 +7,7 @@
 mod alerts;
 #[cfg(windows)]
 mod folder_picker;
+mod live;
 mod shell;
 
 use std::path::{Path, PathBuf};
@@ -462,8 +463,8 @@ fn read_git_branch(repo_path: &Path, fallback: &str) -> String {
 
 #[cfg(windows)]
 #[tauri::command]
-async fn choose_watch_folder() -> Result<Option<String>, String> {
-    tauri::async_runtime::spawn_blocking(|| {
+async fn choose_watch_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = folder_picker::pick()? else {
             return Ok(None);
         };
@@ -481,6 +482,7 @@ async fn choose_watch_folder() -> Result<Option<String>, String> {
         {
             state.watched_folders.push(path_text.clone());
             state.save(&state_path).map_err(|error| error.to_string())?;
+            live::restart(&app);
         }
         Ok(Some(path_text))
     })
@@ -490,12 +492,12 @@ async fn choose_watch_folder() -> Result<Option<String>, String> {
 
 #[cfg(not(windows))]
 #[tauri::command]
-async fn choose_watch_folder() -> Result<Option<String>, String> {
+async fn choose_watch_folder(_app: tauri::AppHandle) -> Result<Option<String>, String> {
     Err("El selector de carpetas aún no está disponible en este sistema".into())
 }
 
 #[tauri::command]
-fn remove_watch_folder(path: String) -> Result<(), String> {
+fn remove_watch_folder(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let state_path = LocalState::default_path();
     let mut state = LocalState::load(&state_path);
     let before = state.watched_folders.len();
@@ -505,7 +507,9 @@ fn remove_watch_folder(path: String) -> Result<(), String> {
     if state.watched_folders.len() == before {
         return Err("La carpeta no estaba vigilada".into());
     }
-    state.save(&state_path).map_err(|error| error.to_string())
+    state.save(&state_path).map_err(|error| error.to_string())?;
+    live::restart(&app);
+    Ok(())
 }
 
 fn build_project_summaries(watched: &[WatchedProject], cards: &[UiCard]) -> Vec<UiProjectSummary> {
@@ -827,6 +831,7 @@ pub fn run() {
             let labels = shell::create_tray(app.handle())?;
             app.manage(labels);
             alerts::start(app.handle());
+            live::start(app.handle());
 
             if let Some(window) = app.get_webview_window(shell::MAIN_WINDOW) {
                 shell::fit_to_screen(&window);
