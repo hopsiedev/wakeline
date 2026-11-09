@@ -10,6 +10,7 @@ use wakeline_core::code::{CodeCard, CodeScanner};
 use wakeline_core::docs;
 use wakeline_core::sessions::{SessionCard, claude, scan_files_incremental};
 use wakeline_core::store::{ExportItem, LocalState, format_todo_markdown};
+use wakeline_core::watcher::DirWatcher;
 
 pub struct ScanOptions {
     pub project: PathBuf,
@@ -147,19 +148,11 @@ pub struct WatchOptions {
     pub once: bool,
 }
 
-enum WatchSignal {
-    FsChanged(PathBuf),
-    Stop,
-}
-
 pub fn watch(options: WatchOptions) -> Result<()> {
     watch_with_state_path(options, &LocalState::default_path())
 }
 
 pub fn watch_with_state_path(options: WatchOptions, state_path: &Path) -> Result<()> {
-    use notify::{RecursiveMode, Watcher};
-    use std::sync::mpsc::{self, RecvTimeoutError};
-
     let sessions_root = match options.sessions_dir {
         Some(dir) => dir,
         None => default_sessions_dir()?,
@@ -251,27 +244,14 @@ pub fn watch_with_state_path(options: WatchOptions, state_path: &Path) -> Result
 
     scan_once(&mut state)?;
 
-    let (tx, rx) = mpsc::channel::<WatchSignal>();
-    let tx_ctrlc = tx.clone();
-    let _ = ctrlc::set_handler(move || {
-        let _ = tx_ctrlc.send(WatchSignal::Stop);
-    });
-
-    let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-        if let Ok(event) = res {
-            for path in event.paths {
-                if is_ignored_watch_path(&path) {
-                    continue;
-                }
-                let _ = tx.send(WatchSignal::FsChanged(path));
-            }
-        }
-    })
-    .context("no se pudo iniciar el vigilante de archivos (notify)")?;
+    let debounce = Duration::from_millis(options.debounce_ms.max(50));
+    let (mut watcher, stopper) = DirWatcher::new(debounce, debounce * 10)
+        .context("no se pudo iniciar el vigilante de archivos (notify)")?;
+    let _ = ctrlc::set_handler(move || stopper.stop());
 
     for dir in &watched_dirs {
         watcher
-            .watch(dir, RecursiveMode::Recursive)
+            .watch(dir)
             .with_context(|| format!("no se pudo vigilar {}", dir.display()))?;
     }
     if sessions_root.is_dir()
@@ -279,55 +259,23 @@ pub fn watch_with_state_path(options: WatchOptions, state_path: &Path) -> Result
             .iter()
             .any(|p| normalize(p) == normalize(&sessions_root))
     {
-        let _ = watcher.watch(&sessions_root, RecursiveMode::Recursive);
+        let _ = watcher.watch(&sessions_root);
     }
 
-    let debounce = Duration::from_millis(options.debounce_ms.max(50));
-    while let Ok(signal) = rx.recv() {
-        match signal {
-            WatchSignal::Stop => {
-                println!("Vigilancia detenida.");
-                break;
-            }
-            WatchSignal::FsChanged(first_path) => {
-                let mut last_path = first_path;
-                loop {
-                    match rx.recv_timeout(debounce) {
-                        Ok(WatchSignal::FsChanged(p)) => last_path = p,
-                        Ok(WatchSignal::Stop) => {
-                            println!("Vigilancia detenida.");
-                            return Ok(());
-                        }
-                        Err(RecvTimeoutError::Timeout) => break,
-                        Err(RecvTimeoutError::Disconnected) => return Ok(()),
-                    }
-                }
-                println!(
-                    "Cambio detectado en {} — actualizando...",
-                    last_path.display()
-                );
-                scan_once(&mut state)?;
-                if options.once {
-                    break;
-                }
-            }
+    while let Some(batch) = watcher.next_batch() {
+        if let Some(last_path) = batch.last() {
+            println!(
+                "Cambio detectado en {} — actualizando...",
+                last_path.display()
+            );
+        }
+        scan_once(&mut state)?;
+        if options.once {
+            return Ok(());
         }
     }
-
+    println!("Vigilancia detenida.");
     Ok(())
-}
-
-fn is_ignored_watch_path(path: &Path) -> bool {
-    if wakeline_core::exclusions::is_excluded(path) {
-        return true;
-    }
-    for component in path.components() {
-        let name = component.as_os_str().to_string_lossy();
-        if wakeline_core::code::is_ignored_dir(&name) {
-            return true;
-        }
-    }
-    false
 }
 
 fn print_report(

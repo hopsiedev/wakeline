@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 // ----------------------------------------------------------------------
 
@@ -120,6 +121,18 @@ export async function removeWatchFolder(path: string): Promise<void> {
   await invoke('remove_watch_folder', { path });
   invalidateDashboardCache();
   window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+}
+
+// El backend avisa cuando cambian archivos de las carpetas vigiladas o las sesiones.
+export function subscribeToChanges(): () => void {
+  if (!isTauri()) return () => {};
+  const unlisten = listen('wakeline://changed', () => {
+    invalidateDashboardCache();
+    window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+  });
+  return () => {
+    unlisten.then((stop) => stop());
+  };
 }
 
 export function invalidateDashboardCache(): void {
