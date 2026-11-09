@@ -24,11 +24,14 @@ import DialogContent from '@mui/material/DialogContent';
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
   type UiCard,
+  openExternal,
+  openInVscode,
   type CardKind,
   type CardStatus,
   createManualCard,
   updateCardStatus,
   fetchDashboardData,
+  resumeClaudeSession,
 } from 'src/services/wakeline';
 
 import { Label } from 'src/components/label';
@@ -212,6 +215,7 @@ export function CardsView() {
   const [search, setSearch] = useState<string>('');
   const [selectedCard, setSelectedCard] = useState<UiCard | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [resumedSession, setResumedSession] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newKind, setNewKind] = useState<CardKind>('task');
@@ -219,13 +223,7 @@ export function CardsView() {
 
   const loadCards = () => {
     fetchDashboardData().then((res) => {
-      const merged = [...FEATURED_CARDS];
-      for (const item of res.cards) {
-        if (!merged.some((m) => m.fingerprint === item.fingerprint)) {
-          merged.push(item);
-        }
-      }
-      setCards(merged);
+      setCards(res.cards.length > 0 ? res.cards : FEATURED_CARDS);
     });
   };
 
@@ -236,7 +234,7 @@ export function CardsView() {
   useEffect(() => {
     const detailId = searchParams.get('detail');
     if (detailId) {
-      const found = cards.find((c) => c.short_id === detailId) ?? FEATURED_CARDS[0];
+      const found = cards.find((c) => c.short_id === detailId) ?? cards[0] ?? FEATURED_CARDS[0];
       setSelectedCard(found);
     }
   }, [searchParams, cards]);
@@ -281,6 +279,14 @@ export function CardsView() {
     navigator.clipboard?.writeText(text);
     setCopiedPrompt(true);
     setTimeout(() => setCopiedPrompt(false), 1400);
+  };
+
+  const handleResumeSession = (card: UiCard) => {
+    const cmd = card.session_id ? `claude --resume ${card.session_id}` : 'claude --continue';
+    navigator.clipboard?.writeText(cmd);
+    setResumedSession(true);
+    setTimeout(() => setResumedSession(false), 1400);
+    resumeClaudeSession(card);
   };
 
   const closeDetail = () => {
@@ -373,6 +379,7 @@ export function CardsView() {
             <Button
               variant="outlined"
               color="inherit"
+              onClick={() => openInVscode(selectedCard)}
               startIcon={<AppIcon name="vscode" size={18} />}
               sx={(theme) => ({
                 height: 36,
@@ -387,10 +394,8 @@ export function CardsView() {
             <Button
               variant="outlined"
               color="inherit"
-              onClick={() =>
-                copyPromptText(`claude --resume ${selectedCard.session_id ?? '6d22581'}`)
-              }
-              startIcon={<AppIcon name="play" size={18} />}
+              onClick={() => handleResumeSession(selectedCard)}
+              startIcon={<AppIcon name={resumedSession ? 'check' : 'play'} size={18} />}
               sx={(theme) => ({
                 height: 36,
                 px: 1.75,
@@ -417,7 +422,12 @@ export function CardsView() {
 
             <Button
               color="inherit"
-              onClick={() => handleStatusChange(selectedCard, 'accepted')}
+              onClick={() =>
+                handleStatusChange(
+                  selectedCard,
+                  selectedCard.status === 'accepted' ? 'done' : 'accepted'
+                )
+              }
               sx={(theme) => ({
                 height: 36,
                 px: 1.75,
@@ -425,11 +435,18 @@ export function CardsView() {
                 bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
               })}
             >
-              {t('common.accept')}
+              {selectedCard.status === 'accepted'
+                ? t('common.markDone')
+                : selectedCard.status === 'done'
+                  ? t('common.done')
+                  : t('common.accept')}
             </Button>
 
             <Button
-              onClick={() => handleStatusChange(selectedCard, 'dismissed')}
+              onClick={async () => {
+                await handleStatusChange(selectedCard, 'dismissed');
+                closeDetail();
+              }}
               sx={{
                 height: 36,
                 px: 1.75,
@@ -625,6 +642,7 @@ export function CardsView() {
                     size="small"
                     variant="outlined"
                     color="inherit"
+                    onClick={() => openExternal('https://github.com/hopsiedev/wakeline/pulls')}
                     startIcon={<AppIcon name="gh" size={16} />}
                     sx={(theme) => ({
                       height: 30,
