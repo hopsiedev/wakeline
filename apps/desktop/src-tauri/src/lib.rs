@@ -453,6 +453,109 @@ fn set_alert_prefs(
     }
 }
 
+fn project_base_dir(home: &Path, project: &str) -> PathBuf {
+    if project.eq_ignore_ascii_case("wakeline") {
+        home.join("app").join("bitacora")
+    } else if project.eq_ignore_ascii_case("app-expo") {
+        home.join("contastack").join("app-expo")
+    } else {
+        home.join("contastack")
+    }
+}
+
+fn extract_file_target(base_dir: &Path, raw: &str) -> Option<(PathBuf, Option<u32>)> {
+    for token in raw.split_whitespace() {
+        let token = token.trim_matches(|c: char| matches!(c, '`' | '\'' | '"' | '(' | ')' | ','));
+        // Formato `archivo:línea` o `archivo(línea,col)`
+        let (path_part, line_part) = if let Some((p, rest)) = token.split_once(':') {
+            (
+                p,
+                rest.split(':').next().and_then(|n| n.parse::<u32>().ok()),
+            )
+        } else if let Some((p, rest)) = token.split_once('(') {
+            (
+                p,
+                rest.split([',', ')'])
+                    .next()
+                    .and_then(|n| n.parse::<u32>().ok()),
+            )
+        } else {
+            (token, None)
+        };
+        if (path_part.contains('/') || path_part.contains('\\') || path_part.contains('.'))
+            && !path_part.starts_with("http")
+        {
+            let candidate = base_dir.join(path_part);
+            if candidate.exists() {
+                return Some((candidate, line_part));
+            }
+        }
+    }
+    None
+}
+
+/// Abre el archivo (y línea) o la carpeta del proyecto en VS Code (`vscode://file/...`).
+#[tauri::command]
+fn open_in_vscode(
+    app: tauri::AppHandle,
+    project: String,
+    location: String,
+    title: String,
+) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+
+    let home = user_home();
+    let base_dir = project_base_dir(&home, &project);
+    let url = if let Some((file, line)) =
+        extract_file_target(&base_dir, &location).or_else(|| extract_file_target(&base_dir, &title))
+    {
+        let slash = file.to_string_lossy().replace('\\', "/");
+        match line {
+            Some(n) => format!("vscode://file/{slash}:{n}"),
+            None => format!("vscode://file/{slash}"),
+        }
+    } else {
+        let slash = base_dir.to_string_lossy().replace('\\', "/");
+        format!("vscode://file/{slash}")
+    };
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+/// Abre una ventana de consola en la carpeta del proyecto con `claude --resume <id>`.
+#[tauri::command]
+fn resume_session(project: String, session_id: Option<String>) -> Result<(), String> {
+    let home = user_home();
+    let base_dir = project_base_dir(&home, &project);
+    let safe_id = session_id.and_then(|id| {
+        let trimmed = id.trim();
+        (!trimmed.is_empty()
+            && trimmed
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'))
+        .then(|| trimmed.to_string())
+    });
+    let claude_cmd = match safe_id {
+        Some(id) => format!("claude --resume {id}"),
+        None => "claude --continue".into(),
+    };
+    std::process::Command::new("cmd")
+        .args([
+            "/C",
+            "start",
+            "Claude Code",
+            "/D",
+            &base_dir.to_string_lossy(),
+            "cmd",
+            "/K",
+            &claude_cmd,
+        ])
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 /// Botón «Probar aviso» de la configuración.
 #[tauri::command]
 fn test_notification(app: tauri::AppHandle) -> Result<(), String> {
@@ -503,6 +606,8 @@ pub fn run() {
             set_tray_labels,
             set_alert_prefs,
             test_notification,
+            open_in_vscode,
+            resume_session,
         ])
         .run(tauri::generate_context!())
         .expect("no se pudo iniciar Wakeline");

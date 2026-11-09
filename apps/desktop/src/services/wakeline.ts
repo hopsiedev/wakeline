@@ -325,8 +325,14 @@ export function fetchDashboardData(options?: { force?: boolean }): Promise<Dashb
 export async function updateCardStatus(fingerprint: string, status: CardStatus): Promise<void> {
   if (isTauri()) {
     await invoke('set_card_status', { input: { fingerprint, status } });
+  } else {
+    const found = FALLBACK_CARDS.find((c) => c.fingerprint === fingerprint);
+    if (found) found.status = status;
   }
   invalidateDashboardCache();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+  }
 }
 
 export async function createManualCard(
@@ -336,8 +342,55 @@ export async function createManualCard(
 ): Promise<void> {
   if (isTauri()) {
     await invoke('create_card', { input: { title, kind, project } });
+  } else {
+    FALLBACK_CARDS.unshift({
+      fingerprint: `manual-${Date.now()}`,
+      short_id: `W-${String(FALLBACK_CARDS.length + 1).padStart(3, '0')}`,
+      kind,
+      status: 'new',
+      title: title.trim(),
+      project,
+      branch: 'main',
+      source_kind: 'comment',
+      source_label: 'Manual',
+      location: 'creada en Wakeline',
+      session_id: null,
+      occurrences: 1,
+      first_seen: '2026-11-08',
+      last_seen: '2026-11-08',
+    });
   }
   invalidateDashboardCache();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+  }
+}
+
+export async function openInVscode(card: UiCard): Promise<void> {
+  if (isTauri()) {
+    await invoke('open_in_vscode', {
+      project: card.project,
+      location: card.location,
+      title: card.title,
+    });
+  } else {
+    const base =
+      card.project.toLowerCase() === 'wakeline'
+        ? 'C:/Users/User/app/bitacora'
+        : card.project.toLowerCase() === 'app-expo'
+          ? 'C:/Users/User/contastack/app-expo'
+          : 'C:/Users/User/contastack';
+    window.open(`vscode://file/${base}`, '_blank', 'noopener');
+  }
+}
+
+export async function resumeClaudeSession(card: UiCard): Promise<void> {
+  if (isTauri()) {
+    await invoke('resume_session', {
+      project: card.project,
+      sessionId: card.session_id,
+    });
+  }
 }
 
 // ----------------------------------------------------------------------
