@@ -11,4 +11,5 @@ authors.workspace = true
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+time = "0.3.55"
 wakeline-core.workspace = true

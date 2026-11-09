@@ -22,6 +22,8 @@ pub struct SessionCard {
     pub fingerprint: Fingerprint,
     pub kind: CardKind,
     pub title: String,
+    /// Fragmento de la respuesta o salida original que originó la tarjeta.
+    pub evidence: Option<String>,
     /// Carpeta del proyecto según el campo `cwd` de la sesión.
     pub cwd: Option<String>,
     pub git_branch: Option<String>,
@@ -40,9 +42,10 @@ pub fn cards_from_events<'a>(
     let mut cards: Vec<SessionCard> = Vec::new();
     let mut index: HashMap<Fingerprint, usize> = HashMap::new();
 
-    let mut add = |kind: CardKind, title: String, event: &SessionEvent| {
+    let mut add = |kind: CardKind, title: String, evidence: &str, event: &SessionEvent| {
         let title = redact(&title);
-        let fingerprint = Fingerprint::new(kind, SourceKind::Session, None, &title);
+        let evidence = redact(&evidence.chars().take(2000).collect::<String>());
+        let fingerprint = Fingerprint::new(kind, SourceKind::Session, event.cwd.as_deref(), &title);
         if let Some(&i) = index.get(&fingerprint) {
             let card = &mut cards[i];
             card.occurrences += 1;
@@ -58,12 +61,16 @@ pub fn cards_from_events<'a>(
             if card.cwd.is_none() && event.cwd.is_some() {
                 card.cwd.clone_from(&event.cwd);
             }
+            if card.evidence.is_none() && !evidence.is_empty() {
+                card.evidence = Some(evidence);
+            }
         } else {
             index.insert(fingerprint.clone(), cards.len());
             cards.push(SessionCard {
                 fingerprint,
                 kind,
                 title,
+                evidence: (!evidence.is_empty()).then_some(evidence),
                 cwd: event.cwd.clone(),
                 git_branch: event.git_branch.clone(),
                 session_id: event.session_id.clone(),
@@ -78,10 +85,12 @@ pub fn cards_from_events<'a>(
         match &event.kind {
             EventKind::FinalText(text) => {
                 for finding in find_in_assistant_text(text) {
-                    add(finding.kind, finding.text, event);
+                    add(finding.kind, finding.text, text, event);
                 }
             }
-            EventKind::ToolError { message, .. } => add(CardKind::Error, message.clone(), event),
+            EventKind::ToolError {
+                message, output, ..
+            } => add(CardKind::Error, message.clone(), output, event),
         }
     }
 
@@ -108,6 +117,7 @@ mod tests {
             EventKind::ToolError {
                 tool: Some("Bash".into()),
                 message: msg.into(),
+                output: msg.into(),
             },
             ts,
         )
@@ -138,6 +148,12 @@ mod tests {
         assert_eq!(cards.len(), 1);
         assert_eq!(cards[0].kind, CardKind::Error);
         assert_eq!(cards[0].occurrences, 2);
+        assert!(
+            cards[0]
+                .evidence
+                .as_deref()
+                .is_some_and(|evidence| evidence.contains("TS2304"))
+        );
         assert_eq!(cards[0].first_seen.as_deref(), Some("2026-11-08T10:00:00Z"));
         assert_eq!(cards[0].last_seen.as_deref(), Some("2026-11-08T11:00:00Z"));
     }
@@ -155,6 +171,18 @@ mod tests {
     }
 
     #[test]
+    fn identical_tasks_in_different_folders_stay_separate() {
+        let first = event(
+            EventKind::FinalText("Queda pendiente arreglar el botón de guardar.".into()),
+            "2026-11-08T10:00:00Z",
+        );
+        let mut second = first.clone();
+        second.cwd = Some(r"C:\other-project".into());
+        let cards = cards_from_events(&[first, second]);
+        assert_eq!(cards.len(), 2);
+    }
+
+    #[test]
     fn secrets_never_reach_a_card() {
         let events = [event(
             EventKind::FinalText("Queda pendiente rotar la clave ghp_abcdefghijklmnop1234.".into()),
@@ -162,5 +190,12 @@ mod tests {
         )];
         let cards = cards_from_events(&events);
         assert!(!cards[0].title.contains("abcdefghijklmnop1234"));
+        assert!(
+            !cards[0]
+                .evidence
+                .as_deref()
+                .unwrap_or_default()
+                .contains("abcdefghijklmnop1234")
+        );
     }
 }

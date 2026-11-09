@@ -24,6 +24,10 @@ pub struct ManualCard {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct LocalState {
     #[serde(default)]
+    pub config_version: u8,
+    #[serde(default)]
+    pub watched_folders: Vec<String>,
+    #[serde(default)]
     pub statuses: HashMap<String, CardStatus>,
     #[serde(default)]
     pub manual_cards: Vec<ManualCard>,
@@ -41,10 +45,19 @@ impl LocalState {
     }
 
     pub fn load(path: &Path) -> Self {
-        std::fs::read_to_string(path)
+        let mut state: Self = std::fs::read_to_string(path)
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        // Las tarjetas antiguas pertenecían a proyectos fijados en el código.
+        // Al pasar a carpetas elegidas, empezamos sin proyectos ni decisiones heredadas.
+        if state.config_version == 0 {
+            state.statuses.clear();
+            state.manual_cards.clear();
+            state.watched_folders.clear();
+            state.config_version = 1;
+        }
+        state
     }
 
     pub fn save(&self, path: &Path) -> io::Result<()> {
@@ -107,6 +120,23 @@ pub fn format_todo_markdown(project_name: &str, items: &[ExportItem<'_>]) -> Str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn old_state_starts_with_no_watched_folders_or_cards() {
+        let path =
+            std::env::temp_dir().join(format!("wakeline-old-state-{}.json", std::process::id()));
+        std::fs::write(
+            &path,
+            r#"{"statuses":{"old":"accepted"},"manual_cards":[{"fingerprint":"old","kind":"task","title":"old task","project":"Contastack","branch":null,"created_at":"2026-11-08"}]}"#,
+        )
+        .unwrap();
+        let state = LocalState::load(&path);
+        let _ = std::fs::remove_file(path);
+        assert_eq!(state.config_version, 1);
+        assert!(state.watched_folders.is_empty());
+        assert!(state.statuses.is_empty());
+        assert!(state.manual_cards.is_empty());
+    }
 
     #[test]
     fn formats_open_cards_and_skips_dismissed_or_done() {

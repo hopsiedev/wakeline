@@ -17,6 +17,8 @@ export type UiCard = {
   source_kind: SourceKind;
   source_label: string;
   location: string;
+  code_excerpt?: string | null;
+  evidence?: string | null;
   session_id: string | null;
   occurrences: number;
   first_seen: string;
@@ -35,6 +37,12 @@ export type UiProjectSummary = {
   dismissed: number;
 };
 
+export type UiFileEntry = {
+  name: string;
+  relative_path: string;
+  is_dir: boolean;
+};
+
 export type UiSpecGap = {
   title: string;
   location: string;
@@ -49,225 +57,16 @@ export type DashboardPayload = {
   session_files: number;
   megabytes_read: number;
   scan_ms: number;
+  scan_error?: string;
 };
 
-const FALLBACK_CARDS: UiCard[] = [
-  {
-    fingerprint: 'f1',
-    short_id: 'W-001',
-    kind: 'error',
-    status: 'new',
-    title: "ModuleNotFoundError: No module named 'PIL'",
-    project: 'Contastack',
-    branch: 'main',
-    source_kind: 'session',
-    source_label: 'Sesión IA',
-    location: 'sesión 3ee6d09 · main',
-    session_id: '3ee6d09d-1a88-430b-ad98-41254031eed8',
-    occurrences: 3,
-    first_seen: '2026-11-03',
-    last_seen: '2026-11-03',
-  },
-  {
-    fingerprint: 'f2',
-    short_id: 'W-002',
-    kind: 'error',
-    status: 'new',
-    title: "FileNotFoundError: [Errno 2] No such file or directory: '/tmp/evo_create.json'",
-    project: 'Contastack',
-    branch: 'main',
-    source_kind: 'session',
-    source_label: 'Sesión IA',
-    location: 'sesión b85673e · main',
-    session_id: 'b85673ed-1ef7-48e0-bc46-34397066b61c',
-    occurrences: 2,
-    first_seen: '2026-11-06',
-    last_seen: '2026-11-06',
-  },
-  {
-    fingerprint: 'f3',
-    short_id: 'W-003',
-    kind: 'error',
-    status: 'new',
-    title: "KeyError: 'gallery'",
-    project: 'Contastack',
-    branch: 'main',
-    source_kind: 'session',
-    source_label: 'Sesión IA',
-    location: 'sesión 39643ca · main',
-    session_id: '39643caa-3858-45d2-994f-3bff09d4f1a2',
-    occurrences: 2,
-    first_seen: '2026-10-17',
-    last_seen: '2026-10-17',
-  },
-  {
-    fingerprint: 'f4',
-    short_id: 'W-004',
-    kind: 'task',
-    status: 'new',
-    title: 'Sigue pendiente renombrar la carpeta bitacora a wakeline.',
-    project: 'wakeline',
-    branch: 'main',
-    source_kind: 'session',
-    source_label: 'Sesión IA',
-    location: 'sesión 3ee6d09 · main',
-    session_id: '3ee6d09d-1a88-430b-ad98-41254031eed8',
-    occurrences: 2,
-    first_seen: '2026-11-08',
-    last_seen: '2026-11-08',
-  },
-  {
-    fingerprint: 'f5',
-    short_id: 'W-005',
-    kind: 'task',
-    status: 'new',
-    title: 'Lo pendiente: PDF a hoja completa, notificaciones y empleados.',
-    project: 'app-expo',
-    branch: 'app-movil-expo',
-    source_kind: 'session',
-    source_label: 'Sesión IA',
-    location: 'sesión b85673e · app-movil-expo',
-    session_id: 'b85673ed-1ef7-48e0-bc46-34397066b61c',
-    occurrences: 1,
-    first_seen: '2026-11-07',
-    last_seen: '2026-11-07',
-  },
-  {
-    fingerprint: 'f6',
-    short_id: 'W-006',
-    kind: 'task',
-    status: 'accepted',
-    title:
-      'Gastos por fecha, no por hora: el WhatsApp y el panel suman los gastos por día. Con dos turnos el mismo día, salen en los dos.',
-    project: 'Contastack',
-    branch: 'main',
-    source_kind: 'document',
-    source_label: 'specs/',
-    location: 'specs/caja.md:99',
-    session_id: null,
-    occurrences: 1,
-    first_seen: '2026-11-04',
-    last_seen: '2026-11-08',
-  },
-  {
-    fingerprint: 'f7',
-    short_id: 'W-007',
-    kind: 'task',
-    status: 'accepted',
-    title:
-      'Gastos en el panel: el panel lee los gastos del dispositivo. Un gasto registrado en otro equipo sale en el WhatsApp, pero no en el panel.',
-    project: 'Contastack',
-    branch: 'main',
-    source_kind: 'document',
-    source_label: 'specs/',
-    location: 'specs/caja.md:100',
-    session_id: null,
-    occurrences: 1,
-    first_seen: '2026-11-04',
-    last_seen: '2026-11-08',
-  },
-  {
-    fingerprint: 'f8',
-    short_id: 'W-008',
-    kind: 'idea',
-    status: 'new',
-    title:
-      'Valdría la pena más adelante si necesitas caché guardada en el teléfono o reintentos más avanzados.',
-    project: 'app-expo',
-    branch: 'main',
-    source_kind: 'session',
-    source_label: 'Sesión IA',
-    location: 'sesión b85673e · main',
-    session_id: 'b85673ed-1ef7-48e0-bc46-34397066b61c',
-    occurrences: 1,
-    first_seen: '2026-11-07',
-    last_seen: '2026-11-07',
-  },
-  {
-    fingerprint: 'f9',
-    short_id: 'W-009',
-    kind: 'idea',
-    status: 'accepted',
-    title:
-      'Más adelante se puede hacer que cada cliente nuevo entre solo a la audiencia de Resend al registrarse, usando el webhook user.created.',
-    project: 'Contastack',
-    branch: 'main',
-    source_kind: 'session',
-    source_label: 'Sesión IA',
-    location: 'sesión 39643ca · main',
-    session_id: '39643caa-3858-45d2-994f-3bff09d4f1a2',
-    occurrences: 1,
-    first_seen: '2026-10-26',
-    last_seen: '2026-10-26',
-  },
-];
-
-const FALLBACK_PAYLOAD: DashboardPayload = {
-  cards: FALLBACK_CARDS,
-  projects: [
-    {
-      name: 'Contastack',
-      path: 'C:\\Users\\User\\contastack',
-      branch: 'main',
-      active: true,
-      errors: 3,
-      tasks: 52,
-      ideas: 4,
-      done: 9,
-      dismissed: 2,
-    },
-    {
-      name: 'app-expo',
-      path: 'C:\\Users\\User\\contastack\\app-expo',
-      branch: 'app-movil-expo',
-      active: true,
-      errors: 0,
-      tasks: 12,
-      ideas: 1,
-      done: 4,
-      dismissed: 0,
-    },
-    {
-      name: 'wakeline',
-      path: 'C:\\Users\\User\\app\\bitacora',
-      branch: 'interfaz-datos-reales',
-      active: true,
-      errors: 0,
-      tasks: 3,
-      ideas: 1,
-      done: 2,
-      dismissed: 0,
-    },
-  ],
-  spec_gaps: [
-    {
-      title: 'Gastos por fecha, no por hora: el WhatsApp y el panel suman los gastos por día.',
-      location: 'specs/caja.md:99',
-      tag: 'Brecha',
-      kind: 'task',
-    },
-    {
-      title: 'Gastos en el panel: el panel lee los gastos del dispositivo.',
-      location: 'specs/caja.md:100',
-      tag: 'Brecha',
-      kind: 'task',
-    },
-    {
-      title: 'Tipo de gasto en el servidor: la copia no guarda si fue egreso de caja.',
-      location: 'specs/caja.md:101',
-      tag: 'Brecha',
-      kind: 'task',
-    },
-    {
-      title: 'Facturas vacías en el móvil: muestra un aviso amarillo con el motivo y Reintentar.',
-      location: 'docs/hoja-de-ruta.md:33',
-      tag: 'Siguiente',
-      kind: 'task',
-    },
-  ],
-  session_files: 60,
-  megabytes_read: 507.8,
-  scan_ms: 245,
+const EMPTY_PAYLOAD: DashboardPayload = {
+  cards: [],
+  projects: [],
+  spec_gaps: [],
+  session_files: 0,
+  megabytes_read: 0,
+  scan_ms: 0,
 };
 
 function isTauri(): boolean {
@@ -279,13 +78,29 @@ let dashboardRequest: Promise<DashboardPayload> | null = null;
 
 async function loadDashboardData(): Promise<DashboardPayload> {
   if (!isTauri()) {
-    return FALLBACK_PAYLOAD;
+    return EMPTY_PAYLOAD;
   }
   try {
     return await invoke<DashboardPayload>('get_dashboard_data');
-  } catch {
-    return FALLBACK_PAYLOAD;
+  } catch (error) {
+    return { ...EMPTY_PAYLOAD, scan_error: String(error) };
   }
+}
+
+export async function chooseWatchFolder(): Promise<void> {
+  if (!isTauri()) throw new Error('Elige la carpeta desde la aplicación de escritorio');
+  const selected = await invoke<string | null>('choose_watch_folder');
+  if (selected) {
+    invalidateDashboardCache();
+    window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+  }
+}
+
+export async function removeWatchFolder(path: string): Promise<void> {
+  if (!isTauri()) return;
+  await invoke('remove_watch_folder', { path });
+  invalidateDashboardCache();
+  window.dispatchEvent(new CustomEvent('wakeline:rescan'));
 }
 
 export function invalidateDashboardCache(): void {
@@ -293,9 +108,15 @@ export function invalidateDashboardCache(): void {
   dashboardRequest = null;
 }
 
+export function getCachedDashboardData(): DashboardPayload | null {
+  return cachedDashboard;
+}
+
 export function fetchDashboardData(options?: { force?: boolean }): Promise<DashboardPayload> {
   if (options?.force) {
-    invalidateDashboardCache();
+    // Several visible sections receive the same rescan event. Share one scan.
+    if (dashboardRequest) return dashboardRequest;
+    cachedDashboard = null;
   } else if (cachedDashboard) {
     return Promise.resolve(cachedDashboard);
   }
@@ -325,9 +146,6 @@ export function fetchDashboardData(options?: { force?: boolean }): Promise<Dashb
 export async function updateCardStatus(fingerprint: string, status: CardStatus): Promise<void> {
   if (isTauri()) {
     await invoke('set_card_status', { input: { fingerprint, status } });
-  } else {
-    const found = FALLBACK_CARDS.find((c) => c.fingerprint === fingerprint);
-    if (found) found.status = status;
   }
   invalidateDashboardCache();
   if (typeof window !== 'undefined') {
@@ -342,23 +160,6 @@ export async function createManualCard(
 ): Promise<void> {
   if (isTauri()) {
     await invoke('create_card', { input: { title, kind, project } });
-  } else {
-    FALLBACK_CARDS.unshift({
-      fingerprint: `manual-${Date.now()}`,
-      short_id: `W-${String(FALLBACK_CARDS.length + 1).padStart(3, '0')}`,
-      kind,
-      status: 'new',
-      title: title.trim(),
-      project,
-      branch: 'main',
-      source_kind: 'comment',
-      source_label: 'Manual',
-      location: 'creada en Wakeline',
-      session_id: null,
-      occurrences: 1,
-      first_seen: '2026-11-08',
-      last_seen: '2026-11-08',
-    });
   }
   invalidateDashboardCache();
   if (typeof window !== 'undefined') {
@@ -373,15 +174,17 @@ export async function openInVscode(card: UiCard): Promise<void> {
       location: card.location,
       title: card.title,
     });
-  } else {
-    const base =
-      card.project.toLowerCase() === 'wakeline'
-        ? 'C:/Users/User/app/bitacora'
-        : card.project.toLowerCase() === 'app-expo'
-          ? 'C:/Users/User/contastack/app-expo'
-          : 'C:/Users/User/contastack';
-    window.open(`vscode://file/${base}`, '_blank', 'noopener');
   }
+}
+
+export async function listProjectFiles(project: string, relativePath = ''): Promise<UiFileEntry[]> {
+  if (!isTauri()) return [];
+  return invoke<UiFileEntry[]>('list_project_files', { project, relativePath });
+}
+
+export async function openProjectFile(project: string, relativePath: string): Promise<void> {
+  if (!isTauri()) return;
+  await invoke('open_in_vscode', { project, location: relativePath, title: '' });
 }
 
 export async function resumeClaudeSession(card: UiCard): Promise<void> {
@@ -406,21 +209,25 @@ export type AccountInfo = {
   /** `null` si `gh` no está instalado o no tiene sesión. */
   github: GithubUser | null;
   claude_code: boolean;
+  codex_mcp: boolean;
+  antigravity_mcp: boolean;
   ollama: boolean;
   version: string;
 };
 
 const FALLBACK_ACCOUNT: AccountInfo = {
   github: null,
-  claude_code: true,
+  claude_code: false,
+  codex_mcp: false,
+  antigravity_mcp: false,
   ollama: false,
   version: '0.1.0',
 };
 
 let accountRequest: Promise<AccountInfo> | null = null;
 
-export function fetchAccount(): Promise<AccountInfo> {
-  if (!accountRequest) {
+export function fetchAccount(force = false): Promise<AccountInfo> {
+  if (force || !accountRequest) {
     accountRequest = isTauri()
       ? invoke<AccountInfo>('get_account').catch(() => FALLBACK_ACCOUNT)
       : Promise.resolve(FALLBACK_ACCOUNT);
@@ -446,15 +253,20 @@ export async function openExternal(url: string): Promise<void> {
 /** Notificación de prueba, para ver cómo se verán los avisos. */
 export async function sendTestNotification(): Promise<void> {
   if (isTauri()) {
-    await invoke('test_notification').catch(() => {});
+    await invoke('test_notification');
   }
+}
+
+export async function getMcpExecutable(): Promise<string | null> {
+  if (!isTauri()) return null;
+  return invoke<string | null>('get_mcp_executable');
 }
 
 export const REPO_URL = 'https://github.com/hopsiedev/wakeline';
 
 export async function exportProjectTodo(projectName?: string): Promise<string> {
   if (isTauri()) {
-    return invoke<string>('export_todo', { projectName: projectName ?? 'Contastack' });
+    return invoke<string>('export_todo', { projectName });
   }
-  return 'C:\\Users\\User\\contastack\\docs\\TODO.md';
+  throw new Error('La exportación solo está disponible en la aplicación de escritorio');
 }

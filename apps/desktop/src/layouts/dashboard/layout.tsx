@@ -13,6 +13,8 @@ import { useTheme } from '@mui/material/styles';
 
 import { useRouter } from 'src/routes/hooks';
 
+import { invalidateDashboardCache } from 'src/services/wakeline';
+
 import { AppIcon } from 'src/components/nav-icon';
 
 import { layoutClasses } from '../core/classes';
@@ -84,6 +86,7 @@ export function DashboardLayout({
 
   const handleRescan = () => {
     setRescanning(true);
+    invalidateDashboardCache();
     window.dispatchEvent(new CustomEvent('wakeline:rescan'));
     setTimeout(() => setRescanning(false), 1200);
   };

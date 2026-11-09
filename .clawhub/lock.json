@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "@biostartechnology/humanizer": {
+      "version": "1.0.0",
+      "installedAt": 1794197313799,
+      "ownerHandle": "biostartechnology"
+    }
+  }
+}

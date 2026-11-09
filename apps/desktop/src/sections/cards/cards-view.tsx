@@ -24,14 +24,15 @@ import DialogContent from '@mui/material/DialogContent';
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
   type UiCard,
-  openExternal,
   openInVscode,
   type CardKind,
   type CardStatus,
   createManualCard,
   updateCardStatus,
+  chooseWatchFolder,
   fetchDashboardData,
   resumeClaudeSession,
+  type UiProjectSummary,
 } from 'src/services/wakeline';
 
 import { Label } from 'src/components/label';
@@ -42,173 +43,13 @@ import { AppIcon, type AppIconName } from 'src/components/nav-icon';
 type ViewMode = 'table' | 'kanban';
 type TypeFilter = 'all' | CardKind;
 
-const FEATURED_CARDS: UiCard[] = [
-  {
-    fingerprint: 'err·tsc·estado.tsx·ts2339',
-    short_id: 'V-142',
-    title: 'Type error: «estado» no existe en «EcfResumen»',
-    kind: 'error',
-    status: 'new',
-    source_kind: 'command',
-    source_label: 'tsc + PR #20',
-    project: 'Contastack',
-    branch: 'ecf-minimalista',
-    location: 'components/ecf/estado.tsx:38',
-    occurrences: 5,
-    first_seen: 'hace 2 h',
-    last_seen: 'hace 4 min',
-    session_id: '6d22581',
-  },
-  {
-    fingerprint: 'err·lint·estado.tsx·3',
-    short_id: 'V-141',
-    title: 'npm run lint falla por import sin usar',
-    kind: 'error',
-    status: 'new',
-    source_kind: 'session',
-    source_label: 'Sesión IA',
-    project: 'Contastack',
-    branch: 'ecf-minimalista',
-    location: 'components/ecf/estado.tsx:3',
-    occurrences: 3,
-    first_seen: 'hace 1 h',
-    last_seen: 'hace 22 min',
-    session_id: '6d22581',
-  },
-  {
-    fingerprint: 'err·gh·issue-34',
-    short_id: 'V-143',
-    title: 'El ticket sale sin ITBIS en impresora de 58 mm',
-    kind: 'error',
-    status: 'new',
-    source_kind: 'issue',
-    source_label: 'Issue #34',
-    project: 'Contastack',
-    branch: 'main',
-    location: 'issue #34 · bug',
-    occurrences: 1,
-    first_seen: 'hace 1 día',
-    last_seen: 'hace 1 día',
-    session_id: null,
-  },
-  {
-    fingerprint: 'task·gh·pr-21',
-    short_id: 'V-140',
-    title: 'Cambios pedidos: reintentos con backoff',
-    kind: 'task',
-    status: 'new',
-    source_kind: 'pull_request',
-    source_label: 'PR #21',
-    project: 'Contastack',
-    branch: 'caja-reintentos',
-    location: 'PR #21 · 2 comentarios de revisión',
-    occurrences: 1,
-    first_seen: 'hace 1 h',
-    last_seen: 'hace 1 h',
-    session_id: null,
-  },
-  {
-    fingerprint: 'task·session·caja-188',
-    short_id: 'V-139',
-    title: 'Probar la caja sin conexión en el móvil',
-    kind: 'task',
-    status: 'new',
-    source_kind: 'session',
-    source_label: 'Sesión IA',
-    project: 'Contastack',
-    branch: 'caja-solo-servidor',
-    location: 'sesión caja-solo-servidor · msg 188',
-    occurrences: 1,
-    first_seen: 'hace 2 h',
-    last_seen: 'hace 2 h',
-    session_id: 'caja-solo-servidor',
-  },
-  {
-    fingerprint: 'idea·session·ncf-97',
-    short_id: 'V-137',
-    title: 'Aviso cuando el NCF esté por agotarse',
-    kind: 'idea',
-    status: 'new',
-    source_kind: 'session',
-    source_label: 'Sesión IA',
-    project: 'Contastack',
-    branch: 'ecf-pestana-terminos',
-    location: 'sesión ecf-pestana-terminos · msg 97',
-    occurrences: 2,
-    first_seen: 'hace 3 h',
-    last_seen: 'hace 3 h',
-    session_id: 'ecf-pestana-terminos',
-  },
-  {
-    fingerprint: 'task·doc·auditoria-88',
-    short_id: 'V-131',
-    title: 'Fase 5: registro de auditoría',
-    kind: 'task',
-    status: 'accepted',
-    source_kind: 'document',
-    source_label: 'Hoja de ruta',
-    project: 'Contastack',
-    branch: 'main',
-    location: 'docs/hoja-de-ruta.md:88',
-    occurrences: 1,
-    first_seen: 'ayer',
-    last_seen: 'ayer',
-    session_id: null,
-  },
-  {
-    fingerprint: 'task·doc·limites-42',
-    short_id: 'V-128',
-    title: 'Límite de peticiones en memoria por instancia',
-    kind: 'task',
-    status: 'accepted',
-    source_kind: 'document',
-    source_label: 'specs/',
-    project: 'Contastack',
-    branch: 'main',
-    location: 'specs/limites.md:42',
-    occurrences: 1,
-    first_seen: 'ayer',
-    last_seen: 'ayer',
-    session_id: null,
-  },
-  {
-    fingerprint: 'task·code·saldo-17',
-    short_id: 'V-124',
-    title: 'TODO: mover cálculo de saldo a customer-store',
-    kind: 'task',
-    status: 'accepted',
-    source_kind: 'comment',
-    source_label: 'TODO',
-    project: 'Contastack',
-    branch: 'main',
-    location: 'lib/customers/saldo.ts:17',
-    occurrences: 1,
-    first_seen: 'hace 3 días',
-    last_seen: 'hace 3 días',
-    session_id: null,
-  },
-  {
-    fingerprint: 'idea·session·facturas-54',
-    short_id: 'V-119',
-    title: 'Exportar facturas a Excel desde el historial',
-    kind: 'idea',
-    status: 'accepted',
-    source_kind: 'session',
-    source_label: 'Sesión IA',
-    project: 'Contastack',
-    branch: 'facturas-filtros',
-    location: 'sesión facturas-filtros · msg 54',
-    occurrences: 1,
-    first_seen: 'hace 4 días',
-    last_seen: 'hace 4 días',
-    session_id: 'facturas-filtros',
-  },
-];
-
 export function CardsView() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [cards, setCards] = useState<UiCard[]>(FEATURED_CARDS);
+  const [cards, setCards] = useState<UiCard[]>([]);
+  const [projects, setProjects] = useState<UiProjectSummary[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [watchError, setWatchError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
@@ -219,25 +60,47 @@ export function CardsView() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newKind, setNewKind] = useState<CardKind>('task');
-  const [newProject, setNewProject] = useState('Contastack');
+  const [newProject, setNewProject] = useState('');
 
-  const loadCards = () => {
-    fetchDashboardData().then((res) => {
-      setCards(res.cards.length > 0 ? res.cards : FEATURED_CARDS);
+  const loadCards = (force = false) => {
+    fetchDashboardData({ force }).then((res) => {
+      setCards(res.cards);
+      setProjects(res.projects);
+      setLoaded(true);
+      setNewProject((current) =>
+        res.projects.some((project) => project.name === current)
+          ? current
+          : (res.projects[0]?.name ?? '')
+      );
     });
   };
 
   useEffect(() => {
     loadCards();
+    const onRescan = () => loadCards(true);
+    window.addEventListener('wakeline:rescan', onRescan);
+    return () => window.removeEventListener('wakeline:rescan', onRescan);
   }, []);
 
   useEffect(() => {
     const detailId = searchParams.get('detail');
     if (detailId) {
-      const found = cards.find((c) => c.short_id === detailId) ?? cards[0] ?? FEATURED_CARDS[0];
-      setSelectedCard(found);
+      setSelectedCard(cards.find((c) => c.short_id === detailId) ?? null);
+    } else if (
+      selectedCard &&
+      !cards.some((card) => card.fingerprint === selectedCard.fingerprint)
+    ) {
+      setSelectedCard(null);
     }
-  }, [searchParams, cards]);
+  }, [searchParams, cards, selectedCard]);
+
+  const detailFingerprint = selectedCard?.fingerprint;
+  useEffect(() => {
+    if (detailFingerprint) {
+      document.querySelector('main')?.scrollTo(0, 0);
+      window.scrollTo(0, 0);
+    }
+  }, [detailFingerprint]);
 
   const filtered = useMemo(
     () =>
@@ -268,7 +131,7 @@ export function CardsView() {
   };
 
   const handleCreate = async () => {
-    if (!newTitle.trim()) return;
+    if (!newTitle.trim() || !newProject) return;
     await createManualCard(newTitle, newKind, newProject);
     setNewTitle('');
     setCreateOpen(false);
@@ -334,7 +197,6 @@ export function CardsView() {
             {selectedCard.short_id}
           </Box>
         </Box>
-
         <Box
           sx={{
             mb: 3,
@@ -411,7 +273,15 @@ export function CardsView() {
               color="primary"
               onClick={() =>
                 copyPromptText(
-                  `Proyecto: ${selectedCard.project} (${selectedCard.branch})\nOrigen: ${selectedCard.location}\nPendiente: ${selectedCard.title}`
+                  [
+                    `Proyecto: ${selectedCard.project} (${selectedCard.branch})`,
+                    `Origen: ${selectedCard.location}`,
+                    `Pendiente: ${selectedCard.title}`,
+                    selectedCard.evidence && `Evidencia:\n${selectedCard.evidence}`,
+                    selectedCard.code_excerpt && `Código:\n${selectedCard.code_excerpt}`,
+                  ]
+                    .filter(Boolean)
+                    .join('\n\n')
                 )
               }
               startIcon={<AppIcon name={copiedPrompt ? 'check' : 'copy'} size={18} />}
@@ -460,381 +330,116 @@ export function CardsView() {
             </Button>
           </Box>
         </Box>
-
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, lg: 8 }}>
-            <Box sx={{ gap: 3, display: 'flex', flexDirection: 'column' }}>
-              {/* Dónde aparece */}
-              <Card>
-                <Box sx={{ pt: 3, px: 3 }}>
-                  <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
-                    {t('cards.whereTitle')}
-                  </Typography>
-                  <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 14 }}>
-                    {selectedCard.location} · npm run typecheck
-                  </Typography>
-                </Box>
-                <Box sx={{ p: 3 }}>
-                  <Box
-                    sx={(theme) => ({
-                      py: 2,
-                      borderRadius: 1.5,
-                      overflowX: 'auto',
-                      fontFamily: 'monospace',
-                      fontSize: 12.5,
-                      lineHeight: 1.7,
-                      color: 'text.primary',
-                      bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
-                      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
-                    })}
-                  >
-                    <CodeLine num={35}>
-                      <Box component="span" sx={{ color: 'secondary.main' }}>
-                        export function
-                      </Box>{' '}
-                      <Box component="span" sx={{ color: 'info.main' }}>
-                        EstadoEcf
-                      </Box>
-                      {'({ resumen }: { resumen: EcfResumen }) {'}
-                    </CodeLine>
-                    <CodeLine num={36}>
-                      {'  '}
-                      <Box component="span" sx={{ color: 'secondary.main' }}>
-                        const
-                      </Box>{' '}
-                      pendientes = resumen.documentos.
-                      <Box component="span" sx={{ color: 'info.main' }}>
-                        filter
-                      </Box>
-                      (esPendiente)
-                    </CodeLine>
-                    <CodeLine num={37}>
-                      <Box component="span" sx={{ color: 'text.disabled' }}>
-                        {'  // la vista nueva ya no recibe el estado desde la API'}
-                      </Box>
-                    </CodeLine>
-                    <CodeLine num={38} highlight>
-                      {'  '}
-                      <Box component="span" sx={{ color: 'secondary.main' }}>
-                        if
-                      </Box>{' '}
-                      (resumen.
-                      <Box component="span" sx={{ color: 'error.main', fontWeight: 700 }}>
-                        estado
-                      </Box>{' '}
-                      ==={' '}
-                      <Box component="span" sx={{ color: 'success.main' }}>
-                        &quot;rechazado&quot;
-                      </Box>
-                      ){' '}
-                      <Box component="span" sx={{ color: 'secondary.main' }}>
-                        return
-                      </Box>{' '}
-                      {'<'}
-                      <Box component="span" sx={{ color: 'info.main' }}>
-                        Rechazo
-                      </Box>
-                      {' />'}
-                    </CodeLine>
-                    <CodeLine num={39}>
-                      {'  '}
-                      <Box component="span" sx={{ color: 'secondary.main' }}>
-                        return
-                      </Box>{' '}
-                      {'<'}
-                      <Box component="span" sx={{ color: 'info.main' }}>
-                        Lista
-                      </Box>
-                      {' items={pendientes} />'}
-                    </CodeLine>
-                    <CodeLine num={40}>{'}'}</CodeLine>
-                  </Box>
-
-                  <Box
-                    sx={(theme) => ({
-                      mt: 1.5,
-                      py: 1.5,
-                      px: 2,
-                      borderRadius: 1.5,
-                      fontFamily: 'monospace',
-                      fontSize: 12.5,
-                      color: 'error.main',
-                      bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
-                      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
-                    })}
-                  >
-                    TS2339: Property &apos;estado&apos; does not exist on type
-                    &apos;EcfResumen&apos;.
-                  </Box>
-                </Box>
-              </Card>
-
-              {/* Lo que dijo la IA */}
-              <Card>
-                <Box sx={{ pt: 3, px: 3 }}>
-                  <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
-                    {t('cards.aiQuoteTitle')}
-                  </Typography>
-                  <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 14 }}>
-                    {t('cards.aiQuoteSubtitle')}
-                  </Typography>
-                </Box>
-                <Box sx={{ p: 3, gap: 1.5, display: 'grid' }}>
-                  <Box
-                    component="blockquote"
-                    sx={{
-                      m: 0,
-                      py: 1.25,
-                      px: 2,
-                      fontSize: 13.5,
-                      color: 'text.secondary',
-                      borderRadius: '0 10px 10px 0',
-                      borderLeft: '3px solid #8E33FF',
-                      bgcolor: 'rgba(142, 51, 255, 0.08)',
-                    }}
-                  >
-                    «{selectedCard.title}»
-                    <Box
-                      component="small"
-                      sx={{ mt: 0.75, display: 'block', color: 'text.disabled', fontSize: 12 }}
-                    >
-                      Asistente · hoy 14:31 · mensaje 212 de 340
-                    </Box>
-                  </Box>
-
-                  <Box
-                    component="blockquote"
-                    sx={{
-                      m: 0,
-                      py: 1.25,
-                      px: 2,
-                      fontSize: 13.5,
-                      color: 'text.secondary',
-                      borderRadius: '0 10px 10px 0',
-                      borderLeft: '3px solid #FF5630',
-                      bgcolor: 'rgba(255, 86, 48, 0.08)',
-                    }}
-                  >
-                    Bash · <code>npm run typecheck</code> salió con código 2 (3 veces en esta
-                    sesión)
-                    <Box
-                      component="small"
-                      sx={{ mt: 0.75, display: 'block', color: 'text.disabled', fontSize: 12 }}
-                    >
-                      Resultado de herramienta · is_error · hoy 14:52
-                    </Box>
-                  </Box>
-                </Box>
-              </Card>
-
-              {/* En GitHub */}
-              <Card>
-                <Box sx={{ pt: 3, px: 3, display: 'flex', alignItems: 'center' }}>
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
-                      {t('cards.githubTitle')}
-                    </Typography>
-                    <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 14 }}>
-                      {t('cards.githubSubtitle')}: {selectedCard.branch}
-                    </Typography>
-                  </Box>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="inherit"
-                    onClick={() => openExternal('https://github.com/hopsiedev/wakeline/pulls')}
-                    startIcon={<AppIcon name="gh" size={16} />}
-                    sx={(theme) => ({
-                      height: 30,
-                      px: 1.25,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.32),
-                    })}
-                  >
-                    {t('cards.openPr')}
-                  </Button>
-                </Box>
-
-                <Box sx={{ p: 3, gap: 1.25, display: 'grid' }}>
-                  <Box
-                    sx={(theme) => ({
-                      pb: 1.5,
-                      gap: 1.75,
-                      display: 'flex',
-                      alignItems: 'center',
-                      borderBottom: `1px dashed ${varAlpha(theme.vars.palette.grey['500Channel'], 0.2)}`,
-                    })}
-                  >
-                    <Box sx={{ color: 'error.main', display: 'flex' }}>
-                      <AppIcon name="pr" size={20} />
-                    </Box>
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
-                        #20 ecf: quitar estado del resumen
-                      </Typography>
-                      <Typography
-                        sx={{ color: 'text.disabled', fontSize: 12, fontFamily: 'monospace' }}
-                      >
-                        abierto por hopsiedev · hace 3 h
-                      </Typography>
-                    </Box>
-                    <Label color="error">{t('pullRequests.ciRed')}</Label>
-                  </Box>
-
-                  {[
-                    ['✕', 'error.main', 'CI / typecheck · TS2339 en components/ecf/estado.tsx:38'],
-                    ['✕', 'error.main', "CI / lint · 'useMemo' is defined but never used"],
-                    ['✓', 'success.main', 'CI / tests · 412 pruebas'],
-                  ].map(([sym, col, txt]) => (
-                    <Box
-                      key={txt}
-                      sx={(theme) => ({
-                        py: 1.25,
-                        px: 1.5,
-                        gap: 1.25,
-                        borderRadius: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        fontSize: 12.5,
-                        fontFamily: 'monospace',
-                        color: 'text.primary',
-                        bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
-                      })}
-                    >
-                      <Box component="span" sx={{ color: col, display: 'flex' }}>
-                        <AppIcon name={sym === '✓' ? 'check' : 'x'} size={15} strokeWidth={2.25} />
-                      </Box>
-                      <Box component="span" sx={{ flexGrow: 1 }}>
-                        {txt}
-                      </Box>
-                      <Box
-                        component="span"
-                        sx={{ color: 'text.disabled', fontFamily: 'inherit', fontSize: 12 }}
-                      >
-                        hace 18 min
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              </Card>
-            </Box>
-          </Grid>
-
-          <Grid size={{ xs: 12, lg: 4 }}>
-            <Box sx={{ gap: 3, display: 'flex', flexDirection: 'column' }}>
-              <Card>
-                <Box sx={{ pt: 3, px: 3 }}>
-                  <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
-                    {t('cards.metaTitle')}
-                  </Typography>
-                </Box>
+            <Card sx={{ p: 3 }}>
+              <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
+                {t('cards.whereTitle')}
+              </Typography>
+              <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 14 }}>
+                {selectedCard.location}
+              </Typography>
+              {selectedCard.code_excerpt ? (
                 <Box
-                  sx={{
-                    p: 3,
-                    gap: '14px 16px',
-                    display: 'grid',
-                    fontSize: 14,
-                    gridTemplateColumns: '120px 1fr',
-                  }}
+                  component="pre"
+                  sx={(theme) => ({
+                    mt: 2,
+                    p: 2,
+                    overflowX: 'auto',
+                    borderRadius: 1.5,
+                    fontSize: 12.5,
+                    lineHeight: 1.7,
+                    color: 'text.primary',
+                    bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
+                  })}
                 >
-                  <Box sx={{ color: 'text.secondary' }}>{t('cards.project')}</Box>
-                  <Box>{selectedCard.project}</Box>
-
-                  <Box sx={{ color: 'text.secondary' }}>{t('cards.metaBranch')}</Box>
-                  <Box sx={{ fontFamily: 'monospace' }}>{selectedCard.branch}</Box>
-
-                  <Box sx={{ color: 'text.secondary' }}>{t('cards.metaOrigin')}</Box>
-                  <Box sx={{ gap: 0.75, display: 'flex', flexWrap: 'wrap' }}>
-                    <Label color="default">tsc</Label>
-                    <Label color="default">Sesión IA</Label>
-                    <Label color="default">PR #20 · CI</Label>
-                  </Box>
-
-                  <Box sx={{ color: 'text.secondary' }}>{t('cards.metaCommit')}</Box>
-                  <Box sx={{ fontFamily: 'monospace' }}>6d22581</Box>
-
-                  <Box sx={{ color: 'text.secondary' }}>{t('cards.metaClosure')}</Box>
-                  <Box>{t('cards.metaClosureAuto')}</Box>
-
-                  <Box sx={{ color: 'text.secondary' }}>{t('cards.metaFingerprint')}</Box>
-                  <Box
-                    sx={{
-                      fontSize: 12,
-                      wordBreak: 'break-all',
-                      color: 'text.disabled',
-                      fontFamily: 'monospace',
-                    }}
-                  >
-                    {selectedCard.fingerprint}
-                  </Box>
+                  {selectedCard.code_excerpt}
                 </Box>
-              </Card>
-
-              <Card>
-                <Box sx={{ pt: 3, px: 3 }}>
-                  <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
-                    {t('cards.occurrencesTitle')}
-                  </Typography>
-                  <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 14 }}>
-                    {t('cards.occurrencesSubtitle')}
-                  </Typography>
-                </Box>
-                <Box sx={{ p: 3 }}>
-                  <Box sx={{ height: 64, gap: '6px', display: 'flex', alignItems: 'flex-end' }}>
-                    {[8, 8, 8, 8, 40, 100, 8, 40, 70, 40].map((h, i) => (
-                      <Box
-                        key={i}
-                        sx={(theme) => ({
-                          flex: 1,
-                          height: `${h}%`,
-                          borderRadius: '3px 3px 0 0',
-                          bgcolor:
-                            h <= 8
-                              ? varAlpha(theme.vars.palette.grey['500Channel'], 0.24)
-                              : 'error.main',
-                          opacity: h <= 8 ? 1 : 0.8,
-                        })}
-                      />
-                    ))}
-                  </Box>
-                  <Box
-                    sx={{
-                      pt: 0.75,
-                      display: 'flex',
-                      fontSize: 12,
-                      color: 'text.disabled',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <span>12:00</span>
-                    <span>13:00</span>
-                    <span>14:00</span>
-                    <span>15:00</span>
-                  </Box>
-                </Box>
-              </Card>
-
-              <Box
-                sx={(theme) => ({
-                  p: 2,
-                  gap: 1.5,
-                  borderRadius: 1.25,
-                  display: 'flex',
-                  fontSize: 13.5,
-                  color: 'text.primary',
-                  bgcolor: varAlpha(theme.vars.palette.info.mainChannel, 0.14),
-                  border: `1px solid ${varAlpha(theme.vars.palette.info.mainChannel, 0.28)}`,
-                })}
-              >
-                <Box sx={{ color: 'info.main', display: 'flex', flexShrink: 0, mt: 0.25 }}>
-                  <AppIcon name="sparkle" size={20} />
+              ) : !selectedCard.evidence ? (
+                <Typography sx={{ mt: 2, color: 'text.secondary', fontSize: 13 }}>
+                  {t(
+                    /[/\\]/.test(selectedCard.location)
+                      ? 'cards.unreadableFile'
+                      : 'cards.noCodeExcerpt'
+                  )}
+                </Typography>
+              ) : null}
+            </Card>
+          </Grid>
+          <Grid size={{ xs: 12, lg: 4 }}>
+            <Card sx={{ p: 3 }}>
+              <Typography sx={{ fontSize: 18, fontWeight: 600 }}>{t('cards.metaTitle')}</Typography>
+              <Box sx={{ mt: 2, gap: 1.5, display: 'grid', fontSize: 14 }}>
+                <Box>
+                  <b>{t('cards.project')}:</b> {selectedCard.project}
                 </Box>
                 <Box>
-                  <b>{t('cards.ollamaBold')}</b> {t('cards.ollamaNotice')}
+                  <b>{t('cards.metaBranch')}:</b> {selectedCard.branch}
+                </Box>
+                <Box>
+                  <b>{t('cards.metaOrigin')}:</b> {selectedCard.source_label}
+                </Box>
+                <Box>
+                  <b>{t('cards.whereTitle')}:</b> {selectedCard.location}
+                </Box>
+                {selectedCard.session_id && (
+                  <Box sx={{ overflowWrap: 'anywhere' }}>
+                    <b>{t('cards.metaSession')}:</b> {selectedCard.session_id}
+                  </Box>
+                )}
+                <Box sx={{ overflowWrap: 'anywhere', color: 'text.secondary', fontSize: 12 }}>
+                  <b>{t('cards.metaFingerprint')}:</b> {selectedCard.fingerprint}
                 </Box>
               </Box>
-            </Box>
+            </Card>
+          </Grid>
+          {selectedCard.evidence && (
+            <Grid size={{ xs: 12, lg: 8 }}>
+              <Card sx={{ p: 3 }}>
+                <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
+                  {selectedCard.kind === 'error'
+                    ? t('cards.errorOutput')
+                    : t('cards.sourceEvidence')}
+                </Typography>
+                <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 13 }}>
+                  {selectedCard.source_label}
+                  {selectedCard.session_id ? ` · ${selectedCard.session_id}` : ''}
+                </Typography>
+                <Box
+                  component="pre"
+                  sx={(theme) => ({
+                    mt: 2,
+                    p: 2,
+                    whiteSpace: 'pre-wrap',
+                    overflowWrap: 'anywhere',
+                    borderRadius: 1.5,
+                    fontSize: 12.5,
+                    lineHeight: 1.7,
+                    color: selectedCard.kind === 'error' ? 'error.main' : 'text.primary',
+                    bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
+                  })}
+                >
+                  {selectedCard.evidence}
+                </Box>
+              </Card>
+            </Grid>
+          )}
+          <Grid
+            size={{ xs: 12, lg: 4 }}
+            sx={!selectedCard.evidence ? { ml: { lg: 'auto' } } : undefined}
+          >
+            <Card sx={{ p: 3 }}>
+              <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
+                {t('cards.occurrencesTitle')}
+              </Typography>
+              <Typography sx={{ mt: 1, fontSize: 30, fontWeight: 700 }}>
+                {selectedCard.occurrences}
+              </Typography>
+              <Typography sx={{ color: 'text.secondary', fontSize: 13 }}>
+                {t('cards.firstSeen')} {selectedCard.first_seen} · {t('cards.lastSeen')}{' '}
+                {selectedCard.last_seen}
+              </Typography>
+            </Card>
           </Grid>
         </Grid>
       </DashboardContent>
@@ -929,6 +534,7 @@ export function CardsView() {
 
           <Button
             variant="contained"
+            disabled={projects.length === 0}
             onClick={() => setCreateOpen(true)}
             startIcon={<AppIcon name="plus" size={18} />}
             sx={{
@@ -946,7 +552,21 @@ export function CardsView() {
         </Box>
       </Box>
 
-      {viewMode === 'table' && (
+      {watchError && <Typography sx={{ mb: 2, color: 'error.main' }}>{watchError}</Typography>}
+
+      {loaded && projects.length === 0 && (
+        <Card sx={{ p: 4, textAlign: 'center' }}>
+          <Typography sx={{ fontWeight: 600 }}>{t('pullRequests.noWatchedFolders')}</Typography>
+          <Button
+            sx={{ mt: 2 }}
+            onClick={() => chooseWatchFolder().catch((error) => setWatchError(String(error)))}
+          >
+            {t('pullRequests.watchFolder')}
+          </Button>
+        </Card>
+      )}
+
+      {viewMode === 'table' && projects.length > 0 && (
         <Card>
           {/* Pestañas por tipo */}
           <Box
@@ -1009,27 +629,20 @@ export function CardsView() {
 
           {/* Barra de herramientas */}
           <Box sx={{ p: 2.5, gap: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
-            <Box
-              onClick={() => setProjectFilter((prev) => (prev === 'all' ? 'Contastack' : 'all'))}
-              sx={(theme) => ({
-                width: 200,
-                height: 54,
-                px: 1.75,
-                display: 'flex',
-                cursor: 'pointer',
-                position: 'relative',
-                alignItems: 'center',
-                borderRadius: 1,
-                color: 'text.secondary',
-                border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.32)}`,
-              })}
+            <Select
+              size="small"
+              value={projectFilter}
+              onChange={(event) => setProjectFilter(event.target.value)}
+              aria-label={t('cards.project')}
+              sx={{ width: 200, height: 54 }}
             >
-              <FieldLegend label={t('cards.project')} />
-              <span>{projectFilter === 'all' ? 'Contastack' : projectFilter}</span>
-              <Box component="span" sx={{ ml: 'auto' }}>
-                ▾
-              </Box>
-            </Box>
+              <MenuItem value="all">{t('common.all')}</MenuItem>
+              {projects.map((project) => (
+                <MenuItem key={project.path} value={project.name}>
+                  {project.name}
+                </MenuItem>
+              ))}
+            </Select>
 
             <Box
               sx={(theme) => ({
@@ -1100,7 +713,9 @@ export function CardsView() {
             </Box>{' '}
             {t('cards.results')} ·
             <FilterChip text={t('cards.chipStatus')} />
-            <FilterChip text={`${t('cards.chipProject')}: Contastack`} />
+            <FilterChip
+              text={`${t('cards.chipProject')}: ${projectFilter === 'all' ? t('common.all') : projectFilter}`}
+            />
             <Button
               size="small"
               onClick={() => {
@@ -1197,7 +812,7 @@ export function CardsView() {
         </Card>
       )}
 
-      {viewMode === 'kanban' && (
+      {viewMode === 'kanban' && projects.length > 0 && (
         <Grid container spacing={3}>
           {(
             [
@@ -1295,9 +910,11 @@ export function CardsView() {
               value={newProject}
               onChange={(e) => setNewProject(e.target.value)}
             >
-              <MenuItem value="Contastack">Contastack</MenuItem>
-              <MenuItem value="app-expo">app-expo</MenuItem>
-              <MenuItem value="wakeline">wakeline</MenuItem>
+              {projects.map((project) => (
+                <MenuItem key={project.path} value={project.name}>
+                  {project.name}
+                </MenuItem>
+              ))}
             </Select>
           </Box>
         </DialogContent>
@@ -1305,7 +922,7 @@ export function CardsView() {
           <Button color="inherit" onClick={() => setCreateOpen(false)}>
             {t('common.cancel')}
           </Button>
-          <Button variant="contained" onClick={handleCreate}>
+          <Button variant="contained" onClick={handleCreate} disabled={!newProject}>
             {t('common.create')}
           </Button>
         </DialogActions>
@@ -1447,38 +1064,6 @@ function FilterChip({ text }: { text: string }) {
       >
         ×
       </Box>
-    </Box>
-  );
-}
-
-function CodeLine({
-  num,
-  highlight,
-  children,
-}: {
-  num: number;
-  highlight?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Box
-      sx={{
-        px: 2,
-        display: 'flex',
-        whiteSpace: 'pre',
-        ...(highlight && {
-          bgcolor: 'rgba(255, 86, 48, 0.12)',
-          boxShadow: 'inset 3px 0 #FF5630',
-        }),
-      }}
-    >
-      <Box
-        component="span"
-        sx={{ width: 40, flexShrink: 0, userSelect: 'none', color: 'text.disabled' }}
-      >
-        {num}
-      </Box>
-      <Box component="span">{children}</Box>
     </Box>
   );
 }
