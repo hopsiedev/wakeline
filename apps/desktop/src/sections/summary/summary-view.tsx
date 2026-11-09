@@ -59,6 +59,16 @@ const DAILY_CHART_DAYS = [
 
 const CHART_MAX = 12;
 
+const PROJECT_STYLES: Record<string, { letter: string; iconBg: string; iconColor: string }> = {
+  contastack: { letter: 'C', iconBg: 'rgba(0, 167, 111, 0.16)', iconColor: 'primary.main' },
+  'app-expo': { letter: 'A', iconBg: 'rgba(0, 184, 217, 0.16)', iconColor: 'info.main' },
+  wakeline: { letter: 'W', iconBg: 'rgba(255, 171, 0, 0.16)', iconColor: 'warning.main' },
+};
+
+function shortHomePath(raw: string): string {
+  return raw.replace(/^[A-Za-z]:\\Users\\[^\\]+/i, '~').replace(/\\/g, '/');
+}
+
 export function SummaryView() {
   const { t } = useTranslation();
   const [data, setData] = useState<DashboardPayload | null>(null);
@@ -76,7 +86,20 @@ export function SummaryView() {
     setExportedPath(out);
   };
 
-  const extraGaps = (data?.spec_gaps ?? []).slice(0, 2);
+  const cards = data?.cards ?? [];
+  const isOpen = (s: string) => s === 'new' || s === 'accepted';
+  const openErrors = cards.filter((c) => c.kind === 'error' && isOpen(c.status)).length;
+  const newErrors = cards.filter((c) => c.kind === 'error' && c.status === 'new').length;
+  const openTasks = cards.filter((c) => c.kind === 'task' && isOpen(c.status)).length;
+  const sessionTasks = cards.filter(
+    (c) => c.kind === 'task' && c.source_kind === 'session' && isOpen(c.status)
+  ).length;
+  const openIdeas = cards.filter((c) => c.kind === 'idea' && isOpen(c.status)).length;
+  const newIdeas = cards.filter((c) => c.kind === 'idea' && c.status === 'new').length;
+  const doneCards = cards.filter((c) => c.status === 'done').length;
+
+  const sessionTimeline = cards.filter((c) => c.source_kind === 'session').slice(0, 4);
+  const specGaps = (data?.spec_gaps ?? []).slice(0, 5);
 
   return (
     <DashboardContent maxWidth={false}>
@@ -149,8 +172,8 @@ export function SummaryView() {
             iconBg="rgba(255, 86, 48, 0.16)"
             iconColor="error.main"
             label={t('summary.newErrors')}
-            value={4}
-            deltaBold={t('summary.newErrorsDeltaUp')}
+            value={data ? openErrors : 4}
+            deltaBold={data ? `${newErrors}` : t('summary.newErrorsDeltaUp')}
             deltaBoldColor="error.main"
             deltaText={t('summary.newErrorsDelta')}
             barColor="#FF5630"
@@ -163,8 +186,8 @@ export function SummaryView() {
             iconBg="rgba(0, 184, 217, 0.16)"
             iconColor="info.main"
             label={t('summary.openTasks')}
-            value={23}
-            deltaBold={t('summary.openTasksDeltaBold')}
+            value={data ? openTasks : 23}
+            deltaBold={data ? `${sessionTasks}` : t('summary.openTasksDeltaBold')}
             deltaBoldColor="text.primary"
             deltaText={t('summary.openTasksDelta')}
             barColor="#00B8D9"
@@ -177,8 +200,8 @@ export function SummaryView() {
             iconBg="rgba(142, 51, 255, 0.16)"
             iconColor="secondary.main"
             label={t('summary.savedIdeas')}
-            value={11}
-            deltaBold={t('summary.savedIdeasDeltaBold')}
+            value={data ? openIdeas : 11}
+            deltaBold={data ? `${newIdeas}` : t('summary.savedIdeasDeltaBold')}
             deltaBoldColor="text.primary"
             deltaText={t('summary.savedIdeasDelta')}
             barColor="#8E33FF"
@@ -191,7 +214,7 @@ export function SummaryView() {
             iconBg="rgba(34, 197, 94, 0.16)"
             iconColor="success.main"
             label={t('summary.autoResolved')}
-            value={9}
+            value={data ? doneCards : 9}
             deltaBold={t('summary.autoResolvedDeltaDown')}
             deltaBoldColor="success.main"
             deltaText={t('summary.autoResolvedDelta')}
@@ -315,37 +338,63 @@ export function SummaryView() {
             </Box>
 
             <Box sx={{ pt: 1.5, pb: 3, px: 3 }}>
-              <ProjectSummaryRow
-                letter="C"
-                iconBg="rgba(0, 167, 111, 0.16)"
-                iconColor="primary.main"
-                name="Contastack"
-                meta="~/contastack · main"
-                errors={3}
-                tasks={17}
-                ideas={8}
-              />
-              <ProjectSummaryRow
-                letter="A"
-                iconBg="rgba(0, 184, 217, 0.16)"
-                iconColor="info.main"
-                name="app-expo"
-                meta="~/contastack/app-expo"
-                errors={1}
-                tasks={5}
-                ideas={2}
-              />
-              <ProjectSummaryRow
-                letter="W"
-                iconBg="rgba(255, 171, 0, 0.16)"
-                iconColor="warning.main"
-                name="wakeline"
-                meta="~/app/wakeline"
-                errors={0}
-                tasks={1}
-                ideas={1}
-                isLast
-              />
+              {data?.projects && data.projects.length > 0 ? (
+                data.projects.map((proj, idx) => {
+                  const style = PROJECT_STYLES[proj.name.toLowerCase()] ?? {
+                    letter: proj.name.slice(0, 1).toUpperCase(),
+                    iconBg: 'rgba(0, 167, 111, 0.16)',
+                    iconColor: 'primary.main',
+                  };
+                  return (
+                    <ProjectSummaryRow
+                      key={proj.name}
+                      letter={style.letter}
+                      iconBg={style.iconBg}
+                      iconColor={style.iconColor}
+                      name={proj.name}
+                      meta={`${shortHomePath(proj.path)} · ${proj.branch}`}
+                      errors={proj.errors}
+                      tasks={proj.tasks}
+                      ideas={proj.ideas}
+                      isLast={idx === data.projects.length - 1}
+                    />
+                  );
+                })
+              ) : (
+                <>
+                  <ProjectSummaryRow
+                    letter="C"
+                    iconBg="rgba(0, 167, 111, 0.16)"
+                    iconColor="primary.main"
+                    name="Contastack"
+                    meta="~/contastack · main"
+                    errors={3}
+                    tasks={17}
+                    ideas={8}
+                  />
+                  <ProjectSummaryRow
+                    letter="A"
+                    iconBg="rgba(0, 184, 217, 0.16)"
+                    iconColor="info.main"
+                    name="app-expo"
+                    meta="~/contastack/app-expo"
+                    errors={1}
+                    tasks={5}
+                    ideas={2}
+                  />
+                  <ProjectSummaryRow
+                    letter="W"
+                    iconBg="rgba(255, 171, 0, 0.16)"
+                    iconColor="warning.main"
+                    name="wakeline"
+                    meta="~/app/wakeline"
+                    errors={0}
+                    tasks={1}
+                    ideas={1}
+                    isLast
+                  />
+                </>
+              )}
             </Box>
           </Card>
         </Grid>
@@ -366,40 +415,61 @@ export function SummaryView() {
             </Box>
 
             <Box component="ul" sx={{ p: 3, m: 0, listStyle: 'none' }}>
-              <TimelineItem
-                color="#FF5630"
-                title="«ecf-minimalista» · 2 errores repetidos"
-                description={
-                  <>
-                    <code>npm run lint</code> falló 3 veces en{' '}
-                    <code>components/ecf/estado.tsx</code>
-                  </>
-                }
-                meta="Hoy, 14:52 · sesión 6d22581"
-              />
-              <TimelineItem
-                color="#00B8D9"
-                title="La IA dejó 3 pendientes"
-                description="«Queda pendiente probar la caja sin conexión en el móvil»"
-                meta="Hoy, 13:10 · caja-solo-servidor"
-              />
-              <TimelineItem
-                color="#8E33FF"
-                title="1 idea propuesta"
-                description="«Podríamos añadir un aviso cuando el NCF esté por agotarse»"
-                meta="Hoy, 11:47 · ecf-pestana-terminos"
-              />
-              <TimelineItem
-                color="#22C55E"
-                title="2 errores de tsc se cerraron solos"
-                description={
-                  <>
-                    Ya no aparecen en <code>npm run typecheck</code>
-                  </>
-                }
-                meta="Hoy, 10:05 · señal local"
-                isLast
-              />
+              {sessionTimeline.length > 0 ? (
+                sessionTimeline.map((card, idx) => (
+                  <TimelineItem
+                    key={card.fingerprint}
+                    color={
+                      card.kind === 'error'
+                        ? '#FF5630'
+                        : card.kind === 'idea'
+                          ? '#8E33FF'
+                          : '#00B8D9'
+                    }
+                    title={`«${card.branch}» · ${card.project}${card.occurrences > 1 ? ` · ×${card.occurrences}` : ''}`}
+                    description={card.title}
+                    meta={`${card.last_seen} · ${card.location}`}
+                    isLast={idx === sessionTimeline.length - 1}
+                  />
+                ))
+              ) : (
+                <>
+                  <TimelineItem
+                    color="#FF5630"
+                    title="«ecf-minimalista» · 2 errores repetidos"
+                    description={
+                      <>
+                        <code>npm run lint</code> falló 3 veces en{' '}
+                        <code>components/ecf/estado.tsx</code>
+                      </>
+                    }
+                    meta="Hoy, 14:52 · sesión 6d22581"
+                  />
+                  <TimelineItem
+                    color="#00B8D9"
+                    title="La IA dejó 3 pendientes"
+                    description="«Queda pendiente probar la caja sin conexión en el móvil»"
+                    meta="Hoy, 13:10 · caja-solo-servidor"
+                  />
+                  <TimelineItem
+                    color="#8E33FF"
+                    title="1 idea propuesta"
+                    description="«Podríamos añadir un aviso cuando el NCF esté por agotarse»"
+                    meta="Hoy, 11:47 · ecf-pestana-terminos"
+                  />
+                  <TimelineItem
+                    color="#22C55E"
+                    title="2 errores de tsc se cerraron solos"
+                    description={
+                      <>
+                        Ya no aparecen en <code>npm run typecheck</code>
+                      </>
+                    }
+                    meta="Hoy, 10:05 · señal local"
+                    isLast
+                  />
+                </>
+              )}
             </Box>
           </Card>
         </Grid>
@@ -416,35 +486,40 @@ export function SummaryView() {
             </Box>
 
             <Box sx={{ pt: 1.5, pb: 3, px: 3 }}>
-              <SpecGapRow
-                title="Límite de peticiones en memoria por instancia"
-                location="specs/limites.md:42"
-                badge="Brecha"
-                color="warning"
-              />
-              <SpecGapRow
-                title="Fase 5: registro de auditoría"
-                location="docs/hoja-de-ruta.md:88"
-                badge="Siguiente"
-                color="info"
-              />
-              <SpecGapRow
-                title="Rotar claves del .env antiguo en git"
-                location="CLAUDE.md:71"
-                badge="Seguridad"
-                color="error"
-                isLast={extraGaps.length === 0}
-              />
-              {extraGaps.map((gap, i) => (
-                <SpecGapRow
-                  key={`${gap.location}-${gap.title}`}
-                  title={gap.title}
-                  location={gap.location}
-                  badge={gap.tag}
-                  color={gap.tag === 'Brecha' ? 'warning' : 'info'}
-                  isLast={i === extraGaps.length - 1}
-                />
-              ))}
+              {specGaps.length > 0 ? (
+                specGaps.map((gap, i) => (
+                  <SpecGapRow
+                    key={`${gap.location}-${gap.title}`}
+                    title={gap.title}
+                    location={gap.location}
+                    badge={gap.tag}
+                    color={gap.tag === 'Brecha' ? 'warning' : 'info'}
+                    isLast={i === specGaps.length - 1}
+                  />
+                ))
+              ) : (
+                <>
+                  <SpecGapRow
+                    title="Límite de peticiones en memoria por instancia"
+                    location="specs/limites.md:42"
+                    badge="Brecha"
+                    color="warning"
+                  />
+                  <SpecGapRow
+                    title="Fase 5: registro de auditoría"
+                    location="docs/hoja-de-ruta.md:88"
+                    badge="Siguiente"
+                    color="info"
+                  />
+                  <SpecGapRow
+                    title="Rotar claves del .env antiguo en git"
+                    location="CLAUDE.md:71"
+                    badge="Seguridad"
+                    color="error"
+                    isLast
+                  />
+                </>
+              )}
             </Box>
           </Card>
         </Grid>

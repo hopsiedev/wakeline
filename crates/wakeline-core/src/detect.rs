@@ -52,9 +52,7 @@ const TASK_PHRASES: &[&str] = &[
     "falta conectar",
     "falta pasarlo",
     "no pude probar",
-    "no pude comprobar",
     "no pude verificar",
-    "no pude confirmar",
     "brecha conocida",
     "brechas conocidas",
     "still pending",
@@ -71,7 +69,8 @@ const TASK_PHRASES: &[&str] = &[
     "follow up later",
 ];
 
-/// Frases donde «pendiente» es del dominio contable o del propio cuestionario de diseño.
+/// Frases donde «pendiente» es del dominio contable, del cuestionario de diseño o de una
+/// explicación sobre lo que la sesión actual no tiene acceso a ver.
 const NOISE_PATTERNS: &[&str] = &[
     "rd$",
     "us$",
@@ -86,6 +85,18 @@ const NOISE_PATTERNS: &[&str] = &[
     "lo que sigue pendiente",
     "lo que queda pendiente (",
     "es la parte que no pude comprobar",
+    "esta sesión no tiene",
+    "en esta sesión no tengo",
+    "no pude probarlo yo",
+    "es una sospecha",
+    "tus dos decisiones",
+    "dime si ",
+    "dime el nombre",
+    "si me das el nombre",
+    "dímelo y lo ajusto",
+    "cuéntame qué dice",
+    "si lo ves, dime",
+    "vigía no es parte de contastack",
 ];
 
 /// Una tarea o idea encontrada en el texto.
@@ -260,7 +271,9 @@ mod tests {
         let text = "Saldo pendiente: una barra verde que se recalcula.\n\
                     Se pasa con RD$20,000 y queda pendiente por RD$40,000.\n\
                     Sigue pendiente tu respuesta: ¿debe mostrar el menú?\n\
-                    ❓ Q12 - ¿Contastack es el proyecto piloto? Sigue pendiente.";
+                    ❓ Q12 - ¿Contastack es el proyecto piloto? Sigue pendiente.\n\
+                    No pude probarlo en el navegador porque en esta sesión no tengo uno.\n\
+                    Sigue pendiente la ✗ roja del CI de GitHub: dime el nombre del job.";
         assert!(find_in_assistant_text(text).is_empty());
     }
 }

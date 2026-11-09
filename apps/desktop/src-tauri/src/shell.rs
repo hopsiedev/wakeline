@@ -27,9 +27,9 @@ impl WindowSize {
                 width: 1280.0,
                 height: 800.0,
             },
-            "c" => Self::Share {
-                width: 0.70,
-                height: 0.78,
+            "b" => Self::Fixed {
+                width: 1440.0,
+                height: 900.0,
             },
             "d" => Self::Share {
                 width: 0.75,
@@ -39,10 +39,10 @@ impl WindowSize {
                 width: 0.86,
                 height: 0.88,
             },
-            _ => Self::Fixed {
-                width: 1440.0,
-                height: 900.0,
-            }, // "b", por defecto
+            _ => Self::Share {
+                width: 0.70,
+                height: 0.78,
+            }, // "c", por defecto (70 % × 78 % del área de trabajo)
         }
     }
 }

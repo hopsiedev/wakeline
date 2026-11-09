@@ -85,7 +85,7 @@ La maqueta de referencia vive fuera del repo (`design/mockup.html`, solo en loca
 - **Cinco pantallas:** Resumen, Tarjetas (tabla o kanban), Detalle, Proyectos y
   Configuración.
 - **Idiomas:** español e inglés desde la 0.1. Por defecto, el idioma del sistema.
-- **Ventana y bandeja:** abre al 86 % del área de trabajo, centrada. La ✕ la esconde en la bandeja (Wakeline sigue vigilando); se cierra del todo con «Cerrar Wakeline» en la bandeja o «Salir» en la cuenta. Una sola copia: abrirla otra vez trae al frente la que ya corre. Sin menú del navegador al hacer clic derecho.
+- **Ventana y bandeja:** abre al 70 % × 78 % del área de trabajo, centrada. La ✕ la esconde en la bandeja (Wakeline sigue vigilando); se cierra del todo con «Cerrar Wakeline» en la bandeja o «Salir» en la cuenta. Una sola copia: abrirla otra vez trae al frente la que ya corre. Sin menú del navegador al hacer clic derecho.
 - **Avisos:** notificación de Windows solo para errores nuevos, como máximo una cada
   10 minutos. Contador en el ícono de la bandeja.
 

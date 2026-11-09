@@ -111,6 +111,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             events.extend(read.events);
         }
     }
+    events.retain(|e| is_watched_cwd(e.cwd.as_deref()));
 
     let session_cards = cards_from_events(&events);
     let mut cards: Vec<UiCard> = Vec::new();
@@ -317,6 +318,17 @@ fn user_home() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
+fn is_watched_cwd(cwd: Option<&str>) -> bool {
+    let Some(raw) = cwd else {
+        return false;
+    };
+    let lower = raw.replace('\\', "/").to_lowercase();
+    lower.contains("contastack")
+        || lower.contains("app-expo")
+        || lower.contains("bitacora")
+        || lower.contains("wakeline")
+}
+
 fn project_name_from_cwd(cwd: Option<&str>) -> String {
     let Some(raw) = cwd else {
         return "Contastack".into();
@@ -340,6 +352,16 @@ fn short_date(ts: &str) -> String {
     ts.get(..10).unwrap_or(ts).to_string()
 }
 
+fn read_git_branch(repo_path: &Path, fallback: &str) -> String {
+    if let Ok(head) = std::fs::read_to_string(repo_path.join(".git").join("HEAD"))
+        && let Some(branch) = head.trim().strip_prefix("ref: refs/heads/")
+        && !branch.is_empty()
+    {
+        return branch.to_string();
+    }
+    fallback.into()
+}
+
 fn build_project_summaries(home: &Path, cards: &[UiCard]) -> Vec<UiProjectSummary> {
     let defs = [
         ("Contastack", home.join("contastack"), "main", true),
@@ -349,16 +371,12 @@ fn build_project_summaries(home: &Path, cards: &[UiCard]) -> Vec<UiProjectSummar
             "app-movil-expo",
             true,
         ),
-        (
-            "wakeline",
-            home.join("app").join("bitacora"),
-            "interfaz-datos-reales",
-            true,
-        ),
+        ("wakeline", home.join("app").join("bitacora"), "main", true),
     ];
 
     defs.into_iter()
-        .map(|(name, path, branch, active)| {
+        .map(|(name, path, fallback_branch, active)| {
+            let branch = read_git_branch(&path, fallback_branch);
             let proj_cards: Vec<_> = cards
                 .iter()
                 .filter(|c| c.project.eq_ignore_ascii_case(name))
@@ -383,7 +401,7 @@ fn build_project_summaries(home: &Path, cards: &[UiCard]) -> Vec<UiProjectSummar
             UiProjectSummary {
                 name: name.into(),
                 path: path.display().to_string(),
-                branch: branch.into(),
+                branch,
                 active,
                 errors: open(CardKind::Error),
                 tasks: open(CardKind::Task),

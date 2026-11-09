@@ -52,6 +52,12 @@ pub fn cards_from_events<'a>(
             if card.first_seen.is_none() || event.timestamp < card.first_seen {
                 card.first_seen.clone_from(&event.timestamp);
             }
+            if card.git_branch.is_none() && event.git_branch.is_some() {
+                card.git_branch.clone_from(&event.git_branch);
+            }
+            if card.cwd.is_none() && event.cwd.is_some() {
+                card.cwd.clone_from(&event.cwd);
+            }
         } else {
             index.insert(fingerprint.clone(), cards.len());
             cards.push(SessionCard {
