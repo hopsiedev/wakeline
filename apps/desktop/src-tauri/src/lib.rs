@@ -14,6 +14,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
+use wakeline_core::code::CodeScanner;
 use wakeline_core::docs;
 use wakeline_core::exclusions;
 use wakeline_core::redact::redact;
@@ -199,6 +200,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
     }
 
     let mut spec_gaps = Vec::new();
+    let mut code_scanner = CodeScanner::new();
 
     for watched_project in &watched {
         let doc_cards = docs::scan_project_docs(&watched_project.path).unwrap_or_default();
@@ -243,6 +245,35 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
                 evidence: None,
                 session_id: None,
                 occurrences: 1,
+                first_seen: today_date(),
+                last_seen: today_date(),
+            });
+        }
+
+        let branch = read_git_branch(&watched_project.path, "—");
+        for cc in code_scanner.scan_project(&watched_project.path) {
+            let fp_str = cc.fingerprint.as_str().to_string();
+            let status = state.status_for(&fp_str);
+            let short_id = format!("W-{:03}", cards.len() + 1);
+            let code_excerpt = read_code_excerpt(
+                &watched_project.path.join(&cc.path),
+                u32::try_from(cc.line).ok(),
+            );
+            cards.push(UiCard {
+                fingerprint: fp_str,
+                short_id,
+                kind: cc.kind,
+                status,
+                location: cc.location(),
+                title: cc.title,
+                project: watched_project.name.clone(),
+                branch: branch.clone(),
+                source_kind: SourceKind::Comment,
+                source_label: "Código".into(),
+                code_excerpt,
+                evidence: None,
+                session_id: None,
+                occurrences: cc.occurrences,
                 first_seen: today_date(),
                 last_seen: today_date(),
             });
