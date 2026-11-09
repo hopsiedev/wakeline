@@ -69,6 +69,45 @@ function shortHomePath(raw: string): string {
   return raw.replace(/^[A-Za-z]:\\Users\\[^\\]+/i, '~').replace(/\\/g, '/');
 }
 
+function buildDailySeries(cards: DashboardPayload['cards']): {
+  days: string[];
+  series: [number, number, number][];
+  max: number;
+} {
+  if (cards.length === 0) {
+    return { days: DAILY_CHART_DAYS, series: DAILY_CHART_DATA, max: CHART_MAX };
+  }
+  const latestIso =
+    cards
+      .map((c) => c.last_seen)
+      .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+      .sort()
+      .at(-1) ?? '2026-11-08';
+  const anchor = new Date(`${latestIso}T12:00:00Z`);
+  const days: string[] = [];
+  const keys: string[] = [];
+  for (let i = 13; i >= 0; i -= 1) {
+    const d = new Date(anchor.getTime() - i * 86_400_000);
+    keys.push(d.toISOString().slice(0, 10));
+    days.push(String(d.getUTCDate()));
+  }
+  const counts = new Map<string, [number, number, number]>(
+    keys.map((k) => [k, [0, 0, 0] as [number, number, number]])
+  );
+  for (const card of cards) {
+    const row = counts.get(card.last_seen);
+    if (!row) continue;
+    if (card.kind === 'error') row[0] += 1;
+    else if (card.kind === 'task') row[1] += 1;
+    else row[2] += 1;
+  }
+  const series: [number, number, number][] = keys.map(
+    (k) => counts.get(k) ?? ([0, 0, 0] as [number, number, number])
+  );
+  const peak = Math.max(6, ...series.map(([e, t, i]) => e + t + i));
+  return { days, series, max: peak };
+}
+
 export function SummaryView() {
   const { t } = useTranslation();
   const [data, setData] = useState<DashboardPayload | null>(null);
@@ -98,6 +137,7 @@ export function SummaryView() {
   const newIdeas = cards.filter((c) => c.kind === 'idea' && c.status === 'new').length;
   const doneCards = cards.filter((c) => c.status === 'done').length;
 
+  const chart = buildDailySeries(cards);
   const sessionTimeline = cards.filter((c) => c.source_kind === 'session').slice(0, 4);
   const specGaps = (data?.spec_gaps ?? []).slice(0, 5);
 
@@ -264,7 +304,7 @@ export function SummaryView() {
                   borderBottom: `1px dashed ${varAlpha(theme.vars.palette.grey['500Channel'], 0.32)}`,
                 })}
               >
-                {DAILY_CHART_DATA.map(([err, task, idea], idx) => (
+                {chart.series.map(([err, task, idea], idx) => (
                   <Box
                     key={idx}
                     sx={{
@@ -278,7 +318,7 @@ export function SummaryView() {
                     {err > 0 && (
                       <Box
                         sx={{
-                          height: `${(err / CHART_MAX) * 100}%`,
+                          height: `${(err / chart.max) * 100}%`,
                           bgcolor: '#FF5630',
                           borderRadius: '4px',
                         }}
@@ -287,7 +327,7 @@ export function SummaryView() {
                     {task > 0 && (
                       <Box
                         sx={{
-                          height: `${(task / CHART_MAX) * 100}%`,
+                          height: `${(task / chart.max) * 100}%`,
                           bgcolor: '#00B8D9',
                           borderRadius: '4px',
                         }}
@@ -296,7 +336,7 @@ export function SummaryView() {
                     {idea > 0 && (
                       <Box
                         sx={{
-                          height: `${(idea / CHART_MAX) * 100}%`,
+                          height: `${(idea / chart.max) * 100}%`,
                           bgcolor: '#8E33FF',
                           borderRadius: '4px',
                         }}
@@ -316,8 +356,8 @@ export function SummaryView() {
                   color: 'text.disabled',
                 }}
               >
-                {DAILY_CHART_DAYS.map((day) => (
-                  <Box key={day} component="span" sx={{ flex: 1, textAlign: 'center' }}>
+                {chart.days.map((day, idx) => (
+                  <Box key={`${day}-${idx}`} component="span" sx={{ flex: 1, textAlign: 'center' }}>
                     {day}
                   </Box>
                 ))}
