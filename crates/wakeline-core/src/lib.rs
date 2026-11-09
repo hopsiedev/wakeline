@@ -1,6 +1,7 @@
 //! Núcleo de Wakeline: tarjetas, huellas para deduplicar, fuentes (sesiones de
 //! Claude Code y documentos) y almacenamiento local.
 
+pub mod account;
 pub mod card;
 pub mod detect;
 pub mod docs;
