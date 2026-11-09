@@ -20,6 +20,7 @@ import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import LinearProgress from '@mui/material/LinearProgress';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
@@ -31,6 +32,7 @@ import {
   updateCardStatus,
   chooseWatchFolder,
   fetchDashboardData,
+  getImportingFolder,
   resumeClaudeSession,
   type UiProjectSummary,
 } from 'src/services/wakeline';
@@ -49,6 +51,7 @@ export function CardsView() {
   const [cards, setCards] = useState<UiCard[]>([]);
   const [projects, setProjects] = useState<UiProjectSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [importingFolder, setImportingFolder] = useState<string | null>(() => getImportingFolder());
   const [watchError, setWatchError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
@@ -78,8 +81,16 @@ export function CardsView() {
   useEffect(() => {
     loadCards();
     const onRescan = () => loadCards(true);
+    const onImporting = (event: Event) => {
+      const custom = event as CustomEvent<{ folder: string | null }>;
+      setImportingFolder(custom.detail?.folder ?? null);
+    };
     window.addEventListener('wakeline:rescan', onRescan);
-    return () => window.removeEventListener('wakeline:rescan', onRescan);
+    window.addEventListener('wakeline:importing', onImporting);
+    return () => {
+      window.removeEventListener('wakeline:rescan', onRescan);
+      window.removeEventListener('wakeline:importing', onImporting);
+    };
   }, []);
 
   useEffect(() => {
@@ -340,21 +351,10 @@ export function CardsView() {
                 {selectedCard.location}
               </Typography>
               {selectedCard.code_excerpt ? (
-                <Box
-                  component="pre"
-                  sx={(theme) => ({
-                    mt: 2,
-                    p: 2,
-                    overflowX: 'auto',
-                    borderRadius: 1.5,
-                    fontSize: 12.5,
-                    lineHeight: 1.7,
-                    color: 'text.primary',
-                    bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
-                  })}
-                >
-                  {selectedCard.code_excerpt}
-                </Box>
+                <CodeExcerptBlock
+                  code={selectedCard.code_excerpt}
+                  location={selectedCard.location}
+                />
               ) : !selectedCard.evidence ? (
                 <Typography sx={{ mt: 2, color: 'text.secondary', fontSize: 13 }}>
                   {t(
@@ -554,7 +554,30 @@ export function CardsView() {
 
       {watchError && <Typography sx={{ mb: 2, color: 'error.main' }}>{watchError}</Typography>}
 
-      {loaded && projects.length === 0 && (
+      {importingFolder && (
+        <Card
+          sx={(theme) => ({
+            p: 2.5,
+            mb: 3,
+            border: `1px solid ${varAlpha(theme.vars.palette.primary.mainChannel, 0.28)}`,
+            bgcolor: varAlpha(theme.vars.palette.primary.mainChannel, 0.06),
+          })}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
+                {t('pullRequests.importingFolder')}: {importingFolder.split(/[/\\]/).pop()}
+              </Typography>
+              <Typography sx={{ mt: 0.25, fontSize: 12.5, color: 'text.secondary' }}>
+                {t('pullRequests.importingFolderSub')}
+              </Typography>
+            </Box>
+          </Box>
+          <LinearProgress sx={{ mt: 1.5, height: 6, borderRadius: 1 }} />
+        </Card>
+      )}
+
+      {loaded && !importingFolder && projects.length === 0 && (
         <Card sx={{ p: 4, textAlign: 'center' }}>
           <Typography sx={{ fontWeight: 600 }}>{t('pullRequests.noWatchedFolders')}</Typography>
           <Button
@@ -1064,6 +1087,176 @@ function FilterChip({ text }: { text: string }) {
       >
         ×
       </Box>
+    </Box>
+  );
+}
+
+const CODE_KEYWORDS = new Set([
+  'import',
+  'from',
+  'export',
+  'default',
+  'type',
+  'interface',
+  'const',
+  'let',
+  'var',
+  'function',
+  'return',
+  'async',
+  'await',
+  'if',
+  'else',
+  'for',
+  'while',
+  'switch',
+  'case',
+  'break',
+  'continue',
+  'try',
+  'catch',
+  'finally',
+  'throw',
+  'new',
+  'class',
+  'extends',
+  'implements',
+  'true',
+  'false',
+  'null',
+  'undefined',
+  'fn',
+  'pub',
+  'use',
+  'mod',
+  'struct',
+  'enum',
+  'impl',
+  'trait',
+  'match',
+  'mut',
+  'where',
+  'crate',
+  'self',
+  'super',
+]);
+
+const TOKEN_REGEX =
+  /(\/\/.*$|#.*$|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][A-Za-z0-9_$]*\b|[{}()[\].,:;=<>&|+-/*?!]+)/g;
+
+function highlightCodeLine(text: string) {
+  if (!text) return ' ';
+  const trimmed = text.trimStart();
+  if (trimmed.startsWith('//') || trimmed.startsWith('#')) {
+    return (
+      <Box component="span" sx={{ color: '#6A9955' }}>
+        {text}
+      </Box>
+    );
+  }
+
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  const regex = new RegExp(TOKEN_REGEX.source, 'g');
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    const token = match[0];
+    let color = '#D4D4D4';
+
+    if (token.startsWith('//') || token.startsWith('#')) {
+      color = '#6A9955';
+    } else if (token.startsWith("'") || token.startsWith('"') || token.startsWith('`')) {
+      color = '#9ECE6A';
+    } else if (/^\d/.test(token)) {
+      color = '#FF9E64';
+    } else if (CODE_KEYWORDS.has(token)) {
+      color = '#BB9AF7';
+    } else if (/^[A-Za-z_$]/.test(token)) {
+      color = '#7DCFFF';
+    } else {
+      color = '#89DDFF';
+    }
+
+    nodes.push(
+      <Box key={`${match.index}-${token}`} component="span" sx={{ color }}>
+        {token}
+      </Box>
+    );
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+}
+
+function CodeExcerptBlock({ code, location }: { code: string; location: string }) {
+  const targetLineMatch = /:(\d+)(?::\d+)?$/.exec(location.trim());
+  const targetLine = targetLineMatch ? Number(targetLineMatch[1]) : null;
+  const rawLines = code.replace(/\r\n/g, '\n').split('\n');
+
+  return (
+    <Box
+      component="pre"
+      sx={{
+        mt: 2,
+        py: 1.75,
+        px: 0,
+        m: 0,
+        overflowX: 'auto',
+        borderRadius: 1.5,
+        fontSize: 12.5,
+        lineHeight: 1.75,
+        fontFamily:
+          '"JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, "Courier New", monospace',
+        color: '#D4D4D4',
+        bgcolor: '#181B22',
+        border: '1px solid rgba(145, 158, 171, 0.14)',
+      }}
+    >
+      {rawLines.map((rawLine, index) => {
+        const parsed = /^(\s*\d+)(?:\s*\|\s?|\s{2})(.*)$/.exec(rawLine);
+        const lineNum = parsed ? Number(parsed[1].trim()) : index + 1;
+        const content = parsed ? parsed[2] : rawLine;
+        const isTarget = targetLine !== null && lineNum === targetLine;
+
+        return (
+          <Box
+            key={`${lineNum}-${index}`}
+            sx={{
+              px: 2,
+              display: 'flex',
+              alignItems: 'baseline',
+              bgcolor: isTarget ? 'rgba(187, 154, 247, 0.1)' : 'transparent',
+              borderLeft: isTarget ? '2px solid #BB9AF7' : '2px solid transparent',
+            }}
+          >
+            <Box
+              component="span"
+              sx={{
+                minWidth: 28,
+                mr: 2,
+                textAlign: 'right',
+                userSelect: 'none',
+                color: isTarget ? '#E0AF68' : '#565F89',
+                fontWeight: isTarget ? 700 : 400,
+                flexShrink: 0,
+              }}
+            >
+              {lineNum}
+            </Box>
+            <Box component="span" sx={{ whiteSpace: 'pre' }}>
+              {highlightCodeLine(content)}
+            </Box>
+          </Box>
+        );
+      })}
     </Box>
   );
 }
