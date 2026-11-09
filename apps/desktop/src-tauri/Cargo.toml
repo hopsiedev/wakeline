@@ -11,6 +11,10 @@ authors.workspace = true
 [lib]
 name = "wakeline_app"
 crate-type = ["rlib"]
+# Sin pruebas propias: su binario de pruebas no arranca en Windows sin el manifiesto
+# de la app (lo necesitan la bandeja y los menús). La lógica se prueba en wakeline-core.
+test = false
+doctest = false
 
 [build-dependencies]
 tauri-build = { version = "2.7.4", features = [] }
@@ -18,6 +22,7 @@ tauri-build = { version = "2.7.4", features = [] }
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
-tauri = { version = "2.12.5", features = [] }
+tauri = { version = "2.12.5", features = ["tray-icon"] }
 tauri-plugin-opener = "2.7.2"
+tauri-plugin-single-instance = "2.5.5"
 wakeline-core.workspace = true
