@@ -4,10 +4,13 @@
 //! Claude Code y documentos `specs/`), cambiar su estado en `%APPDATA%\wakeline` y
 //! exportar `docs/TODO.md` a pedido.
 
+mod account;
+
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
 use wakeline_core::docs;
 use wakeline_core::sessions::{cards_from_events, claude};
 use wakeline_core::store::{ExportItem, LocalState, ManualCard, format_todo_markdown};
@@ -391,15 +394,42 @@ fn build_project_summaries(home: &Path, cards: &[UiCard]) -> Vec<UiProjectSummar
         .collect()
 }
 
+/// Identidad de GitHub (vía `gh`) y estado de Claude Code y Ollama.
+#[tauri::command]
+async fn get_account(app: tauri::AppHandle) -> Result<account::AccountInfo, String> {
+    let version = app.package_info().version.to_string();
+    tauri::async_runtime::spawn_blocking(move || account::read_account(&user_home(), version))
+        .await
+        .map_err(|error| error.to_string())
+}
+
+/// «Salir de Wakeline» desde el menú de la cuenta.
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 /// Arranca la app de escritorio con los comandos del núcleo registrados.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_secs(3));
+                    let _ = window.show();
+                });
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_dashboard_data,
             set_card_status,
             create_card,
             export_todo,
+            get_account,
+            quit_app,
         ])
         .run(tauri::generate_context!())
         .expect("no se pudo iniciar Wakeline");

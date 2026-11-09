@@ -472,7 +472,11 @@ export function SummaryView() {
                 icon="pr"
                 iconColor="error.main"
                 title="#20 ecf: quitar estado del resumen"
-                meta="ecf-minimalista · CI: typecheck ✕ · lint ✕"
+                meta={
+                  <>
+                    ecf-minimalista · CI: typecheck <FailMark /> · lint <FailMark />
+                  </>
+                }
                 badge={t('pullRequests.ciRed')}
                 badgeColor="error"
               />
@@ -602,6 +606,7 @@ function StatCard({
 
       <Box
         sx={{
+          pr: 9,
           gap: 0.5,
           display: 'flex',
           alignItems: 'center',
@@ -833,7 +838,7 @@ function GitRow({
   icon: 'pr' | 'issue';
   iconColor: string;
   title: string;
-  meta: string;
+  meta: React.ReactNode;
   badge: string;
   badgeColor: 'error' | 'warning' | 'info' | 'secondary';
   isLast?: boolean;
@@ -860,6 +865,17 @@ function GitRow({
         </Typography>
       </Box>
       <Label color={badgeColor}>{badge}</Label>
+    </Box>
+  );
+}
+
+function FailMark() {
+  return (
+    <Box
+      component="span"
+      sx={{ color: 'error.main', display: 'inline-flex', verticalAlign: 'text-bottom' }}
+    >
+      <AppIcon name="x" size={12} strokeWidth={2.5} />
     </Box>
   );
 }

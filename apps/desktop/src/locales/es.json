@@ -5,16 +5,16 @@
     "pullRequests": "Pull requests",
     "settings": "Configuración",
     "projects": "Proyectos",
-    "newBadge": "4 nuevas",
-    "watching": "Vigilando 3 proyectos",
-    "lastSignal": "Última señal hace 12 s · MCP activo",
-    "metrics": "0,3 % CPU · 61 MB · 512 MB leídos",
     "rescan": "Revisar ahora",
     "rescanning": "Revisando…",
     "notifications": "Avisos",
-    "search": "Buscar",
-    "sort": "Ordenar",
-    "watchFolder": "Vigilar carpeta"
+    "watchFolder": "Vigilar carpeta",
+    "alertsTitle": "Errores nuevos",
+    "noAlerts": "No hay errores nuevos.",
+    "addFirstProject": "Vigila tu primer proyecto",
+    "collapse": "Ocultar barra (Ctrl+B)",
+    "expand": "Mostrar barra (Ctrl+B)",
+    "newCount": "{{count}} nuevas"
   },
   "toast": {
     "title": "Error nuevo en Contastack",
@@ -50,10 +50,10 @@
     "active": "Activo",
     "paused": "En pausa",
     "soon": "Próximamente",
-    "copied": "✓ Copiado"
+    "copied": "Copiado"
   },
   "summary": {
-    "title": "Hola, esto pasó hoy 👋",
+    "title": "Hola, esto pasó hoy",
     "subtitle": "Domingo 8 de noviembre · 3 sesiones de Claude Code · 14 commits",
     "exportTodo": "Exportar TODO.md",
     "exportedTo": "Exportado en",
@@ -204,5 +204,30 @@
   "notFound": {
     "title": "No encontramos esta página",
     "back": "Volver al resumen"
+  },
+  "account": {
+    "you": "Tú",
+    "localProfile": "Perfil local",
+    "githubAccount": "Cuenta de GitHub",
+    "githubMissing": "GitHub sin sesión. Ejecuta «gh auth login» para ver tu cuenta.",
+    "rename": "Cambiar nombre",
+    "renamePrompt": "¿Cómo quieres que te llame Wakeline?",
+    "connections": "Conexiones",
+    "connected": "Conectado",
+    "notConnected": "Sin conexión",
+    "optional": "Opcional",
+    "claudeCode": "Claude Code",
+    "github": "GitHub",
+    "ollama": "Ollama",
+    "settings": "Configuración",
+    "shortcuts": "Atajos de teclado",
+    "version": "Versión {{version}}",
+    "checkUpdates": "Buscar actualizaciones",
+    "updatesSoon": "Llega con el instalador",
+    "report": "Reportar un problema",
+    "quit": "Salir de Wakeline",
+    "shortcutToggle": "Mostrar u ocultar la barra lateral",
+    "shortcutSettings": "Abrir la configuración",
+    "close": "Cerrar"
   }
 }

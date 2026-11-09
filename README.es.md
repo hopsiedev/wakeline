@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="design/logo/wakeline-icon.png" width="96" alt="Wakeline">
+  <img src="assets/brand/wakeline-icon.png" width="96" alt="Wakeline">
 </p>
 
 <h1 align="center">Wakeline</h1>
@@ -51,7 +51,7 @@ crates/
   wakeline-mcp    # servidor MCP para que tu agente lea y cierre tarjetas
 apps/
   desktop         # Tauri v2 + React + MUI (basado en Minimal UI, MIT)
-design/           # maquetas y logo
+assets/brand/     # logo e íconos
 docs/             # notas de diseño
 ```
 

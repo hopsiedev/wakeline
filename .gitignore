@@ -21,3 +21,6 @@ apps/desktop/src-tauri/gen/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Maquetas y capturas: solo en local, fuera del repo
+design/

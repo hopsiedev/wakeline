@@ -409,7 +409,7 @@ export function CardsView() {
                   `Proyecto: ${selectedCard.project} (${selectedCard.branch})\nOrigen: ${selectedCard.location}\nPendiente: ${selectedCard.title}`
                 )
               }
-              startIcon={<AppIcon name="copy" size={18} />}
+              startIcon={<AppIcon name={copiedPrompt ? 'check' : 'copy'} size={18} />}
               sx={{ height: 36, px: 1.75, fontWeight: 700 }}
             >
               {copiedPrompt ? t('common.copied') : t('cards.copyPrompt')}
@@ -684,8 +684,8 @@ export function CardsView() {
                         bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
                       })}
                     >
-                      <Box component="span" sx={{ color: col, fontWeight: 700 }}>
-                        {sym}
+                      <Box component="span" sx={{ color: col, display: 'flex' }}>
+                        <AppIcon name={sym === '✓' ? 'check' : 'x'} size={15} strokeWidth={2.25} />
                       </Box>
                       <Box component="span" sx={{ flexGrow: 1 }}>
                         {txt}
