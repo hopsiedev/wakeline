@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { varAlpha } from 'minimal-shared/utils';
 
@@ -8,6 +9,11 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import {
+  fetchDashboardData,
+  type DashboardPayload,
+  type UiProjectSummary,
+} from 'src/services/wakeline';
 
 import { Label } from 'src/components/label';
 import { AppIcon, type AppIconName } from 'src/components/nav-icon';
@@ -38,8 +44,53 @@ const TOML_LINES: { num: number; k?: string; eq?: string; s?: string; c?: string
   { num: 21, eq: 'cada = ', s: '"5m"', c: '   # y al hacer git push' },
 ];
 
+function projectMetrics(
+  proj: UiProjectSummary | undefined,
+  fallbackOpen: string,
+  fallbackDone: string
+): { openCount: string; doneCount: string; noise: string; noiseColor?: string } {
+  if (!proj) {
+    return { openCount: fallbackOpen, doneCount: fallbackDone, noise: '—' };
+  }
+  const open = proj.errors + proj.tasks + proj.ideas;
+  const total = open + proj.done + proj.dismissed;
+  if (total === 0 || (proj.done === 0 && proj.dismissed === 0)) {
+    return {
+      openCount: String(open),
+      doneCount: String(proj.done),
+      noise: '0 %',
+      noiseColor: 'success.main',
+    };
+  }
+  const pct = Math.round((proj.dismissed / total) * 100);
+  return {
+    openCount: String(open),
+    doneCount: String(proj.done),
+    noise: `${pct} %`,
+    noiseColor: pct < 20 ? 'success.main' : 'warning.main',
+  };
+}
+
 export function PullRequestsView() {
   const { t } = useTranslation();
+  const [data, setData] = useState<DashboardPayload | null>(null);
+
+  useEffect(() => {
+    fetchDashboardData().then(setData);
+    const reload = () => fetchDashboardData({ force: true }).then(setData);
+    window.addEventListener('wakeline:rescan', reload);
+    return () => window.removeEventListener('wakeline:rescan', reload);
+  }, []);
+
+  const findProj = (name: string) =>
+    data?.projects.find((p) => p.name.toLowerCase() === name.toLowerCase());
+  const contastack = findProj('Contastack');
+  const appExpo = findProj('app-expo');
+  const wakeline = findProj('wakeline');
+
+  const mContastack = projectMetrics(contastack, '44', '0');
+  const mAppExpo = projectMetrics(appExpo, '4', '0');
+  const mWakeline = projectMetrics(wakeline, '2', '0');
 
   return (
     <DashboardContent maxWidth={false}>
@@ -101,7 +152,7 @@ export function PullRequestsView() {
             iconBg="rgba(0, 167, 111, 0.16)"
             iconColor="primary.main"
             name="Contastack"
-            path="C:\Users\User\contastack"
+            path={contastack?.path ?? 'C:\\Users\\User\\contastack'}
             statusLabel={t('pullRequests.watching')}
             statusColor="success"
             sources={[
@@ -112,10 +163,10 @@ export function PullRequestsView() {
               ['term', t('pullRequests.commands2')],
               ['gh', 'GitHub'],
             ]}
-            openCount="28"
-            doneCount="64"
-            noise="12 %"
-            noiseColor="success.main"
+            openCount={mContastack.openCount}
+            doneCount={mContastack.doneCount}
+            noise={mContastack.noise}
+            noiseColor={mContastack.noiseColor}
           />
         </Grid>
 
@@ -125,7 +176,7 @@ export function PullRequestsView() {
             iconBg="rgba(0, 184, 217, 0.16)"
             iconColor="info.main"
             name="app-expo"
-            path="C:\Users\User\contastack\app-expo"
+            path={appExpo?.path ?? 'C:\\Users\\User\\contastack\\app-expo'}
             statusLabel={t('pullRequests.watching')}
             statusColor="success"
             sources={[
@@ -133,10 +184,10 @@ export function PullRequestsView() {
               ['chat', 'Claude Code'],
               ['term', t('pullRequests.commands1')],
             ]}
-            openCount="8"
-            doneCount="19"
-            noise="24 %"
-            noiseColor="warning.main"
+            openCount={mAppExpo.openCount}
+            doneCount={mAppExpo.doneCount}
+            noise={mAppExpo.noise}
+            noiseColor={mAppExpo.noiseColor}
           />
         </Grid>
 
@@ -146,17 +197,18 @@ export function PullRequestsView() {
             iconBg="rgba(255, 171, 0, 0.16)"
             iconColor="warning.main"
             name="wakeline"
-            path="C:\Users\User\app\wakeline"
-            statusLabel={t('common.paused')}
-            statusColor="default"
+            path={wakeline?.path ?? 'C:\\Users\\User\\app\\bitacora'}
+            statusLabel={t('pullRequests.watching')}
+            statusColor="success"
             sources={[
               ['code', 'TODO/FIXME'],
               ['git', 'git'],
               ['chat', 'Claude Code'],
             ]}
-            openCount="2"
-            doneCount="0"
-            noise="—"
+            openCount={mWakeline.openCount}
+            doneCount={mWakeline.doneCount}
+            noise={mWakeline.noise}
+            noiseColor={mWakeline.noiseColor}
           />
         </Grid>
 
