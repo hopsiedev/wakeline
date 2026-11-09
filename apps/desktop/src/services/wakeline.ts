@@ -390,6 +390,13 @@ export async function openExternal(url: string): Promise<void> {
   }
 }
 
+/** Notificación de prueba, para ver cómo se verán los avisos. */
+export async function sendTestNotification(): Promise<void> {
+  if (isTauri()) {
+    await invoke('test_notification').catch(() => {});
+  }
+}
+
 export const REPO_URL = 'https://github.com/hopsiedev/wakeline';
 
 export async function exportProjectTodo(projectName?: string): Promise<string> {

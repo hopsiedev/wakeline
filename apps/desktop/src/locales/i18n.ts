@@ -25,14 +25,30 @@ export async function changeLanguage(lang: Language) {
   syncTrayLabels();
 }
 
-/** El menú de la bandeja lo dibuja Windows: hay que pasarle los textos. */
+const ALERTS_KEY = 'wakeline-alerts-enabled';
+
+/** ¿Avisar con una notificación de Windows cuando aparece un error nuevo? */
+export function alertsEnabled(): boolean {
+  return localStorage.getItem(ALERTS_KEY) !== 'false';
+}
+
+export function setAlertsEnabled(enabled: boolean) {
+  localStorage.setItem(ALERTS_KEY, String(enabled));
+  syncTrayLabels();
+}
+
+/**
+ * La bandeja y las notificaciones las dibuja Windows desde Rust: hay que pasarle los
+ * textos del idioma actual y si los avisos están activos.
+ */
 function syncTrayLabels() {
   if (!('__TAURI_INTERNALS__' in window)) return;
-  import('@tauri-apps/api/core').then(({ invoke }) =>
+  import('@tauri-apps/api/core').then(({ invoke }) => {
     invoke('set_tray_labels', { open: i18n.t('tray.open'), quit: i18n.t('tray.quit') }).catch(
       () => {}
-    )
-  );
+    );
+    invoke('set_alert_prefs', { enabled: alertsEnabled(), lang: i18n.language }).catch(() => {});
+  });
 }
 
 const lng = initialLanguage();

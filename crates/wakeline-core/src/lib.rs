@@ -2,6 +2,7 @@
 //! Claude Code y documentos) y almacenamiento local.
 
 pub mod account;
+pub mod alerts;
 pub mod card;
 pub mod detect;
 pub mod docs;

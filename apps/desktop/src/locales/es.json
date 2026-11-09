@@ -199,7 +199,8 @@
     "exclusionsSub": "Wakeline nunca lee esto. No se puede desactivar.",
     "redactNotice": "Si una línea de sesión parece contener una clave o un token, se guarda oculta (sk-••••).",
     "mcpTitle": "Servidor MCP",
-    "mcpSub": "Para que Claude Code consulte y cierre tarjetas"
+    "mcpSub": "Para que Claude Code consulte y cierre tarjetas",
+    "alertsTest": "Probar aviso"
   },
   "notFound": {
     "title": "No encontramos esta página",

@@ -4,6 +4,7 @@
 //! Claude Code y documentos `specs/`), cambiar su estado en `%APPDATA%\wakeline` y
 //! exportar `docs/TODO.md` a pedido.
 
+mod alerts;
 mod shell;
 
 use std::path::{Path, PathBuf};
@@ -421,6 +422,25 @@ fn set_tray_labels(
     labels.set(&open, &quit).map_err(|e| e.to_string())
 }
 
+/// La interfaz dice si avisar de errores nuevos y en qué idioma.
+#[tauri::command]
+fn set_alert_prefs(
+    prefs: tauri::State<'_, std::sync::Mutex<alerts::AlertPrefs>>,
+    enabled: bool,
+    lang: String,
+) {
+    if let Ok(mut prefs) = prefs.lock() {
+        prefs.enabled = enabled;
+        prefs.spanish = lang.starts_with("es");
+    }
+}
+
+/// Botón «Probar aviso» de la configuración.
+#[tauri::command]
+fn test_notification(app: tauri::AppHandle) -> Result<(), String> {
+    alerts::send_test(&app)
+}
+
 /// Arranca la app de escritorio con los comandos del núcleo registrados.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -430,9 +450,11 @@ pub fn run() {
             shell::show_main(app);
         }))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let labels = shell::create_tray(app.handle())?;
             app.manage(labels);
+            alerts::start(app.handle());
 
             if let Some(window) = app.get_webview_window(shell::MAIN_WINDOW) {
                 shell::fit_to_screen(&window);
@@ -461,6 +483,8 @@ pub fn run() {
             get_account,
             quit_app,
             set_tray_labels,
+            set_alert_prefs,
+            test_notification,
         ])
         .run(tauri::generate_context!())
         .expect("no se pudo iniciar Wakeline");

@@ -199,7 +199,8 @@
     "exclusionsSub": "Wakeline never reads this. Cannot be disabled.",
     "redactNotice": "If a session line appears to contain a key or token, it is stored redacted (sk-••••).",
     "mcpTitle": "MCP Server",
-    "mcpSub": "Lets Claude Code query and close cards"
+    "mcpSub": "Lets Claude Code query and close cards",
+    "alertsTest": "Send test"
   },
   "notFound": {
     "title": "We couldn't find this page",
