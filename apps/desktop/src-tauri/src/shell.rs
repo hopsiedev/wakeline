@@ -1,6 +1,6 @@
 //! Ventana principal e ícono en la bandeja de Windows.
 //!
-//! - La ventana se abre grande (casi toda el área de trabajo) y centrada.
+//! - La ventana se abre centrada con un tamaño a elegir (ver `WindowSize`).
 //! - La ✕ la esconde en la bandeja; Wakeline sigue vigilando. Para cerrarla del todo
 //!   está «Cerrar Wakeline» en la bandeja o «Salir» en el menú de la cuenta.
 
@@ -10,9 +10,42 @@ use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewWindow, W
 
 pub const MAIN_WINDOW: &str = "main";
 
-/// Parte del área de trabajo que ocupa la ventana al abrir.
-const WIDTH_SHARE: f64 = 0.86;
-const HEIGHT_SHARE: f64 = 0.88;
+/// Tamaño con el que abre la ventana. Mientras se elige, se puede probar cada opción
+/// con la variable de entorno `WAKELINE_WINDOW` (`a`, `b`, `c`, `d` o `e`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum WindowSize {
+    /// Medida fija en píxeles lógicos (respeta la escala de Windows).
+    Fixed { width: f64, height: f64 },
+    /// Parte del área de trabajo de la pantalla.
+    Share { width: f64, height: f64 },
+}
+
+impl WindowSize {
+    fn from_choice(choice: &str) -> Self {
+        match choice.trim().to_ascii_lowercase().as_str() {
+            "a" => Self::Fixed {
+                width: 1280.0,
+                height: 800.0,
+            },
+            "c" => Self::Share {
+                width: 0.70,
+                height: 0.78,
+            },
+            "d" => Self::Share {
+                width: 0.75,
+                height: 0.82,
+            },
+            "e" => Self::Share {
+                width: 0.86,
+                height: 0.88,
+            },
+            _ => Self::Fixed {
+                width: 1440.0,
+                height: 900.0,
+            }, // "b", por defecto
+        }
+    }
+}
 
 /// Textos del menú de la bandeja; la interfaz los cambia al cambiar de idioma.
 pub struct TrayLabels {
@@ -37,8 +70,18 @@ pub fn fit_to_screen(window: &WebviewWindow) {
     let Some(monitor) = monitor else { return };
 
     let area = monitor.work_area();
-    let width = (f64::from(area.size.width) * WIDTH_SHARE) as u32;
-    let height = (f64::from(area.size.height) * HEIGHT_SHARE) as u32;
+    let (area_w, area_h) = (f64::from(area.size.width), f64::from(area.size.height));
+    let choice = std::env::var("WAKELINE_WINDOW").unwrap_or_default();
+    let (width, height) = match WindowSize::from_choice(&choice) {
+        WindowSize::Fixed { width, height } => {
+            let scale = monitor.scale_factor();
+            (width * scale, height * scale)
+        }
+        WindowSize::Share { width, height } => (area_w * width, area_h * height),
+    };
+    // Nunca más grande que la pantalla (deja un margen de 5 %).
+    let width = width.min(area_w * 0.95) as u32;
+    let height = height.min(area_h * 0.95) as u32;
     let x = area.position.x + ((area.size.width - width) / 2) as i32;
     let y = area.position.y + ((area.size.height - height) / 2) as i32;
 
