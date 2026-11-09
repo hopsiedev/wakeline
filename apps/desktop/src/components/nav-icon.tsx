@@ -14,6 +14,7 @@ import {
   Play,
   Bell,
   Lock,
+  Menu,
   Plug,
   Plus,
   User,
@@ -92,6 +93,7 @@ const ICONS = {
   export: Upload,
   sparkle: Sparkles,
   issue: CircleDot,
+  menu: Menu,
   x: X,
   check: Check,
 } satisfies Record<string, LucideIcon>;
