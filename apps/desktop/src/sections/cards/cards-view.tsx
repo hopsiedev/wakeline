@@ -26,6 +26,7 @@ import { DashboardContent } from 'src/layouts/dashboard';
 import {
   type UiCard,
   openInVscode,
+  openExternal,
   type CardKind,
   type CardStatus,
   createManualCard,
@@ -384,11 +385,41 @@ export function CardsView() {
                         <li key={origin.fingerprint}>
                           {origin.source_label}
                           {origin.location ? ` · ${origin.location}` : ''}
+                          {origin.url && (
+                            <Box
+                              component="button"
+                              type="button"
+                              onClick={() => openExternal(origin.url ?? '')}
+                              sx={{
+                                ml: 0.75,
+                                p: 0,
+                                border: 0,
+                                cursor: 'pointer',
+                                fontSize: 'inherit',
+                                fontFamily: 'inherit',
+                                color: 'primary.main',
+                                bgcolor: 'transparent',
+                              }}
+                            >
+                              {t('cards.openOnGithub')}
+                            </Box>
+                          )}
                         </li>
                       ))}
                     </Box>
                   ) : (
                     ` ${selectedCard.source_label}`
+                  )}
+                  {selectedCard.origins.length <= 1 && selectedCard.url && (
+                    <Button
+                      size="small"
+                      color="inherit"
+                      variant="outlined"
+                      onClick={() => openExternal(selectedCard.url ?? '')}
+                      sx={{ ml: 1 }}
+                    >
+                      {t('cards.openOnGithub')}
+                    </Button>
                   )}
                 </Box>
                 <Box>

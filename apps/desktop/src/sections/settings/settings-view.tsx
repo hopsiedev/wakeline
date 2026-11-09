@@ -18,6 +18,7 @@ import { type Language, alertsEnabled, changeLanguage, setAlertsEnabled } from '
 import { Label } from 'src/components/label';
 import { AppIcon } from 'src/components/nav-icon';
 
+import { GithubStatusCard } from './github-status-card';
 import { ProjectCommandsCard } from './project-commands-card';
 
 // ----------------------------------------------------------------------
@@ -325,6 +326,9 @@ export function SettingsView() {
 
             {/* Comandos de wakeline.toml */}
             <ProjectCommandsCard />
+
+            {/* Estado de gh por proyecto */}
+            <GithubStatusCard />
           </Box>
         </Grid>
 

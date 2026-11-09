@@ -16,7 +16,7 @@ use ignore::gitignore::Gitignore;
 use super::results::{CommandResult, CommandResults, evaluate};
 use super::{Trigger, execute, load, load_trusted};
 use crate::store::LocalState;
-use crate::watcher::is_ignored_path;
+use crate::watcher::{is_ignored_path, is_push_signal};
 
 /// Decide qué proyectos llevan el tiempo de espera sin cambios.
 #[derive(Debug)]
@@ -77,8 +77,21 @@ impl ChangeRouter {
         }
     }
 
+    /// Proyecto al que pertenece un cambio de `.git/refs/remotes` (push o fetch).
+    pub fn pushed_project(&self, path: &Path) -> Option<&Path> {
+        if !is_push_signal(path) {
+            return None;
+        }
+        let path = strip_verbatim(path);
+        self.projects
+            .iter()
+            .find(|(root, _)| path.starts_with(strip_verbatim(root)))
+            .map(|(root, _)| root.as_path())
+    }
+
     pub fn route(&self, path: &Path) -> Option<&Path> {
-        if is_ignored_path(path) {
+        // Un push no cambia el código: no lanza los comandos.
+        if is_ignored_path(path) || is_push_signal(path) {
             return None;
         }
         let path = strip_verbatim(path);
@@ -276,6 +289,14 @@ mod tests {
         assert_eq!(router.route(&dir.join("app.tsbuildinfo")), None);
         assert_eq!(router.route(&dir.join("cache").join("x")), None);
         assert_eq!(router.route(&dir.join("node_modules").join("x.js")), None);
+        let pushed = dir
+            .join(".git")
+            .join("refs")
+            .join("remotes")
+            .join("origin")
+            .join("main");
+        assert_eq!(router.route(&pushed), None);
+        assert_eq!(router.pushed_project(&pushed), Some(dir.as_path()));
         assert_eq!(router.route(Path::new(r"C:\otro\a.ts")), None);
         let _ = std::fs::remove_dir_all(&dir);
     }

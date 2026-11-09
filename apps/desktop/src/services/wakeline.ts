@@ -26,6 +26,7 @@ export type UiCard = {
   last_seen: string;
   fingerprints: string[];
   origins: UiOrigin[];
+  url: string | null;
 };
 
 export type UiOrigin = {
@@ -34,6 +35,31 @@ export type UiOrigin = {
   source_label: string;
   location: string;
   occurrences: number;
+  url: string | null;
+};
+
+export type CiState = 'passing' | 'failing' | 'pending' | 'none';
+export type ReviewState = 'approved' | 'changes_requested' | 'none';
+
+export type UiPullRequest = {
+  project: string;
+  number: number;
+  title: string;
+  url: string;
+  branch: string;
+  draft: boolean;
+  age_days: number;
+  ci: CiState;
+  review: ReviewState;
+};
+
+export type GhStatus =
+  { state: 'not_installed' } | { state: 'not_logged_in' } | { state: 'connected'; login: string };
+
+export type UiGithubStatus = {
+  repo: string | null;
+  gh: GhStatus;
+  last_error: string | null;
 };
 
 export type UiProjectSummary = {
@@ -88,6 +114,7 @@ export type DashboardPayload = {
   cards: UiCard[];
   projects: UiProjectSummary[];
   spec_gaps: UiSpecGap[];
+  pull_requests: UiPullRequest[];
   session_files: number;
   megabytes_read: number;
   scan_ms: number;
@@ -98,6 +125,7 @@ const EMPTY_PAYLOAD: DashboardPayload = {
   cards: [],
   projects: [],
   spec_gaps: [],
+  pull_requests: [],
   session_files: 0,
   megabytes_read: 0,
   scan_ms: 0,
@@ -330,6 +358,11 @@ export async function quitApp(): Promise<void> {
   if (isTauri()) {
     await invoke('quit_app');
   }
+}
+
+export async function getGithubStatus(path: string): Promise<UiGithubStatus | null> {
+  if (!isTauri()) return null;
+  return invoke<UiGithubStatus>('get_github_status', { path });
 }
 
 export async function openExternal(url: string): Promise<void> {

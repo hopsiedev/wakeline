@@ -71,6 +71,11 @@ pub fn restart(app: &AppHandle) {
                     }
                 }
             }
+            for path in &batch {
+                if let Some(project) = router.pushed_project(path) {
+                    crate::github_source::pushed(&app, project);
+                }
+            }
             let _ = app.emit(CHANGED_EVENT, ());
         }
     });
