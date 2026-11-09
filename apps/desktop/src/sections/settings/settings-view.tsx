@@ -5,6 +5,7 @@ import { varAlpha } from 'minimal-shared/utils';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
@@ -32,6 +33,7 @@ export function SettingsView() {
   const [winToast, setWinToast] = useState(alertsEnabled);
   const [testError, setTestError] = useState<string | null>(null);
   const [mcpExecutable, setMcpExecutable] = useState<string | null>(null);
+  const [copiedMcp, setCopiedMcp] = useState<string | null>(null);
   const [trayBadge, setTrayBadge] = useState(true);
   const [dailySummary, setDailySummary] = useState(false);
 
@@ -41,6 +43,14 @@ export function SettingsView() {
   useEffect(() => {
     getMcpExecutable().then(setMcpExecutable);
   }, []);
+
+  const handleCopyMcp = (label: string, text: string) => {
+    navigator.clipboard?.writeText(text);
+    setCopiedMcp(label);
+    setTimeout(() => {
+      setCopiedMcp((prev) => (prev === label ? null : prev));
+    }, 2400);
+  };
 
   const mcpCommand = mcpExecutable ?? 'wakeline';
   const mcpConfigs = [
@@ -464,33 +474,70 @@ export function SettingsView() {
                 </Typography>
               )}
 
-              {mcpConfigs.map((config) => (
-                <Box key={config.label} sx={{ mb: 1.5 }}>
-                  <Typography sx={{ mb: 0.5, fontSize: 13, fontWeight: 600 }}>
-                    {config.label}
-                  </Typography>
-                  <Box
-                    component="pre"
-                    sx={(theme) => ({
-                      py: 1.5,
-                      px: 2,
-                      mb: 0.5,
-                      borderRadius: 1.5,
-                      overflowX: 'auto',
-                      fontFamily: 'monospace',
-                      fontSize: 12.5,
-                      color: 'text.primary',
-                      bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
-                      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
-                    })}
-                  >
-                    {config.text}
+              {copiedMcp && (
+                <Alert severity="success" sx={{ mb: 2 }} onClose={() => setCopiedMcp(null)}>
+                  {t('settings.copiedAlert', { label: copiedMcp })}
+                </Alert>
+              )}
+
+              {mcpConfigs.map((config) => {
+                const isCopied = copiedMcp === config.label;
+                return (
+                  <Box key={config.label} sx={{ mb: 2 }}>
+                    <Typography sx={{ mb: 0.75, fontSize: 13, fontWeight: 600 }}>
+                      {config.label}
+                    </Typography>
+                    <Box
+                      sx={(theme) => ({
+                        position: 'relative',
+                        borderRadius: 1.5,
+                        bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
+                        border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
+                      })}
+                    >
+                      <Button
+                        size="small"
+                        variant={isCopied ? 'contained' : 'outlined'}
+                        color={isCopied ? 'primary' : 'inherit'}
+                        onClick={() => handleCopyMcp(config.label, config.text)}
+                        startIcon={<AppIcon name={isCopied ? 'check' : 'copy'} size={14} />}
+                        sx={(theme) => ({
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          height: 28,
+                          px: 1.25,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          zIndex: 1,
+                          ...(!isCopied && {
+                            bgcolor: 'background.paper',
+                            borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.32),
+                          }),
+                        })}
+                      >
+                        {isCopied ? t('common.copied') : t('settings.copyConfig')}
+                      </Button>
+                      <Box
+                        component="pre"
+                        sx={{
+                          m: 0,
+                          py: 1.75,
+                          pl: 2,
+                          pr: 22,
+                          overflowX: 'auto',
+                          fontFamily: 'monospace',
+                          fontSize: 12.5,
+                          lineHeight: 1.6,
+                          color: 'text.primary',
+                        }}
+                      >
+                        {config.text}
+                      </Box>
+                    </Box>
                   </Box>
-                  <Button size="small" onClick={() => navigator.clipboard?.writeText(config.text)}>
-                    {t('settings.copyConfig')}
-                  </Button>
-                </Box>
-              ))}
+                );
+              })}
 
               <Box sx={{ gap: 1, display: 'flex', flexWrap: 'wrap' }}>
                 {['list_cards', 'get_card', 'create_card', 'complete_card'].map((tool) => (

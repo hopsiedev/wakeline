@@ -19,6 +19,7 @@ import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import ListItemButton from '@mui/material/ListItemButton';
+import LinearProgress from '@mui/material/LinearProgress';
 import Drawer, { drawerClasses } from '@mui/material/Drawer';
 
 import { usePathname } from 'src/routes/hooks';
@@ -30,6 +31,7 @@ import {
   chooseWatchFolder,
   removeWatchFolder,
   fetchDashboardData,
+  getImportingFolder,
   getCachedDashboardData,
 } from 'src/services/wakeline';
 
@@ -175,6 +177,16 @@ export function NavContent({ data, collapsed = false, onToggleCollapse, sx }: Na
   const [alertsAnchor, setAlertsAnchor] = useState<HTMLElement | null>(null);
   const [watchError, setWatchError] = useState<string | null>(null);
   const [watchBusy, setWatchBusy] = useState(false);
+  const [importingFolder, setImportingFolder] = useState<string | null>(getImportingFolder);
+
+  useEffect(() => {
+    const onImporting = (event: Event) => {
+      const custom = event as CustomEvent<string | null>;
+      setImportingFolder(custom.detail ?? null);
+    };
+    window.addEventListener('wakeline:importing', onImporting);
+    return () => window.removeEventListener('wakeline:importing', onImporting);
+  }, []);
 
   const handleWatch = async () => {
     setWatchError(null);
@@ -317,12 +329,36 @@ export function NavContent({ data, collapsed = false, onToggleCollapse, sx }: Na
               title={t('nav.projects')}
               actionLabel={t('nav.watchFolder')}
               onAction={handleWatch}
-              disabled={watchBusy}
+              disabled={watchBusy || !!importingFolder}
             />
+            {importingFolder && (
+              <Box
+                sx={(theme) => ({
+                  mx: 0.5,
+                  mb: 1,
+                  p: 1.25,
+                  borderRadius: 1.25,
+                  bgcolor: varAlpha(theme.vars.palette.primary.mainChannel, 0.08),
+                  border: `1px solid ${varAlpha(theme.vars.palette.primary.mainChannel, 0.24)}`,
+                })}
+              >
+                <Box sx={{ gap: 1, display: 'flex', alignItems: 'center', mb: 0.75 }}>
+                  <NavIcon name="folder" size={15} />
+                  <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600 }}>
+                    {t('pullRequests.importingFolder', { folder: importingFolder })}
+                  </Typography>
+                </Box>
+                <LinearProgress color="primary" sx={{ height: 3, borderRadius: 1 }} />
+              </Box>
+            )}
             {!payload ? (
               <ProjectsSkeleton />
             ) : projects.length === 0 ? (
-              <AddPlaceholder label={t('nav.addFirstProject')} onClick={handleWatch} />
+              importingFolder ? (
+                <ProjectsSkeleton />
+              ) : (
+                <AddPlaceholder label={t('nav.addFirstProject')} onClick={handleWatch} />
+              )
             ) : (
               <Box sx={{ gap: 0.25, display: 'flex', flexDirection: 'column' }}>
                 {projects.map((p) => (

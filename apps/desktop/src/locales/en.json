@@ -145,6 +145,8 @@
     "title": "Projects",
     "selectedFoldersOnly": "Only folders you choose are scanned.",
     "noWatchedFolders": "You are not watching any folders yet.",
+    "importingFolder": "Importing {{folder}}…",
+    "importingFolderSub": "Scanning AI sessions and documents in the selected folder…",
     "subtitle": "Read-only GitHub PRs and issues plus wakeline.toml configuration.",
     "watchFolder": "Watch folder",
     "watchAnotherTitle": "Watch another folder",
@@ -215,6 +217,7 @@
     "mcpCliReady": "CLI available",
     "mcpBuildHint": "Build the executable with cargo build -p wakeline-cli before connecting an agent.",
     "copyConfig": "Copy configuration",
+    "copiedAlert": "{{label}} configuration copied to clipboard.",
     "alertsTest": "Send test",
     "alertsTestFailed": "Could not show the notification"
   },

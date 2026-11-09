@@ -145,6 +145,8 @@
     "title": "Proyectos",
     "selectedFoldersOnly": "Solo se analizan las carpetas que eliges.",
     "noWatchedFolders": "Todavía no vigilas ninguna carpeta.",
+    "importingFolder": "Importando {{folder}}…",
+    "importingFolderSub": "Analizando sesiones de IA y documentos de la carpeta seleccionada…",
     "subtitle": "PR e issues de GitHub en solo lectura y configuración wakeline.toml.",
     "watchFolder": "Vigilar carpeta",
     "watchAnotherTitle": "Vigilar otra carpeta",
@@ -215,6 +217,7 @@
     "mcpCliReady": "CLI disponible",
     "mcpBuildHint": "Compila el ejecutable con cargo build -p wakeline-cli antes de conectar un agente.",
     "copyConfig": "Copiar configuración",
+    "copiedAlert": "Configuración de {{label}} copiada al portapapeles.",
     "alertsTest": "Probar aviso",
     "alertsTestFailed": "No se pudo mostrar el aviso"
   },

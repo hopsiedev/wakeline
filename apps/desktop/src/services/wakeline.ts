@@ -75,6 +75,18 @@ function isTauri(): boolean {
 
 let cachedDashboard: DashboardPayload | null = null;
 let dashboardRequest: Promise<DashboardPayload> | null = null;
+let importingFolder: string | null = null;
+
+function setImportingFolder(folder: string | null): void {
+  importingFolder = folder;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('wakeline:importing', { detail: folder }));
+  }
+}
+
+export function getImportingFolder(): string | null {
+  return importingFolder;
+}
 
 async function loadDashboardData(): Promise<DashboardPayload> {
   if (!isTauri()) {
@@ -91,8 +103,15 @@ export async function chooseWatchFolder(): Promise<void> {
   if (!isTauri()) throw new Error('Elige la carpeta desde la aplicación de escritorio');
   const selected = await invoke<string | null>('choose_watch_folder');
   if (selected) {
-    invalidateDashboardCache();
-    window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+    const folderName = selected.split(/[\\/]/).filter(Boolean).pop() ?? selected;
+    setImportingFolder(folderName);
+    try {
+      invalidateDashboardCache();
+      window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+      await fetchDashboardData({ force: true });
+    } finally {
+      setImportingFolder(null);
+    }
   }
 }
 

@@ -7,12 +7,14 @@ import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import LinearProgress from '@mui/material/LinearProgress';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
   chooseWatchFolder,
   removeWatchFolder,
   fetchDashboardData,
+  getImportingFolder,
   type DashboardPayload,
   type UiProjectSummary,
   getCachedDashboardData,
@@ -25,12 +27,21 @@ export function PullRequestsView() {
   const [data, setData] = useState<DashboardPayload | null>(getCachedDashboardData);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [importingFolder, setImportingFolder] = useState<string | null>(getImportingFolder);
 
   useEffect(() => {
     const reload = () => fetchDashboardData({ force: true }).then(setData);
+    const onImporting = (event: Event) => {
+      const custom = event as CustomEvent<string | null>;
+      setImportingFolder(custom.detail ?? null);
+    };
     fetchDashboardData().then(setData);
     window.addEventListener('wakeline:rescan', reload);
-    return () => window.removeEventListener('wakeline:rescan', reload);
+    window.addEventListener('wakeline:importing', onImporting);
+    return () => {
+      window.removeEventListener('wakeline:rescan', reload);
+      window.removeEventListener('wakeline:importing', onImporting);
+    };
   }, []);
 
   const choose = async () => {
@@ -84,7 +95,7 @@ export function PullRequestsView() {
           variant="contained"
           startIcon={<AppIcon name="plus" size={18} />}
           onClick={choose}
-          disabled={busy}
+          disabled={busy || !!importingFolder}
         >
           {t('pullRequests.watchFolder')}
         </Button>
@@ -96,7 +107,33 @@ export function PullRequestsView() {
         </Typography>
       )}
 
-      {data && data.projects.length === 0 && (
+      {importingFolder && (
+        <Card
+          sx={(theme) => ({
+            p: 3,
+            mb: 3,
+            bgcolor: varAlpha(theme.vars.palette.primary.mainChannel, 0.08),
+            border: `1px solid ${varAlpha(theme.vars.palette.primary.mainChannel, 0.28)}`,
+          })}
+        >
+          <Box sx={{ gap: 1.5, display: 'flex', alignItems: 'center', mb: 1.5 }}>
+            <Box sx={{ color: 'primary.main', display: 'flex' }}>
+              <AppIcon name="folder" size={22} />
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 15 }}>
+                {t('pullRequests.importingFolder', { folder: importingFolder })}
+              </Typography>
+              <Typography sx={{ color: 'text.secondary', fontSize: 13 }}>
+                {t('pullRequests.importingFolderSub')}
+              </Typography>
+            </Box>
+          </Box>
+          <LinearProgress color="primary" sx={{ height: 6, borderRadius: 3 }} />
+        </Card>
+      )}
+
+      {data && data.projects.length === 0 && !importingFolder && (
         <Card
           sx={(theme) => ({
             p: 4,
