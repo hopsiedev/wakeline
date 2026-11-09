@@ -8,6 +8,7 @@ mod alerts;
 #[cfg(windows)]
 mod folder_picker;
 mod live;
+mod project_commands;
 mod shell;
 
 use std::path::{Path, PathBuf};
@@ -16,6 +17,7 @@ use std::time::{Duration, Instant, SystemTime};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use wakeline_core::code::CodeScanner;
+use wakeline_core::commands::{self as wl_commands, CommandResults};
 use wakeline_core::docs;
 use wakeline_core::exclusions;
 use wakeline_core::redact::redact;
@@ -55,6 +57,8 @@ pub struct UiProjectSummary {
     pub ideas: usize,
     pub done: usize,
     pub dismissed: usize,
+    /// Tiene `wakeline.toml` sin aprobar o con cambios sin revisar.
+    pub commands_pending: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -202,6 +206,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
 
     let mut spec_gaps = Vec::new();
     let mut code_scanner = CodeScanner::new();
+    let command_results = CommandResults::load(&wl_commands::results_path());
 
     for watched_project in &watched {
         let doc_cards = docs::scan_project_docs(&watched_project.path).unwrap_or_default();
@@ -279,6 +284,41 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
                 last_seen: today_date(),
             });
         }
+
+        for result in command_results.for_project(&watched_project.path) {
+            let finished = unix_date(result.finished_at);
+            for card in &result.cards {
+                let fp_str = card.fingerprint.as_str().to_string();
+                let status = state.status_for(&fp_str);
+                let short_id = format!("W-{:03}", cards.len() + 1);
+                let code_excerpt = card.path.as_ref().and_then(|path| {
+                    read_code_excerpt(
+                        &watched_project.path.join(path),
+                        card.line.and_then(|l| u32::try_from(l).ok()),
+                    )
+                });
+                cards.push(UiCard {
+                    fingerprint: fp_str,
+                    short_id,
+                    kind: card.kind,
+                    status,
+                    title: card.title.clone(),
+                    project: watched_project.name.clone(),
+                    branch: branch.clone(),
+                    source_kind: SourceKind::Command,
+                    source_label: result.command.clone(),
+                    location: card
+                        .location()
+                        .unwrap_or_else(|| wl_commands::CONFIG_FILE.into()),
+                    code_excerpt,
+                    evidence: card.evidence.clone(),
+                    session_id: None,
+                    occurrences: card.occurrences,
+                    first_seen: finished.clone(),
+                    last_seen: finished.clone(),
+                });
+            }
+        }
     }
 
     for mc in state
@@ -315,7 +355,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             .then_with(|| b.occurrences.cmp(&a.occurrences))
     });
 
-    let projects = build_project_summaries(&watched, &cards);
+    let projects = build_project_summaries(&watched, &cards, &state);
     let megabytes_read = bytes as f64 / 1_048_576.0;
     let scan_ms = started.elapsed().as_millis() as u64;
 
@@ -451,6 +491,14 @@ fn today_date() -> String {
     time::OffsetDateTime::now_utc().date().to_string()
 }
 
+fn unix_date(seconds: u64) -> String {
+    i64::try_from(seconds)
+        .ok()
+        .and_then(|s| time::OffsetDateTime::from_unix_timestamp(s).ok())
+        .map(|t| t.date().to_string())
+        .unwrap_or_else(today_date)
+}
+
 fn read_git_branch(repo_path: &Path, fallback: &str) -> String {
     if let Ok(head) = std::fs::read_to_string(repo_path.join(".git").join("HEAD"))
         && let Some(branch) = head.trim().strip_prefix("ref: refs/heads/")
@@ -512,7 +560,11 @@ fn remove_watch_folder(app: tauri::AppHandle, path: String) -> Result<(), String
     Ok(())
 }
 
-fn build_project_summaries(watched: &[WatchedProject], cards: &[UiCard]) -> Vec<UiProjectSummary> {
+fn build_project_summaries(
+    watched: &[WatchedProject],
+    cards: &[UiCard],
+    state: &LocalState,
+) -> Vec<UiProjectSummary> {
     watched
         .iter()
         .map(|project| {
@@ -550,6 +602,7 @@ fn build_project_summaries(watched: &[WatchedProject], cards: &[UiCard]) -> Vec<
                 ideas: open(CardKind::Idea),
                 done,
                 dismissed,
+                commands_pending: project_commands::pending_approval(state, path),
             }
         })
         .collect()
@@ -831,6 +884,7 @@ pub fn run() {
             let labels = shell::create_tray(app.handle())?;
             app.manage(labels);
             alerts::start(app.handle());
+            project_commands::start(app.handle());
             live::start(app.handle());
 
             if let Some(window) = app.get_webview_window(shell::MAIN_WINDOW) {
@@ -868,6 +922,9 @@ pub fn run() {
             get_mcp_executable,
             open_in_vscode,
             resume_session,
+            project_commands::get_project_commands,
+            project_commands::approve_project_commands,
+            project_commands::run_project_command,
         ])
         .run(tauri::generate_context!())
         .expect("no se pudo iniciar Wakeline");

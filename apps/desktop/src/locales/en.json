@@ -255,5 +255,25 @@
   "tray": {
     "open": "Open Wakeline",
     "quit": "Quit Wakeline"
+  },
+  "commands": {
+    "title": "Project commands",
+    "subtitle": "Those in wakeline.toml. Nothing runs until you approve it.",
+    "noProjects": "Add a folder to see its commands.",
+    "noConfig": "No wakeline.toml.",
+    "approved": "Approved",
+    "changed": "Changed, review",
+    "approve": "Approve",
+    "run": "Run",
+    "running": "Running…",
+    "onIdle": "After 30 s without changes",
+    "onManual": "Manual",
+    "pendingBadge": "Commands not approved",
+    "status": {
+      "passed": "Passed",
+      "failed": "Failed",
+      "timed_out": "Timed out",
+      "not_started": "Did not start"
+    }
   }
 }

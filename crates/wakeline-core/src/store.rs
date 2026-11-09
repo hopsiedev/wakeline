@@ -40,6 +40,9 @@ pub struct LocalState {
     /// Tarjetas acumuladas por cada archivo de sesión (`ruta -> tarjetas`).
     #[serde(default)]
     pub session_file_cards: HashMap<String, Vec<SessionCard>>,
+    /// SHA-256 del `wakeline.toml` aprobado por proyecto (`ruta normalizada -> hash`).
+    #[serde(default)]
+    pub trusted_commands: HashMap<String, String>,
 }
 
 impl LocalState {

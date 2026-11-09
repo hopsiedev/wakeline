@@ -5,6 +5,7 @@ pub mod account;
 pub mod alerts;
 pub mod card;
 pub mod code;
+pub mod commands;
 pub mod detect;
 pub mod docs;
 pub mod exclusions;

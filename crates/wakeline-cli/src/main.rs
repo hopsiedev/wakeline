@@ -1,3 +1,4 @@
+mod commands;
 mod scan;
 
 use std::path::PathBuf;
@@ -53,6 +54,22 @@ enum Command {
         #[arg(default_value = ".")]
         path: PathBuf,
     },
+    /// Muestra los comandos de `wakeline.toml` y pide permiso para ejecutarlos.
+    Trust {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Aprueba sin preguntar.
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Ejecuta ya un comando aprobado de `wakeline.toml`.
+    Run {
+        /// Nombre del comando (`name` en `wakeline.toml`).
+        name: String,
+        /// Carpeta del proyecto (por defecto, la actual).
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+    },
     /// Arranca el servidor MCP por stdio para que el agente de IA lea y cierre tarjetas.
     Mcp,
 }
@@ -84,6 +101,8 @@ fn main() -> Result<()> {
             once,
         }),
         Command::Export { path } => scan::export(path),
+        Command::Trust { path, yes } => commands::trust(path, yes),
+        Command::Run { name, path } => commands::run(path, name),
         Command::Mcp => Ok(wakeline_mcp::serve_stdio()?),
     }
 }
