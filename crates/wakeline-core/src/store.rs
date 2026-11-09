@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::card::{CardKind, CardStatus};
+use crate::sessions::SessionCard;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManualCard {
@@ -33,6 +34,12 @@ pub struct LocalState {
     pub statuses: HashMap<String, CardStatus>,
     #[serde(default)]
     pub manual_cards: Vec<ManualCard>,
+    /// Offset en bytes alcanzado en cada archivo de sesión (`ruta -> offset`).
+    #[serde(default)]
+    pub session_offsets: HashMap<String, u64>,
+    /// Tarjetas acumuladas por cada archivo de sesión (`ruta -> tarjetas`).
+    #[serde(default)]
+    pub session_file_cards: HashMap<String, Vec<SessionCard>>,
 }
 
 impl LocalState {
@@ -57,6 +64,8 @@ impl LocalState {
             state.statuses.clear();
             state.manual_cards.clear();
             state.watched_folders.clear();
+            state.session_offsets.clear();
+            state.session_file_cards.clear();
             state.config_version = 1;
         }
         state

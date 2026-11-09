@@ -17,7 +17,7 @@ use tauri::Manager;
 use wakeline_core::docs;
 use wakeline_core::exclusions;
 use wakeline_core::redact::redact;
-use wakeline_core::sessions::{cards_from_events, claude};
+use wakeline_core::sessions::{claude, scan_files_incremental};
 use wakeline_core::store::{ExportItem, LocalState, ManualCard, format_todo_markdown};
 use wakeline_core::watch::{is_within, normalized_path};
 use wakeline_core::{CardKind, CardStatus, Fingerprint, SourceKind};
@@ -103,7 +103,7 @@ async fn get_dashboard_data() -> Result<DashboardPayload, String> {
 fn scan_dashboard() -> Result<DashboardPayload, String> {
     let started = Instant::now();
     let state_path = LocalState::default_path();
-    let state = LocalState::load(&state_path);
+    let mut state = LocalState::load(&state_path);
     let watched = watched_projects(&state.watched_folders);
 
     if watched.is_empty() {
@@ -129,17 +129,10 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             .is_none_or(|m| m >= cutoff)
     });
 
-    let mut bytes = 0u64;
-    let mut events = Vec::new();
-    for file in &files {
-        if let Ok(read) = claude::read_from(&file.path, 0) {
-            bytes += read.offset;
-            events.extend(read.events);
-        }
-    }
-    events.retain(|e| watched_for_cwd(&watched, e.cwd.as_deref()).is_some());
-
-    let session_cards = cards_from_events(&events);
+    let report = scan_files_incremental(&files, &mut state).unwrap_or_default();
+    let _ = state.save(&state_path);
+    let bytes = report.bytes_read;
+    let session_cards = report.cards;
     let mut cards: Vec<UiCard> = Vec::new();
 
     for (idx, sc) in session_cards.into_iter().enumerate() {

@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 
 use serde_json::{Value, json};
 use wakeline_core::docs;
-use wakeline_core::sessions::{cards_from_events, claude};
+use wakeline_core::sessions::{claude, scan_files_incremental};
 use wakeline_core::store::LocalState;
 use wakeline_core::watch::is_within;
 use wakeline_core::{CardStatus, Fingerprint, SourceKind};
@@ -40,26 +40,18 @@ pub fn scan_cards(state: &LocalState) -> Vec<Value> {
 
     let sessions_root = home_dir().join(".claude").join("projects");
     let cutoff = SystemTime::now() - Duration::from_secs(30 * 24 * 3600);
-    let mut events = Vec::new();
-    for file in claude::discover(&sessions_root).unwrap_or_default() {
-        if std::fs::metadata(&file.path)
+    let mut files = claude::discover(&sessions_root).unwrap_or_default();
+    files.retain(|file| {
+        std::fs::metadata(&file.path)
             .and_then(|metadata| metadata.modified())
             .ok()
-            .is_some_and(|modified| modified < cutoff)
-        {
-            continue;
-        }
-        if let Ok(read) = claude::read_from(&file.path, 0) {
-            events.extend(read.events.into_iter().filter(|event| {
-                event
-                    .cwd
-                    .as_deref()
-                    .is_some_and(|cwd| watched_project(state, cwd).is_some())
-            }));
-        }
-    }
+            .is_none_or(|modified| modified >= cutoff)
+    });
 
-    for card in cards_from_events(&events) {
+    let mut working_state = state.clone();
+    let report = scan_files_incremental(&files, &mut working_state).unwrap_or_default();
+
+    for card in report.cards {
         let Some(root) = card
             .cwd
             .as_deref()
