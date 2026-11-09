@@ -6,6 +6,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use anyhow::{Context, Result};
 use wakeline_core::CardKind;
+use wakeline_core::code::{CodeCard, CodeScanner};
 use wakeline_core::docs;
 use wakeline_core::sessions::{SessionCard, claude, scan_files_incremental};
 use wakeline_core::store::{ExportItem, LocalState, format_todo_markdown};
@@ -65,6 +66,9 @@ pub fn run(options: ScanOptions) -> Result<()> {
         total_time,
         &cards,
     );
+    if let Ok(canonical) = std::fs::canonicalize(&options.project) {
+        print_code_cards(&CodeScanner::new().scan_project(&canonical));
+    }
     Ok(())
 }
 
@@ -96,6 +100,8 @@ pub fn export(project_path: PathBuf) -> Result<()> {
         })
         .collect();
     let doc_cards = docs::scan_project_docs(&canonical).unwrap_or_default();
+    let code_cards = CodeScanner::new().scan_project(&canonical);
+    let code_locations: Vec<String> = code_cards.iter().map(CodeCard::location).collect();
 
     let mut items: Vec<ExportItem<'_>> = Vec::new();
     for c in &session_cards {
@@ -112,6 +118,15 @@ pub fn export(project_path: PathBuf) -> Result<()> {
             title: &d.title,
             origin: &d.location,
             status: state.status_for(d.fingerprint.as_str()),
+        });
+    }
+
+    for (c, location) in code_cards.iter().zip(&code_locations) {
+        items.push(ExportItem {
+            kind: c.kind,
+            title: &c.title,
+            origin: location,
+            status: state.status_for(c.fingerprint.as_str()),
         });
     }
 
@@ -207,10 +222,13 @@ pub fn watch_with_state_path(options: WatchOptions, state_path: &Path) -> Result
             .collect();
 
         let mut doc_count = 0usize;
+        let mut code_cards: Vec<CodeCard> = Vec::new();
+        let mut scanner = CodeScanner::new();
         for dir in &watched_dirs {
             if let Ok(doc_cards) = docs::scan_project_docs(dir) {
                 doc_count += doc_cards.len();
             }
+            code_cards.extend(scanner.scan_project(dir));
         }
 
         cards.sort_by(|a, b| b.last_seen.cmp(&a.last_seen));
@@ -227,7 +245,8 @@ pub fn watch_with_state_path(options: WatchOptions, state_path: &Path) -> Result
         if doc_count > 0 {
             println!("Documentos: {doc_count} pendiente(s) en archivos Markdown\n");
         }
-        Ok(cards.len() + doc_count)
+        print_code_cards(&code_cards);
+        Ok(cards.len() + doc_count + code_cards.len())
     };
 
     scan_once(&mut state)?;
@@ -304,10 +323,7 @@ fn is_ignored_watch_path(path: &Path) -> bool {
     }
     for component in path.components() {
         let name = component.as_os_str().to_string_lossy();
-        if matches!(
-            name.as_ref(),
-            ".git" | "node_modules" | "target" | "dist" | "build"
-        ) {
+        if wakeline_core::code::is_ignored_dir(&name) {
             return true;
         }
     }
@@ -351,6 +367,26 @@ fn print_report(
         }
         println!();
     }
+}
+
+fn print_code_cards(cards: &[CodeCard]) {
+    if cards.is_empty() {
+        return;
+    }
+    println!("Código ({})", cards.len());
+    for card in cards {
+        let kind = match card.kind {
+            CardKind::Idea => "idea ",
+            _ => "tarea",
+        };
+        println!(
+            "  ×{:<3} {kind}  {}  {}",
+            card.occurrences,
+            card.location(),
+            card.title
+        );
+    }
+    println!();
 }
 
 fn default_sessions_dir() -> Result<PathBuf> {
