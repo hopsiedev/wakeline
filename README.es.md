@@ -14,6 +14,10 @@ Wakeline es una aplicación de escritorio para Windows que vigila las carpetas d
 
 Cada tarjeta conserva su origen (la sesión, el comando que falló o el archivo donde apareció) y tiene un ciclo simple: puedes aceptarla, marcarla como hecha o descartarla si no te sirve. Wakeline organiza lo que hay que revisar; no modifica tu código por su cuenta y solo analiza las carpetas que tú selecciones.
 
+<p align="center">
+  <img src="assets/screenshots/summary.png" width="100%" alt="Vista de Resumen en Wakeline">
+</p>
+
 ## Por qué usar Wakeline
 
 Cuando trabajas con varios proyectos o pasas el día entre sesiones de terminal y agentes, el trabajo pendiente se dispersa muy rápido:
@@ -22,7 +26,26 @@ Cuando trabajas con varios proyectos o pasas el día entre sesiones de terminal 
 - El agente termina un cambio y cierra su respuesta con «queda pendiente validar el caso de facturas anuladas». Cierras la ventana y esa nota desaparece en el historial.
 - Tienes pendientes repartidos entre `README.md`, notas de hoja de ruta y sesiones de distintos repositorios.
 
-Wakeline lee ese rastro en segundo plano y lo junta en un solo lugar, deduplicando lo que se repite para que el mismo fallo no aparezca diez veces.
+Wakeline lee ese rastro en segundo plano y lo junta en un solo lugar, agrupando lo que se repite para que el mismo fallo no aparezca diez veces.
+
+## Vistas de la aplicación
+
+### Bandeja de tarjetas y detalle con contexto
+
+En **Tarjetas** puedes filtrar por proyecto, tipo (`Error`, `Tarea`, `Idea`) o texto, y alternar entre tabla y tablero Kanban. Al abrir una tarjeta ves el fragmento de código donde ocurre el problema, la salida del comando que falló y las acciones directas para abrir el archivo en VS Code, reanudar la sesión de Claude o copiar el contexto como prompt.
+
+<p align="center">
+  <img src="assets/screenshots/cards.png" width="49%" alt="Listado de tarjetas en Wakeline">
+  <img src="assets/screenshots/card-detail.png" width="49%" alt="Detalle de una tarjeta en Wakeline">
+</p>
+
+### Ajustes, notificaciones y exclusiones
+
+Desde **Ajustes** controlas las alertas en la bandeja de Windows, el idioma, el tema, la carpeta de exportación (`docs/TODO.md`), la conexión con servidores MCP y las reglas fijas de exclusión de secretos.
+
+<p align="center">
+  <img src="assets/screenshots/settings.png" width="100%" alt="Vista de Ajustes en Wakeline">
+</p>
 
 ## Casos de uso
 
@@ -36,7 +59,7 @@ Es habitual pedirle a un agente que resuelva solo una parte del problema y dejar
 
 ### 3. Cambiar entre varios proyectos sin perder el hilo
 
-Si alternas entre una app web, una app móvil en Expo y una librería en Rust, puedes añadir solo esas tres carpetas en Ajustes. Wakeline ignora el resto de tu disco, agrupa las tarjetas por proyecto y te avisa en la bandeja de Windows únicamente cuando entra un error nuevo.
+Si alternas entre una app web, una app móvil en Expo y una librería en Rust, puedes elegir solo esas tres carpetas en la barra lateral. Wakeline ignora el resto de tu disco, agrupa las tarjetas por proyecto y te avisa en la bandeja de Windows únicamente cuando entra un error nuevo.
 
 ### 4. Trabajar las tarjetas desde el chat con MCP
 
@@ -45,6 +68,71 @@ Wakeline incluye un servidor MCP (`wakeline mcp`) por `stdio`. Si lo conectas en
 > «Mira las tarjetas abiertas de este proyecto y ayúdame con el error de `app/layout.tsx`».
 
 El agente puede consultar las tarjetas (`list_cards`, `get_card`), anotar una nueva (`create_card`) o marcarla como terminada (`complete_card`) cuando acabes. Por diseño no existe herramienta de borrado: un agente nunca puede eliminar tu historial.
+
+## Arquitectura
+
+El proyecto está dividido en un núcleo en Rust sin dependencias de interfaz y tres puntos de entrada que comparten las mismas reglas de lectura, deduplicación y almacenamiento.
+
+```mermaid
+flowchart LR
+  subgraph Fuentes["Fuentes locales (solo lectura)"]
+    S["Sesiones de Claude Code<br/>~/.claude/projects/*.jsonl"]
+    D["Documentos del proyecto<br/>README · ROADMAP · TODO · docs/*.md"]
+  end
+
+  subgraph Core["wakeline-core (Rust)"]
+    W["Filtro de carpetas vigiladas<br/>watch::is_within"]
+    X["Exclusiones y redacción<br/>exclusions + redact"]
+    P["Detector y huella BLAKE3<br/>sessions + docs + fingerprint"]
+    ST[("Estado local<br/>%APPDATA%\\wakeline\\state.json")]
+  end
+
+  subgraph Clientes[" Clientes y salidas"]
+    UI["App de escritorio<br/>Tauri v2 + React + MUI"]
+    MCP["Servidor MCP (stdio)<br/>wakeline-mcp"]
+    CLI["CLI<br/>wakeline scan / watch / export"]
+    TODO["Exportación manual<br/>docs/TODO.md"]
+  end
+
+  S --> W
+  D --> W
+  W --> X
+  X --> P
+  P <--> ST
+  ST --> UI
+  ST --> MCP
+  ST --> CLI
+  UI --> TODO
+  CLI --> TODO
+```
+
+### Cómo se identifica y conserva cada tarjeta
+
+Cada hallazgo se normaliza (quitando fechas, horas, rutas temporales y números de línea variables) y se resume en una huella `BLAKE3` (`Fingerprint`). Gracias a esa huella:
+
+- Si un comando falla tres veces con el mismo error en distintos momentos de una sesión, se agrupa en **una sola tarjeta** con contador `×3`.
+- Cuando aceptas, completas o descartas una tarjeta, la decisión se guarda asociada a su huella en `%APPDATA%\wakeline\state.json`. En los siguientes escaneos la tarjeta conserva su estado.
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> Nueva: Detectada en sesión, doc o creada a mano
+  Nueva --> Aceptada: Aceptar en la app
+  Nueva --> Hecha: Marcar hecha / complete_card (MCP)
+  Nueva --> Descartada: Descartar
+  Aceptada --> Hecha: Marcar hecha / complete_card (MCP)
+  Aceptada --> Descartada: Descartar
+  Hecha --> Aceptada: Reabrir desde el detalle
+```
+
+### Componentes del espacio de trabajo
+
+| Componente | Responsabilidad |
+| --- | --- |
+| `crates/wakeline-core` | Lectura incremental de sesiones JSONL de Claude Code, análisis de secciones de pendientes en Markdown, cálculo de huellas `BLAKE3`, lista fija de exclusiones (`.env`, credenciales, llaves), redacción de tokens, enfriamiento de alertas y persistencia en `%APPDATA%\wakeline\state.json`. |
+| `crates/wakeline-mcp` | Servidor JSON-RPC 2.0 sobre `stdio` compatible con MCP (`2024-11-05`, `2025-11-25` y `2026-07-28`). Expone `list_cards`, `get_card`, `create_card` y `complete_card` leyendo exactamente las mismas fuentes y carpetas vigiladas que la aplicación de escritorio. |
+| `crates/wakeline-cli` | Ejecutable de línea de comandos (`wakeline scan`, `wakeline watch`, `wakeline export`, `wakeline mcp`). |
+| `apps/desktop` | Aplicación nativa para Windows construida con Tauri v2 (`src-tauri`) y React 19 + MUI v7 (`src`). Incluye bandeja del sistema, notificaciones nativas de Windows por errores nuevos, selector de carpetas y apertura directa en VS Code. |
 
 ## Qué lee hoy (y qué no)
 
@@ -59,18 +147,6 @@ El agente puede consultar las tarjetas (`list_cards`, `get_card`), anotar una nu
 - **Solo lee las carpetas que eliges.** Hasta que no añades una carpeta, Wakeline no muestra ni analiza nada.
 - **No toca secretos.** Tiene una lista fija de exclusiones (`.env`, credenciales, llaves privadas, tokens de sesión) y un filtro que redacta cualquier token antes de guardar una tarjeta.
 - **Todo queda en tu máquina.** Las carpetas vigiladas y el estado de tus tarjetas se guardan localmente en `%APPDATA%\wakeline\state.json`, y puedes exportar las tarjetas abiertas a `docs/TODO.md` cuando quieras.
-
-## Estructura del repositorio
-
-```text
-crates/
-  wakeline-core   # lectura de sesiones y documentos, huellas estables, exclusiones y estado local
-  wakeline-cli    # CLI (`wakeline scan`, `wakeline watch`, `wakeline export`, `wakeline mcp`)
-  wakeline-mcp    # servidor MCP por stdio (list_cards, get_card, create_card, complete_card)
-apps/
-  desktop         # aplicación de escritorio para Windows (Tauri v2 + React + MUI)
-assets/brand/     # íconos de la aplicación
-```
 
 ## Desarrollo
 

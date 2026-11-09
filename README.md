@@ -14,6 +14,10 @@ Wakeline is a Windows desktop app that watches the project folders you choose an
 
 Each card keeps its origin (the session, the command that failed, or the file where it was found) and follows a simple workflow: accept it, mark it as done, or dismiss it. Wakeline organizes what needs your attention; it does not edit your code on its own, and it only scans the folders you select.
 
+<p align="center">
+  <img src="assets/screenshots/summary.png" width="100%" alt="Wakeline Summary view">
+</p>
+
 ## Why use Wakeline
 
 When you work across several projects or run multiple AI sessions a day, unfinished work gets buried fast:
@@ -23,6 +27,25 @@ When you work across several projects or run multiple AI sessions a day, unfinis
 - Follow-up tasks end up split between `README.md`, roadmap notes, and chat histories across different repositories.
 
 Wakeline reads those traces in the background and puts them in one inbox, grouping repeated failures into a single card so the same error does not clutter your list ten times.
+
+## App views
+
+### Card inbox and context detail
+
+In **Cards**, you can filter by project, type (`Error`, `Task`, `Idea`), or search query, and switch between the table view and a Kanban board. Opening a card shows the code excerpt where the issue happened, the failing command output, and direct actions to open the file in VS Code, resume the Claude session, or copy the context as a prompt.
+
+<p align="center">
+  <img src="assets/screenshots/cards.png" width="49%" alt="Wakeline Cards table view">
+  <img src="assets/screenshots/card-detail.png" width="49%" alt="Wakeline Card detail view">
+</p>
+
+### Settings, notifications, and hard exclusions
+
+In **Settings**, you control Windows tray notifications, language, theme, the `docs/TODO.md` export path, MCP server connections, and the built-in secret exclusion rules.
+
+<p align="center">
+  <img src="assets/screenshots/settings.png" width="100%" alt="Wakeline Settings view">
+</p>
 
 ## Use cases
 
@@ -36,7 +59,7 @@ You often ask an agent to solve one part of a problem and leave the rest for lat
 
 ### 3. Switch between projects without losing track
 
-If you bounce between a web app, an Expo mobile project, and a Rust workspace, you can add just those folders in Settings. Wakeline ignores the rest of your disk, groups cards by project, and sends a Windows tray notification only when a new error card appears.
+If you bounce between a web app, an Expo mobile project, and a Rust workspace, you can add just those folders in the sidebar. Wakeline ignores the rest of your disk, groups cards by project, and sends a Windows tray notification only when a new error card appears.
 
 ### 4. Work through cards from chat with MCP
 
@@ -45,6 +68,71 @@ Wakeline includes an MCP server (`wakeline mcp`) over `stdio`. Once connected to
 > "Check the open cards for this project and help me fix the error in `app/layout.tsx`."
 
 The agent can query your inbox (`list_cards`, `get_card`), log a new item (`create_card`), or mark a card done (`complete_card`) once you finish. By design, there is no delete tool: an agent can never wipe your card history.
+
+## Architecture
+
+Wakeline separates its Rust core from three entry points (Desktop UI, MCP server, and CLI) that share the exact same scanning, deduplication, and local state logic.
+
+```mermaid
+flowchart LR
+  subgraph Sources["Local sources (read-only)"]
+    S["Claude Code sessions<br/>~/.claude/projects/*.jsonl"]
+    D["Project docs<br/>README · ROADMAP · TODO · docs/*.md"]
+  end
+
+  subgraph Core["wakeline-core (Rust)"]
+    W["Watched folder filter<br/>watch::is_within"]
+    X["Exclusions & redaction<br/>exclusions + redact"]
+    P["Detector & BLAKE3 fingerprint<br/>sessions + docs + fingerprint"]
+    ST[("Local state<br/>%APPDATA%\\wakeline\\state.json")]
+  end
+
+  subgraph Clients["Clients & outputs"]
+    UI["Desktop app<br/>Tauri v2 + React + MUI"]
+    MCP["MCP server (stdio)<br/>wakeline-mcp"]
+    CLI["CLI<br/>wakeline scan / watch / export"]
+    TODO["Manual export<br/>docs/TODO.md"]
+  end
+
+  S --> W
+  D --> W
+  W --> X
+  X --> P
+  P <--> ST
+  ST --> UI
+  ST --> MCP
+  ST --> CLI
+  UI --> TODO
+  CLI --> TODO
+```
+
+### How cards are fingerprinted and persisted
+
+Every finding is normalized (stripping timestamps, temporary paths, and shifting line numbers) and hashed into a stable `BLAKE3` `Fingerprint`:
+
+- If a command fails three times with the same error during a session, Wakeline collapses those occurrences into **one card** with a `×3` counter.
+- When you accept, complete, or dismiss a card, that decision is stored by fingerprint in `%APPDATA%\wakeline\state.json`, so rescanning the project never resets your decisions.
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> New: Detected in session, doc, or created manually
+  New --> Accepted: Accept in app
+  New --> Done: Mark done / complete_card (MCP)
+  New --> Dismissed: Dismiss
+  Accepted --> Done: Mark done / complete_card (MCP)
+  Accepted --> Dismissed: Dismiss
+  Done --> Accepted: Reopen from card detail
+```
+
+### Workspace components
+
+| Component | Responsibility |
+| --- | --- |
+| `crates/wakeline-core` | Incremental reader for Claude Code JSONL sessions, Markdown pending-section parser, `BLAKE3` fingerprinting, hard secret exclusions (`.env`, credentials, private keys), token redaction, alert cooldowns, and local state persistence in `%APPDATA%\wakeline\state.json`. |
+| `crates/wakeline-mcp` | JSON-RPC 2.0 server over `stdio` supporting MCP protocol versions `2024-11-05`, `2025-11-25`, and `2026-07-28`. Exposes `list_cards`, `get_card`, `create_card`, and `complete_card` over the same watched folders and sources as the desktop app. |
+| `crates/wakeline-cli` | Command-line binary (`wakeline scan`, `wakeline watch`, `wakeline export`, `wakeline mcp`). |
+| `apps/desktop` | Native Windows desktop app built with Tauri v2 (`src-tauri`) and React 19 + MUI v7 (`src`). Includes system tray integration, native Windows toast notifications for new errors, folder picker, and direct VS Code deep links. |
 
 ## What it reads today (and what it doesn't)
 
@@ -59,18 +147,6 @@ The agent can query your inbox (`list_cards`, `get_card`), log a new item (`crea
 - **Only scans folders you select.** Until you pick a folder, Wakeline stays empty.
 - **Never touches secrets.** A fixed exclusion list (`.env`, credential stores, private keys, session tokens) and a redaction filter strip sensitive tokens before any card is created.
 - **Stays on your machine.** Watched folders and card statuses are saved locally in `%APPDATA%\wakeline\state.json`, and you can export open cards to `docs/TODO.md` anytime.
-
-## Repository layout
-
-```text
-crates/
-  wakeline-core   # session and doc parsers, stable fingerprints, exclusions, local state
-  wakeline-cli    # CLI (`wakeline scan`, `wakeline watch`, `wakeline export`, `wakeline mcp`)
-  wakeline-mcp    # stdio MCP server (list_cards, get_card, create_card, complete_card)
-apps/
-  desktop         # Windows desktop app (Tauri v2 + React + MUI)
-assets/brand/     # app icons
-```
 
 ## Development
 
