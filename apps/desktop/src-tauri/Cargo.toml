@@ -22,8 +22,14 @@ tauri-build = { version = "2.7.4", features = [] }
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+time = "0.3.55"
+dunce = "1.0.5"
 tauri = { version = "2.12.5", features = ["tray-icon"] }
 tauri-plugin-notification = "2.8.0"
 tauri-plugin-opener = "2.7.2"
 tauri-plugin-single-instance = "2.5.5"
 wakeline-core.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+tauri-winrt-notification = "0.8.1"
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_UI_Shell", "Win32_UI_Shell_PropertiesSystem"] }

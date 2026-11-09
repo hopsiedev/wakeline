@@ -4248,6 +4248,7 @@ dependencies = [
 name = "wakeline-app"
 version = "0.1.0"
 dependencies = [
+ "dunce",
  "serde",
  "serde_json",
  "tauri",
@@ -4255,7 +4256,10 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
+ "tauri-winrt-notification",
+ "time",
  "wakeline-core",
+ "windows",
 ]
 
 [[package]]
@@ -4274,6 +4278,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "toml 1.2.1+spec-1.1.0",
 ]
 
 [[package]]
@@ -4282,6 +4287,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "time",
  "wakeline-core",
 ]
 

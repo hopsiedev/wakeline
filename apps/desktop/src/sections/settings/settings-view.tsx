@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { varAlpha } from 'minimal-shared/utils';
 
@@ -11,7 +11,7 @@ import Typography from '@mui/material/Typography';
 import { useColorScheme } from '@mui/material/styles';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { sendTestNotification } from 'src/services/wakeline';
+import { getMcpExecutable, sendTestNotification } from 'src/services/wakeline';
 import { type Language, alertsEnabled, changeLanguage, setAlertsEnabled } from 'src/locales/i18n';
 
 import { Label } from 'src/components/label';
@@ -30,11 +30,31 @@ export function SettingsView() {
   const [claudeEnabled, setClaudeEnabled] = useState(true);
   const [githubEnabled, setGithubEnabled] = useState(true);
   const [winToast, setWinToast] = useState(alertsEnabled);
+  const [testError, setTestError] = useState<string | null>(null);
+  const [mcpExecutable, setMcpExecutable] = useState<string | null>(null);
   const [trayBadge, setTrayBadge] = useState(true);
   const [dailySummary, setDailySummary] = useState(false);
 
   const currentLang: Language = i18n.language.startsWith('en') ? 'en' : 'es';
   const currentMode: Mode = (mode as Mode) ?? 'dark';
+
+  useEffect(() => {
+    getMcpExecutable().then(setMcpExecutable);
+  }, []);
+
+  const mcpCommand = mcpExecutable ?? 'wakeline';
+  const mcpConfigs = [
+    { label: 'Claude Code', text: `claude mcp add wakeline -- "${mcpCommand}" mcp` },
+    { label: 'Codex', text: `codex mcp add wakeline -- "${mcpCommand}" mcp` },
+    {
+      label: 'Antigravity · ~/.gemini/config/mcp_config.json',
+      text: JSON.stringify(
+        { mcpServers: { wakeline: { command: mcpCommand, args: ['mcp'] } } },
+        null,
+        2
+      ),
+    },
+  ];
 
   return (
     <DashboardContent maxWidth={false}>
@@ -303,23 +323,44 @@ export function SettingsView() {
               </Typography>
 
               <SettingRow label={t('settings.alertsWin')} hint={t('settings.alertsWinHint')}>
-                <Box sx={{ gap: 1, display: 'flex', alignItems: 'center' }}>
-                  <Button
-                    size="small"
-                    color="inherit"
-                    variant="outlined"
-                    disabled={!winToast}
-                    onClick={() => sendTestNotification()}
-                  >
-                    {t('settings.alertsTest')}
-                  </Button>
-                  <Switch
-                    checked={winToast}
-                    onChange={(e) => {
-                      setWinToast(e.target.checked);
-                      setAlertsEnabled(e.target.checked);
-                    }}
-                  />
+                <Box
+                  sx={{
+                    gap: 0.5,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                  }}
+                >
+                  <Box sx={{ gap: 1, display: 'flex', alignItems: 'center' }}>
+                    <Button
+                      size="small"
+                      color="inherit"
+                      variant="outlined"
+                      disabled={!winToast}
+                      onClick={async () => {
+                        try {
+                          await sendTestNotification();
+                          setTestError(null);
+                        } catch (error) {
+                          setTestError(String(error));
+                        }
+                      }}
+                    >
+                      {t('settings.alertsTest')}
+                    </Button>
+                    <Switch
+                      checked={winToast}
+                      onChange={(e) => {
+                        setWinToast(e.target.checked);
+                        setAlertsEnabled(e.target.checked);
+                      }}
+                    />
+                  </Box>
+                  {testError && (
+                    <Typography sx={{ color: 'error.main', fontSize: 12, maxWidth: 280 }}>
+                      {t('settings.alertsTestFailed')}: {testError}
+                    </Typography>
+                  )}
                 </Box>
               </SettingRow>
 
@@ -412,24 +453,44 @@ export function SettingsView() {
                     {t('settings.mcpSub')}
                   </Typography>
                 </Box>
-                <Label color="success">{t('common.active')}</Label>
+                <Label color={mcpExecutable ? 'success' : 'warning'}>
+                  {mcpExecutable ? t('settings.mcpCliReady') : t('settings.mcpCliMissing')}
+                </Label>
               </Box>
 
-              <Box
-                sx={(theme) => ({
-                  py: 1.5,
-                  px: 2,
-                  mb: 1.5,
-                  borderRadius: 1.5,
-                  fontFamily: 'monospace',
-                  fontSize: 12.5,
-                  color: 'text.primary',
-                  bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
-                  border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
-                })}
-              >
-                claude mcp add wakeline -- wakeline mcp
-              </Box>
+              {!mcpExecutable && (
+                <Typography sx={{ mb: 2, color: 'text.secondary', fontSize: 13 }}>
+                  {t('settings.mcpBuildHint')}
+                </Typography>
+              )}
+
+              {mcpConfigs.map((config) => (
+                <Box key={config.label} sx={{ mb: 1.5 }}>
+                  <Typography sx={{ mb: 0.5, fontSize: 13, fontWeight: 600 }}>
+                    {config.label}
+                  </Typography>
+                  <Box
+                    component="pre"
+                    sx={(theme) => ({
+                      py: 1.5,
+                      px: 2,
+                      mb: 0.5,
+                      borderRadius: 1.5,
+                      overflowX: 'auto',
+                      fontFamily: 'monospace',
+                      fontSize: 12.5,
+                      color: 'text.primary',
+                      bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
+                      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
+                    })}
+                  >
+                    {config.text}
+                  </Box>
+                  <Button size="small" onClick={() => navigator.clipboard?.writeText(config.text)}>
+                    {t('settings.copyConfig')}
+                  </Button>
+                </Box>
+              ))}
 
               <Box sx={{ gap: 1, display: 'flex', flexWrap: 'wrap' }}>
                 {['list_cards', 'get_card', 'create_card', 'complete_card'].map((tool) => (

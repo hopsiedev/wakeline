@@ -61,7 +61,8 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
   const github = account?.github ?? null;
   const displayName = github?.name || github?.login || localName || t('account.you');
   const initials = displayName.slice(0, 1).toUpperCase();
-  const connectionsOk = !!account && account.claude_code && !!account.github;
+  const connectionsOk =
+    !!account && (account.claude_code || account.codex_mcp || account.antigravity_mcp);
 
   const renameLocal = () => {
     const value = window.prompt(t('account.renamePrompt'), localName);
@@ -96,7 +97,10 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
       <IconButton
         size="small"
         aria-label={t('account.connections')}
-        onClick={(e) => setConnAnchor(e.currentTarget)}
+        onClick={(e) => {
+          setConnAnchor(e.currentTarget);
+          fetchAccount(true).then(setAccount);
+        }}
         sx={{
           width: 30,
           height: 30,
@@ -231,6 +235,7 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
           onClick={() => {
             closeMenu();
             setConnAnchor(rowRef.current);
+            fetchAccount(true).then(setAccount);
           }}
         >
           <AppIcon name="plug" size={17} />
@@ -296,6 +301,8 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
           {t('account.connections').toUpperCase()}
         </Typography>
         <ConnectionRow label={t('account.claudeCode')} ok={!!account?.claude_code} t={t} />
+        <ConnectionRow label={t('account.codex')} ok={!!account?.codex_mcp} t={t} />
+        <ConnectionRow label={t('account.antigravity')} ok={!!account?.antigravity_mcp} t={t} />
         <ConnectionRow
           label={t('account.github')}
           detail={github ? `@${github.login}` : undefined}

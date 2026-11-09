@@ -1,5 +1,10 @@
 import type { Theme, SxProps, Breakpoint } from '@mui/material/styles';
-import type { UiCard, DashboardPayload, UiProjectSummary } from 'src/services/wakeline';
+import type {
+  UiCard,
+  UiFileEntry,
+  DashboardPayload,
+  UiProjectSummary,
+} from 'src/services/wakeline';
 
 import { useTranslation } from 'react-i18next';
 import { varAlpha } from 'minimal-shared/utils';
@@ -19,7 +24,14 @@ import Drawer, { drawerClasses } from '@mui/material/Drawer';
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
-import { fetchDashboardData } from 'src/services/wakeline';
+import {
+  openProjectFile,
+  listProjectFiles,
+  chooseWatchFolder,
+  removeWatchFolder,
+  fetchDashboardData,
+  getCachedDashboardData,
+} from 'src/services/wakeline';
 
 import { Logo } from 'src/components/logo';
 import { NavIcon } from 'src/components/nav-icon';
@@ -114,7 +126,7 @@ export function NavMobile({
 // ----------------------------------------------------------------------
 
 function useDashboard() {
-  const [payload, setPayload] = useState<DashboardPayload | null>(null);
+  const [payload, setPayload] = useState<DashboardPayload | null>(getCachedDashboardData);
 
   useEffect(() => {
     let alive = true;
@@ -137,15 +149,16 @@ export const NAV_ANIMATION = '200ms cubic-bezier(0.2, 0, 0, 1)';
 
 const isOpen = (c: UiCard) => c.status === 'new' || c.status === 'accepted';
 
-type BranchRow = { name: string; open: number; hasErrors: boolean };
+type BranchRow = { name: string; open: number; hasErrors: boolean; cards: UiCard[] };
 
 function branchesOf(project: UiProjectSummary, cards: UiCard[]): BranchRow[] {
   const map = new Map<string, BranchRow>();
   for (const card of cards) {
-    if (!isOpen(card) || card.project.toLowerCase() !== project.name.toLowerCase()) continue;
-    const row = map.get(card.branch) ?? { name: card.branch, open: 0, hasErrors: false };
-    row.open += 1;
-    row.hasErrors ||= card.kind === 'error';
+    if (card.project.toLowerCase() !== project.name.toLowerCase()) continue;
+    const row = map.get(card.branch) ?? { name: card.branch, open: 0, hasErrors: false, cards: [] };
+    if (isOpen(card)) row.open += 1;
+    row.hasErrors ||= isOpen(card) && card.kind === 'error';
+    row.cards.push(card);
     map.set(card.branch, row);
   }
   return [...map.values()].sort(
@@ -160,6 +173,29 @@ export function NavContent({ data, collapsed = false, onToggleCollapse, sx }: Na
   const { t } = useTranslation();
   const payload = useDashboard();
   const [alertsAnchor, setAlertsAnchor] = useState<HTMLElement | null>(null);
+  const [watchError, setWatchError] = useState<string | null>(null);
+  const [watchBusy, setWatchBusy] = useState(false);
+
+  const handleWatch = async () => {
+    setWatchError(null);
+    setWatchBusy(true);
+    try {
+      await chooseWatchFolder();
+    } catch (error) {
+      setWatchError(String(error));
+    } finally {
+      setWatchBusy(false);
+    }
+  };
+
+  const handleRemove = async (path: string) => {
+    try {
+      await removeWatchFolder(path);
+      setWatchError(null);
+    } catch (error) {
+      setWatchError(String(error));
+    }
+  };
 
   const cards = useMemo(() => payload?.cards ?? [], [payload]);
   const projects = payload?.projects ?? [];
@@ -254,8 +290,17 @@ export function NavContent({ data, collapsed = false, onToggleCollapse, sx }: Na
           <Box
             sx={{ mt: 2, gap: 0.5, display: 'flex', flexDirection: 'column', alignItems: 'center' }}
           >
+            <Tooltip title={t('nav.watchFolder')} placement="right">
+              <IconButton
+                onClick={handleWatch}
+                disabled={watchBusy}
+                aria-label={t('nav.watchFolder')}
+              >
+                <NavIcon name="plus" size={18} />
+              </IconButton>
+            </Tooltip>
             {projects.map((p) => (
-              <Tooltip key={p.name} title={p.name} placement="right">
+              <Tooltip key={p.path} title={p.name} placement="right">
                 <IconButton
                   component={RouterLink}
                   href="/pull-requests"
@@ -271,18 +316,29 @@ export function NavContent({ data, collapsed = false, onToggleCollapse, sx }: Na
             <SectionHeader
               title={t('nav.projects')}
               actionLabel={t('nav.watchFolder')}
-              actionHref="/pull-requests"
+              onAction={handleWatch}
+              disabled={watchBusy}
             />
             {!payload ? (
               <ProjectsSkeleton />
             ) : projects.length === 0 ? (
-              <AddPlaceholder label={t('nav.addFirstProject')} href="/pull-requests" />
+              <AddPlaceholder label={t('nav.addFirstProject')} onClick={handleWatch} />
             ) : (
               <Box sx={{ gap: 0.25, display: 'flex', flexDirection: 'column' }}>
                 {projects.map((p) => (
-                  <ProjectTree key={p.name} project={p} branches={branchesOf(p, cards)} />
+                  <ProjectTree
+                    key={p.path}
+                    project={p}
+                    branches={branchesOf(p, cards)}
+                    onRemove={handleRemove}
+                  />
                 ))}
               </Box>
+            )}
+            {watchError && (
+              <Typography sx={{ px: 1.25, color: 'error.main', fontSize: 12 }}>
+                {watchError}
+              </Typography>
             )}
           </>
         )}
@@ -433,11 +489,13 @@ function NavRow({
 function SectionHeader({
   title,
   actionLabel,
-  actionHref,
+  onAction,
+  disabled,
 }: {
   title: string;
   actionLabel: string;
-  actionHref: string;
+  onAction: () => void;
+  disabled?: boolean;
 }) {
   return (
     <Box sx={{ pt: 2.5, pb: 0.75, pl: 1.25, pr: 0.25, display: 'flex', alignItems: 'center' }}>
@@ -456,8 +514,8 @@ function SectionHeader({
       <Tooltip title={actionLabel}>
         <IconButton
           size="small"
-          component={RouterLink}
-          href={actionHref}
+          onClick={onAction}
+          disabled={disabled}
           aria-label={actionLabel}
           sx={{ width: 26, height: 26, borderRadius: 1, color: 'text.disabled' }}
         >
@@ -481,11 +539,10 @@ function ProjectsSkeleton() {
   );
 }
 
-function AddPlaceholder({ label, href }: { label: string; href: string }) {
+function AddPlaceholder({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <ListItemButton
-      component={RouterLink}
-      href={href}
+      onClick={onClick}
       sx={(theme) => ({
         // ListItemButton crece por defecto: sin esto ocupa toda la barra.
         flexGrow: 0,
@@ -505,8 +562,17 @@ function AddPlaceholder({ label, href }: { label: string; href: string }) {
   );
 }
 
-function ProjectTree({ project, branches }: { project: UiProjectSummary; branches: BranchRow[] }) {
-  const storageKey = `wakeline-project-open:${project.name}`;
+function ProjectTree({
+  project,
+  branches,
+  onRemove,
+}: {
+  project: UiProjectSummary;
+  branches: BranchRow[];
+  onRemove: (path: string) => void;
+}) {
+  const { t } = useTranslation();
+  const storageKey = `wakeline-project-open:${project.path}`;
   const [open, setOpen] = useState(() => localStorage.getItem(storageKey) !== 'false');
 
   const toggle = () => {
@@ -516,80 +582,196 @@ function ProjectTree({ project, branches }: { project: UiProjectSummary; branche
 
   return (
     <Box>
-      <ListItemButton
-        disableGutters
-        onClick={toggle}
-        sx={{
-          px: 1.25,
-          gap: 1,
-          minHeight: 32,
-          borderRadius: 1,
-          fontSize: 14,
-          color: 'text.secondary',
-        }}
-      >
-        <Box
-          component="span"
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <ListItemButton
+          disableGutters
+          onClick={toggle}
           sx={{
-            display: 'flex',
-            transition: 'transform 120ms',
-            transform: open ? 'rotate(90deg)' : 'none',
+            px: 1.25,
+            gap: 1,
+            minHeight: 32,
+            borderRadius: 1,
+            fontSize: 14,
+            color: 'text.secondary',
           }}
         >
-          <NavIcon name="chevRight" size={14} />
-        </Box>
-        <NavIcon name="folder" size={17} />
-        <Box component="span" sx={{ flexGrow: 1, minWidth: 0 }}>
-          {project.name}
-        </Box>
-        {project.errors > 0 && (
-          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main' }} />
-        )}
-      </ListItemButton>
+          <Box
+            component="span"
+            sx={{
+              display: 'flex',
+              transition: 'transform 120ms',
+              transform: open ? 'rotate(90deg)' : 'none',
+            }}
+          >
+            <NavIcon name="chevRight" size={14} />
+          </Box>
+          <NavIcon name="folder" size={17} />
+          <Box component="span" sx={{ flexGrow: 1, minWidth: 0 }}>
+            {project.name}
+          </Box>
+          {project.errors > 0 && (
+            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main' }} />
+          )}
+        </ListItemButton>
+        <Tooltip title={t('nav.stopWatching')}>
+          <IconButton
+            size="small"
+            onClick={() => onRemove(project.path)}
+            aria-label={`${t('nav.stopWatching')}: ${project.name}`}
+            sx={{ width: 26, height: 26, color: 'text.disabled' }}
+          >
+            <NavIcon name="x" size={14} />
+          </IconButton>
+        </Tooltip>
+      </Box>
 
       <Collapse in={open} unmountOnExit>
         <Box sx={{ pl: 2.25, gap: 0.25, display: 'flex', flexDirection: 'column' }}>
-          {branches.map((b) => (
+          {branches.map((branch) => (
+            <BranchTree key={branch.name} branch={branch} />
+          ))}
+          <Typography
+            sx={{ px: 1.25, pt: 1.25, color: 'text.disabled', fontSize: 11, fontWeight: 700 }}
+          >
+            {t('nav.projectFiles')}
+          </Typography>
+          <FolderEntries project={project.name} relativePath="" depth={0} />
+        </Box>
+      </Collapse>
+    </Box>
+  );
+}
+
+function BranchTree({ branch }: { branch: BranchRow }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Box>
+      <ListItemButton
+        disableGutters
+        onClick={() => setOpen((value) => !value)}
+        sx={{ px: 1.25, gap: 1, minHeight: 32, borderRadius: 1 }}
+      >
+        <NavIcon name="chevRight" size={13} />
+        <Box sx={{ color: branch.hasErrors ? 'error.main' : 'info.main', display: 'flex' }}>
+          <NavIcon name={branch.hasErrors ? 'bug' : 'branch'} size={16} />
+        </Box>
+        <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600 }}>
+          {branch.name}
+        </Typography>
+        <Typography sx={{ color: 'text.disabled', fontSize: 12 }}>{branch.open}</Typography>
+      </ListItemButton>
+      <Collapse in={open} unmountOnExit>
+        <Box sx={{ pl: 2, display: 'grid', gap: 0.25 }}>
+          {branch.cards.map((card) => (
             <ListItemButton
-              key={b.name}
-              disableGutters
+              key={card.fingerprint}
               component={RouterLink}
-              href={`/cards?project=${encodeURIComponent(project.name)}&branch=${encodeURIComponent(b.name)}`}
-              sx={{
-                px: 1.25,
-                gap: 1.25,
-                minHeight: 32,
-                borderRadius: 1,
-                fontSize: 14,
-                fontWeight: 500,
-                color: 'text.primary',
-              }}
+              href={`/cards?detail=${card.short_id}`}
+              sx={{ minHeight: 30, px: 1, borderRadius: 1 }}
             >
-              <Box
-                component="span"
-                sx={{ display: 'flex', color: b.hasErrors ? 'error.main' : 'info.main' }}
-              >
-                <NavIcon name={b.hasErrors ? 'bug' : 'branch'} size={16} />
-              </Box>
-              <Box
-                component="span"
-                sx={{
-                  flexGrow: 1,
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  whiteSpace: 'nowrap',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {b.name}
-              </Box>
-              <Typography sx={{ color: 'text.disabled', fontWeight: 600, fontSize: 12 }}>
-                {b.open}
+              <Typography noWrap title={card.title} sx={{ fontSize: 12.5 }}>
+                {card.title}
               </Typography>
             </ListItemButton>
           ))}
         </Box>
       </Collapse>
+    </Box>
+  );
+}
+
+function FolderEntries({
+  project,
+  relativePath,
+  depth,
+}: {
+  project: string;
+  relativePath: string;
+  depth: number;
+}) {
+  const [entries, setEntries] = useState<UiFileEntry[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const reload = () =>
+      listProjectFiles(project, relativePath).then(
+        (items) => {
+          if (active) {
+            setEntries(items);
+            setError(null);
+          }
+        },
+        (cause) => {
+          if (active) setError(String(cause));
+        }
+      );
+    reload();
+    window.addEventListener('wakeline:rescan', reload);
+    return () => {
+      active = false;
+      window.removeEventListener('wakeline:rescan', reload);
+    };
+  }, [project, relativePath]);
+
+  if (error)
+    return <Typography sx={{ px: 1.25, color: 'error.main', fontSize: 11 }}>{error}</Typography>;
+  if (!entries) return <Skeleton variant="text" width="75%" sx={{ mx: 1.25 }} />;
+  if (entries.length === 0 && depth === 0)
+    return <Typography sx={{ px: 1.25, color: 'text.disabled', fontSize: 12 }}>—</Typography>;
+
+  return (
+    <Box sx={{ display: 'grid' }}>
+      {entries.map((entry) => (
+        <FileTreeRow key={entry.relative_path} project={project} entry={entry} depth={depth} />
+      ))}
+    </Box>
+  );
+}
+
+function FileTreeRow({
+  project,
+  entry,
+  depth,
+}: {
+  project: string;
+  entry: UiFileEntry;
+  depth: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const activate = () => {
+    if (entry.is_dir) setOpen((value) => !value);
+    else openProjectFile(project, entry.relative_path).catch((cause) => setError(String(cause)));
+  };
+
+  return (
+    <Box>
+      <ListItemButton
+        disableGutters
+        onClick={activate}
+        title={entry.relative_path}
+        sx={{
+          pl: Math.min(depth, 6) * 1.5 + 1.25,
+          pr: 1.25,
+          gap: 1,
+          minHeight: 28,
+          borderRadius: 1,
+        }}
+      >
+        <NavIcon name={entry.is_dir ? 'folder' : 'doc'} size={15} />
+        <Typography noWrap sx={{ fontSize: 12.5, minWidth: 0 }}>
+          {entry.name}
+        </Typography>
+      </ListItemButton>
+      {error && (
+        <Typography sx={{ pl: 1.25, fontSize: 11, color: 'error.main' }}>{error}</Typography>
+      )}
+      {entry.is_dir && (
+        <Collapse in={open} unmountOnExit>
+          <FolderEntries project={project} relativePath={entry.relative_path} depth={depth + 1} />
+        </Collapse>
+      )}
     </Box>
   );
 }

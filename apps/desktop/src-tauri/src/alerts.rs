@@ -14,6 +14,9 @@ use wakeline_core::{CardKind, CardStatus};
 
 use crate::shell;
 
+#[cfg(windows)]
+mod windows;
+
 const CHECK_EVERY: Duration = Duration::from_secs(3 * 60);
 
 /// Preferencias que manda la interfaz: si avisar y en qué idioma.
@@ -71,8 +74,22 @@ fn send(app: &AppHandle, alert: &Alert) {
     };
     if enabled {
         let (title, body) = texts(alert, spanish);
-        let _ = app.notification().builder().title(title).body(body).show();
+        let _ = deliver(app, title, body);
     }
+}
+
+fn deliver(app: &AppHandle, title: String, body: String) -> Result<(), String> {
+    #[cfg(windows)]
+    if tauri::is_dev() {
+        return windows::send(app, &title, &body);
+    }
+
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+        .map_err(|e| e.to_string())
 }
 
 /// Notificación de prueba desde la configuración.
@@ -82,16 +99,11 @@ pub fn send_test(app: &AppHandle) -> Result<(), String> {
         prefs.lock().map(|p| p.spanish).unwrap_or(true)
     };
     let (title, body) = if spanish {
-        ("Wakeline", "Así se verán los avisos de errores nuevos.")
+        ("Error nuevo en Wakeline", "Este es un aviso de prueba.")
     } else {
-        ("Wakeline", "This is how new error alerts will look.")
+        ("New error in Wakeline", "This is a test alert.")
     };
-    app.notification()
-        .builder()
-        .title(title)
-        .body(body)
-        .show()
-        .map_err(|e| e.to_string())
+    deliver(app, title.into(), body.into())
 }
 
 fn texts(alert: &Alert, spanish: bool) -> (String, String) {

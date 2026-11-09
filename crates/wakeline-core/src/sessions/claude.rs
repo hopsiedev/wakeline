@@ -38,6 +38,7 @@ pub enum EventKind {
     ToolError {
         tool: Option<String>,
         message: String,
+        output: String,
     },
 }
 
@@ -221,10 +222,14 @@ fn parse_line(
             if tool.as_deref().is_some_and(|t| !COMMAND_TOOLS.contains(&t)) {
                 return Ok(None);
             }
-            let Some(message) = error_message(&block["content"]) else {
+            let Some((message, output)) = error_message(&block["content"]) else {
                 return Ok(None);
             };
-            EventKind::ToolError { tool, message }
+            EventKind::ToolError {
+                tool,
+                message,
+                output,
+            }
         }
         _ => return Ok(None),
     };
@@ -252,7 +257,7 @@ fn clean_branch(branch: Option<String>) -> Option<String> {
 /// (`error TS...`, `error[E...]`, `TypeError:`, `error:`) antes que líneas de código
 /// dentro de un traceback. Si la salida no parece un error real (por ejemplo, `grep`
 /// con código de salida 1), devuelve `None`.
-fn error_message(content: &Value) -> Option<String> {
+fn error_message(content: &Value) -> Option<(String, String)> {
     let text = match content {
         Value::String(s) => s.clone(),
         Value::Array(parts) => parts
@@ -299,7 +304,21 @@ fn error_message(content: &Value) -> Option<String> {
                     || ll.contains("command not found")
             })
         })?;
-    Some(best.chars().take(240).collect())
+    // Keep the lines around the actual failure, including nearby source context.
+    // Command output can be very long and contain unrelated data.
+    let source_lines: Vec<&str> = text.lines().collect();
+    let position = source_lines
+        .iter()
+        .position(|line| line.contains(best))
+        .unwrap_or(0);
+    let start = position.saturating_sub(2);
+    let end = (position + 6).min(source_lines.len());
+    let output: String = source_lines[start..end]
+        .join("\n")
+        .chars()
+        .take(1500)
+        .collect();
+    Some((best.chars().take(240).collect(), output))
 }
 
 /// Comprueba que aparezca la palabra `error` (no dentro de otra palabra como «Terror»).
@@ -402,7 +421,9 @@ mod tests {
             vec![
                 &EventKind::ToolError {
                     tool: Some("Bash".into()),
-                    message: "src/a.ts(3,1): error TS2304: Cannot find name 'x'.".into()
+                    message: "src/a.ts(3,1): error TS2304: Cannot find name 'x'.".into(),
+                    output: "Exit code 2\nsrc/a.ts(3,1): error TS2304: Cannot find name 'x'."
+                        .into(),
                 },
                 &EventKind::FinalText("Queda pendiente probar en Windows.".into()),
             ]

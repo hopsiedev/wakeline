@@ -11,6 +11,7 @@ pub mod fingerprint;
 pub mod redact;
 pub mod sessions;
 pub mod store;
+pub mod watch;
 
 pub use card::{CardKind, CardStatus, SourceKind};
 pub use fingerprint::Fingerprint;
