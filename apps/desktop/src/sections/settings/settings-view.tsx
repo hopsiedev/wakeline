@@ -18,6 +18,8 @@ import { type Language, alertsEnabled, changeLanguage, setAlertsEnabled } from '
 import { Label } from 'src/components/label';
 import { AppIcon } from 'src/components/nav-icon';
 
+import { ProjectCommandsCard } from './project-commands-card';
+
 // ----------------------------------------------------------------------
 
 type Mode = 'dark' | 'light' | 'system';
@@ -320,6 +322,9 @@ export function SettingsView() {
                 </Button>
               </SettingRow>
             </Card>
+
+            {/* Comandos de wakeline.toml */}
+            <ProjectCommandsCard />
           </Box>
         </Grid>
 

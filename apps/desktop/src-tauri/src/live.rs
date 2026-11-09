@@ -2,13 +2,15 @@
 //!
 //! Vigila las carpetas de `state.json` y las sesiones de Claude Code con el vigilante
 //! de `wakeline-core`. Cada lote de cambios emite [`CHANGED_EVENT`] y la interfaz vuelve
-//! a pedir las tarjetas. Se reinicia al añadir o quitar una carpeta.
+//! a pedir las tarjetas, y los cambios de cada proyecto llegan al ejecutor de comandos
+//! (Q55). Se reinicia al añadir o quitar una carpeta.
 
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager};
+use wakeline_core::commands::{ChangeRouter, CommandRunner};
 use wakeline_core::store::LocalState;
 use wakeline_core::watcher::{DirWatcher, Stopper};
 
@@ -45,6 +47,7 @@ pub fn restart(app: &AppHandle) {
     if dirs.is_empty() {
         return;
     }
+    let router = ChangeRouter::new(&dirs);
     let sessions = crate::user_home().join(".claude").join("projects");
     if sessions.is_dir() {
         dirs.push(sessions);
@@ -60,7 +63,14 @@ pub fn restart(app: &AppHandle) {
 
     let app = app.clone();
     std::thread::spawn(move || {
-        while watcher.next_batch().is_some() {
+        while let Some(batch) = watcher.next_batch() {
+            if let Some(runner) = app.try_state::<CommandRunner>() {
+                for path in &batch {
+                    if let Some(project) = router.route(path) {
+                        runner.changed(project);
+                    }
+                }
+            }
             let _ = app.emit(CHANGED_EVENT, ());
         }
     });

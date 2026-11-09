@@ -7,6 +7,7 @@ use std::time::{Duration, Instant, SystemTime};
 use anyhow::{Context, Result};
 use wakeline_core::CardKind;
 use wakeline_core::code::{CodeCard, CodeScanner};
+use wakeline_core::commands::{self as wl_commands, ChangeRouter, CommandResults, CommandRunner};
 use wakeline_core::docs;
 use wakeline_core::sessions::{SessionCard, claude, scan_files_incremental};
 use wakeline_core::store::{ExportItem, LocalState, format_todo_markdown};
@@ -69,6 +70,7 @@ pub fn run(options: ScanOptions) -> Result<()> {
     );
     if let Ok(canonical) = std::fs::canonicalize(&options.project) {
         print_code_cards(&CodeScanner::new().scan_project(&canonical));
+        print_command_results(&canonical);
     }
     Ok(())
 }
@@ -103,6 +105,17 @@ pub fn export(project_path: PathBuf) -> Result<()> {
     let doc_cards = docs::scan_project_docs(&canonical).unwrap_or_default();
     let code_cards = CodeScanner::new().scan_project(&canonical);
     let code_locations: Vec<String> = code_cards.iter().map(CodeCard::location).collect();
+    let command_results = CommandResults::load(&wl_commands::results_path());
+    let command_cards: Vec<(String, &wl_commands::CommandCard)> = command_results
+        .for_project(&canonical)
+        .into_iter()
+        .flat_map(|r| {
+            r.cards.iter().map(move |c| {
+                let origin = c.location().unwrap_or_else(|| r.command.clone());
+                (origin, c)
+            })
+        })
+        .collect();
 
     let mut items: Vec<ExportItem<'_>> = Vec::new();
     for c in &session_cards {
@@ -127,6 +140,15 @@ pub fn export(project_path: PathBuf) -> Result<()> {
             kind: c.kind,
             title: &c.title,
             origin: location,
+            status: state.status_for(c.fingerprint.as_str()),
+        });
+    }
+
+    for (origin, c) in &command_cards {
+        items.push(ExportItem {
+            kind: c.kind,
+            title: &c.title,
+            origin,
             status: state.status_for(c.fingerprint.as_str()),
         });
     }
@@ -244,6 +266,14 @@ pub fn watch_with_state_path(options: WatchOptions, state_path: &Path) -> Result
 
     scan_once(&mut state)?;
 
+    let router = ChangeRouter::new(&watched_dirs);
+    let runner = CommandRunner::spawn(
+        state_path.to_path_buf(),
+        wl_commands::results_path(),
+        Duration::from_secs(wl_commands::IDLE_DELAY_SECS),
+        crate::commands::print_result,
+    );
+
     let debounce = Duration::from_millis(options.debounce_ms.max(50));
     let (mut watcher, stopper) = DirWatcher::new(debounce, debounce * 10)
         .context("no se pudo iniciar el vigilante de archivos (notify)")?;
@@ -263,6 +293,11 @@ pub fn watch_with_state_path(options: WatchOptions, state_path: &Path) -> Result
     }
 
     while let Some(batch) = watcher.next_batch() {
+        for path in &batch {
+            if let Some(project) = router.route(path) {
+                runner.changed(project);
+            }
+        }
         if let Some(last_path) = batch.last() {
             println!(
                 "Cambio detectado en {} — actualizando...",
@@ -315,6 +350,19 @@ fn print_report(
         }
         println!();
     }
+}
+
+fn print_command_results(project: &Path) {
+    let results = CommandResults::load(&wl_commands::results_path());
+    let found = results.for_project(project);
+    if found.is_empty() {
+        return;
+    }
+    println!("Comandos ({})", found.len());
+    for result in found {
+        crate::commands::print_result(result);
+    }
+    println!();
 }
 
 fn print_code_cards(cards: &[CodeCard]) {
