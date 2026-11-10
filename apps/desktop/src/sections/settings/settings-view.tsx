@@ -22,6 +22,7 @@ import { dailySummaryEnabled, setDailySummaryEnabled } from 'src/services/daily-
 import { type Language, alertsEnabled, changeLanguage, setAlertsEnabled } from 'src/locales/i18n';
 import {
   checkUpdate,
+  openExternal,
   type UiUpdate,
   installUpdate,
   getAppVersion,
@@ -68,6 +69,7 @@ export function SettingsView() {
 
   const currentLang: Language = i18n.language.startsWith('en') ? 'en' : 'es';
   const currentMode: Mode = (mode as Mode) ?? 'dark';
+  const windowsPlatform = navigator.userAgent.includes('Windows');
 
   useEffect(() => {
     getMcpExecutable().then(setMcpExecutable);
@@ -223,15 +225,17 @@ export function SettingsView() {
                 />
               </SettingRow>
 
-              <SettingRow
-                label={t('settings.startWithWindows')}
-                hint={t('settings.startWithWindowsHint')}
-              >
-                <Switch
-                  checked={startWithWin}
-                  onChange={(e) => setStartWithWin(e.target.checked)}
-                />
-              </SettingRow>
+              {windowsPlatform && (
+                <SettingRow
+                  label={t('settings.startWithWindows')}
+                  hint={t('settings.startWithWindowsHint')}
+                >
+                  <Switch
+                    checked={startWithWin}
+                    onChange={(e) => setStartWithWin(e.target.checked)}
+                  />
+                </SettingRow>
+              )}
 
               <SettingRow label={t('settings.exportPath')} hint={t('settings.exportPathHint')}>
                 <Label color="default" sx={{ fontFamily: 'monospace' }}>
@@ -760,6 +764,10 @@ function UpdateRow() {
   }, []);
 
   const check = async () => {
+    if (update?.state === 'manual') {
+      await openExternal('https://github.com/hopsiedev/wakeline/releases');
+      return;
+    }
     setPhase('checking');
     setError(null);
     try {
@@ -782,6 +790,7 @@ function UpdateRow() {
     hint = t('settings.autoInstallingUpdate', { version: update?.version });
   else if (update?.state === 'unpublished') hint = t('settings.noPublishedUpdates');
   else if (update?.state === 'unconfigured') hint = t('settings.updateSigningMissing');
+  else if (update?.state === 'manual') hint = t('settings.manualUpdates');
   else if (update?.state === 'up_to_date') hint = t('settings.upToDate', { version });
 
   return (
@@ -799,11 +808,13 @@ function UpdateRow() {
           startIcon={phase !== 'idle' ? <CircularProgress color="inherit" size={14} /> : undefined}
         >
           {t(
-            phase === 'checking'
-              ? 'settings.checkingUpdates'
-              : phase === 'installing'
-                ? 'settings.installingUpdate'
-                : 'settings.checkUpdates'
+            update?.state === 'manual'
+              ? 'settings.openDownloads'
+              : phase === 'checking'
+                ? 'settings.checkingUpdates'
+                : phase === 'installing'
+                  ? 'settings.installingUpdate'
+                  : 'settings.checkUpdates'
           )}
         </Button>
         {phase === 'installing' && <LinearProgress sx={{ width: 1 }} />}

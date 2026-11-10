@@ -446,7 +446,7 @@ export type UiUpdate = {
   current_version: string;
   version: string | null;
   notes: string | null;
-  state: 'available' | 'up_to_date' | 'unpublished' | 'unconfigured';
+  state: 'available' | 'up_to_date' | 'unpublished' | 'unconfigured' | 'manual';
 };
 
 export async function getAppVersion(): Promise<string> {

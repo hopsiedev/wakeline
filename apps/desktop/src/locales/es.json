@@ -208,6 +208,8 @@
     }
   },
   "settings": {
+    "manualUpdates": "Actualización manual: descarga la nueva versión desde Releases. Conserva tus datos locales.",
+    "openDownloads": "Abrir descargas",
     "languageSpanish": "Español",
     "languageEnglish": "English",
     "mcpAntigravity": "Antigravity · {{path}}",
@@ -261,7 +263,7 @@
     "historyStartHint": "Solo los últimos 30 días",
     "importAll": "Importar todo",
     "alertsTitle": "Avisos",
-    "alertsWin": "Aviso de Windows por errores nuevos",
+    "alertsWin": "Notificaciones de errores nuevos",
     "alertsWinHint": "Como máximo uno cada 10 minutos",
     "alertsTray": "Número en la bandeja",
     "alertsTrayHint": "Errores nuevos de todos los proyectos",

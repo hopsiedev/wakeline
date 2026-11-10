@@ -27,9 +27,27 @@ fn signing_configured(app: &AppHandle) -> bool {
         .is_some_and(|key| !key.is_empty() && !key.starts_with("REEMPLAZAR"))
 }
 
+fn manual_updates(app: &AppHandle) -> bool {
+    !signing_configured(app)
+        || std::env::current_exe().is_ok_and(|executable| {
+            crate::distribution::manual_updates_at(
+                &executable,
+                std::env::var_os("APPIMAGE").is_some(),
+            )
+        })
+}
+
 #[tauri::command]
 pub async fn check_update(app: AppHandle) -> Result<UiUpdate, String> {
     let current_version = app.package_info().version.to_string();
+    if manual_updates(&app) {
+        return Ok(UiUpdate {
+            current_version,
+            version: None,
+            notes: None,
+            state: "manual",
+        });
+    }
     let result = app
         .updater_builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -66,6 +84,9 @@ pub async fn check_update(app: AppHandle) -> Result<UiUpdate, String> {
 
 #[tauri::command]
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
+    if manual_updates(&app) {
+        return Err("MANUAL_UPDATE_REQUIRED".into());
+    }
     if !signing_configured(&app) {
         return Err("UPDATER_SIGNING_NOT_CONFIGURED".into());
     }

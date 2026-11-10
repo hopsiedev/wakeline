@@ -251,7 +251,7 @@ timeout_secs = 900
         assert!(parse("[[command]]\nname = \"a\"\nrun = [\"x\"]\nshell = true\n").is_err());
         assert!(parse("[[command]]\nname = \"a\"\nrun = []\n").is_err());
         assert!(parse("[[command]]\nname = \"a\"\nrun = [\"x\"]\ncwd = \"../otro\"\n").is_err());
-        assert!(parse("[[command]]\nname = \"a\"\nrun = [\"x\"]\ncwd = \"C:/Windows\"\n").is_err());
+        assert!(parse("[[command]]\nname = \"a\"\nrun = [\"x\"]\ncwd = \"/Windows\"\n").is_err());
         assert!(parse("[[command]]\nname = \"a\"\nrun = [\"x\"]\n[[command]]\nname = \"a\"\nrun = [\"y\"]\n").is_err());
         assert!(parse("[[command]]\nname = \"a\"\nrun = [\"x\"]\ntimeout_secs = 0\n").is_err());
     }

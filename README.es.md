@@ -10,7 +10,16 @@
 
 ---
 
-Wakeline es una aplicación de escritorio para Windows que vigila las carpetas de proyecto que elijas y reúne en tarjetas los errores, tareas e ideas que van quedando en tus sesiones de IA y en los documentos del repositorio.
+Wakeline es una aplicación de escritorio para Windows y Linux que vigila las carpetas de proyecto que elijas y reúne en tarjetas los errores, tareas e ideas que van quedando en tus sesiones de IA y en los documentos del repositorio.
+
+## Descargar e instalar
+
+Windows x64: extrae el ZIP y abre `wakeline-app.exe` (requiere WebView2 Runtime).
+Linux x64: AppImage o DEB, construido en Ubuntu 22.04 para Ubuntu 22.04+ / Debian 12+.
+Estos primeros paquetes usan actualización manual y no necesitan certificado comercial.
+Consulta las [instrucciones de instalación, MCP y actualización](RELEASE.md).
+Los builds de revisión están disponibles como artefactos de CI; los releases se
+publican después de su validación.
 
 Cada tarjeta conserva su origen (la sesión, el comando que falló o el archivo donde apareció) y tiene un ciclo simple: puedes aceptarla, marcarla como hecha o descartarla si no te sirve. Wakeline organiza lo que hay que revisar; no modifica tu código por su cuenta y solo analiza las carpetas que tú selecciones.
 
@@ -83,7 +92,7 @@ flowchart LR
   subgraph Core["wakeline-core (Rust)"]
     W["Filtro de carpetas vigiladas<br/>watch::is_within"]
     X["Exclusiones y redacción<br/>exclusions + redact"]
-    P["Detector y huella BLAKE3<br/>sessions + docs + fingerprint"]
+    P["Detector y huella FNV-1a<br/>sessions + docs + fingerprint"]
     ST[("Estado local<br/>%APPDATA%\\wakeline\\state.json")]
   end
 
@@ -108,7 +117,7 @@ flowchart LR
 
 ### Cómo se identifica y conserva cada tarjeta
 
-Cada hallazgo se normaliza (quitando fechas, horas, rutas temporales y números de línea variables) y se resume en una huella `BLAKE3` (`Fingerprint`). Gracias a esa huella:
+Cada hallazgo se normaliza (quitando fechas, horas, rutas temporales y números de línea variables) y se resume en una huella `FNV-1a` (`Fingerprint`). Gracias a esa huella:
 
 - Si un comando falla tres veces con el mismo error en distintos momentos de una sesión, se agrupa en **una sola tarjeta** con contador `×3`.
 - Cuando aceptas, completas o descartas una tarjeta, la decisión se guarda asociada a su huella en `%APPDATA%\wakeline\state.json`. En los siguientes escaneos la tarjeta conserva su estado.
@@ -129,7 +138,7 @@ stateDiagram-v2
 
 | Componente | Responsabilidad |
 | --- | --- |
-| `crates/wakeline-core` | Lectura incremental de sesiones JSONL de Claude Code, análisis de secciones de pendientes en Markdown, cálculo de huellas `BLAKE3`, lista fija de exclusiones (`.env`, credenciales, llaves), redacción de tokens, enfriamiento de alertas y persistencia en `%APPDATA%\wakeline\state.json`. |
+| `crates/wakeline-core` | Lectura incremental de sesiones JSONL de Claude Code, análisis de secciones de pendientes en Markdown, cálculo de huellas `FNV-1a`, lista fija de exclusiones (`.env`, credenciales, llaves), redacción de tokens, enfriamiento de alertas y persistencia en `%APPDATA%\wakeline\state.json`. |
 | `crates/wakeline-mcp` | Servidor JSON-RPC 2.0 sobre `stdio` compatible con MCP (`2024-11-05`, `2025-11-25` y `2026-07-28`). Expone `list_cards`, `get_card`, `create_card` y `complete_card` leyendo exactamente las mismas fuentes y carpetas vigiladas que la aplicación de escritorio. |
 | `crates/wakeline-cli` | Ejecutable de línea de comandos (`wakeline scan`, `wakeline watch`, `wakeline export`, `wakeline mcp`). |
 | `apps/desktop` | Aplicación nativa para Windows construida con Tauri v2 (`src-tauri`) y React 19 + MUI v7 (`src`). Incluye bandeja del sistema, notificaciones nativas de Windows por errores nuevos, selector de carpetas y apertura directa en VS Code. |

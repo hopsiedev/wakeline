@@ -1,0 +1,88 @@
+name: Build packages
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x64
+          - os: ubuntu-22.04
+            platform: linux-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Linux libraries and headless desktop
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 xvfb dbus-x11 openbox imagemagick xdotool
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Frontend checks
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run lint
+          npm run fm:check
+          node --test tests/*.test.mjs
+          npm run build
+      # Tauri validates Linux bundle resources even during clippy and tests.
+      - name: Build CLI
+        run: cargo build --release --locked -p wakeline-cli
+      - name: Rust checks and package regressions
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+          rustc --edition 2024 --test apps/desktop/src-tauri/src/distribution.rs -o target/distribution-tests.exe
+          ./target/distribution-tests.exe
+          python -m unittest discover -s scripts -p 'test_package_*.py'
+      - name: Build Windows app and ZIP
+        if: runner.os == 'Windows'
+        working-directory: apps/desktop
+        run: |
+          npm run tauri build -- --no-bundle
+          cd ../..
+          python scripts/package_windows.py
+      - name: Build Linux AppImage and DEB
+        if: runner.os == 'Linux'
+        working-directory: apps/desktop
+        run: |
+          npm run tauri build -- --config src-tauri/tauri.linux.conf.json
+          cd ../..
+          bash scripts/package_linux.sh
+      - name: Linux startup smoke test
+        if: runner.os == 'Linux'
+        env:
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: dbus-run-session -- xvfb-run -a -s '-screen 0 1280x900x24' bash scripts/smoke_linux.sh
+      - name: Upload packages and smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Wakeline-${{ matrix.platform }}-${{ github.sha }}
+          path: packages/*
+          if-no-files-found: error
+          retention-days: 7
