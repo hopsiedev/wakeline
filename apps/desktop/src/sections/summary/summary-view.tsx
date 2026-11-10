@@ -153,7 +153,7 @@ export function SummaryView() {
             {t('summary.title')}
           </Typography>
           <Typography sx={{ color: 'text.secondary', fontSize: 14 }}>
-            {t('pullRequests.selectedFoldersOnly')}
+            {t('summary.subtitle')}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -503,7 +503,7 @@ export function SummaryView() {
                     {t('summary.sessionActivitySubtitle')}
                   </Typography>
                 </Box>
-                <Label color="default">Claude Code</Label>
+                <Label color="default">{t('account.claudeCode')}</Label>
               </Box>
 
               <Box component="ul" sx={{ p: 3, m: 0, listStyle: 'none' }}>

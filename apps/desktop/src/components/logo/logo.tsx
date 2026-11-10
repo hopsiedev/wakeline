@@ -1,5 +1,6 @@
 import type { LinkProps } from '@mui/material/Link';
 
+import { useTranslation } from 'react-i18next';
 import { mergeClasses } from 'minimal-shared/utils';
 
 import Box from '@mui/material/Box';
@@ -26,11 +27,12 @@ export function Logo({
   isSingle = true,
   ...other
 }: LogoProps) {
+  const { t } = useTranslation();
   return (
     <LogoRoot
       component={RouterLink}
       href={href}
-      aria-label="Wakeline"
+      aria-label={t('common.appName')}
       underline="none"
       className={mergeClasses([logoClasses.root, className])}
       sx={[
@@ -55,7 +57,7 @@ export function Logo({
           component="span"
           sx={{ typography: 'subtitle1', fontWeight: 700, color: 'text.primary' }}
         >
-          Wakeline
+          {t('common.appName')}
         </Box>
       )}
     </LogoRoot>

@@ -20,6 +20,49 @@ pub struct SessionFile {
     pub is_subagent: bool,
 }
 
+/// Lee solo hasta el primer cwd declarado, sin deducirlo del nombre de la carpeta.
+pub fn session_cwd(path: &Path) -> io::Result<Option<String>> {
+    if crate::exclusions::is_excluded(path) {
+        return Ok(None);
+    }
+    #[derive(Deserialize)]
+    struct Metadata {
+        cwd: Option<String>,
+    }
+    let mut reader = BufReader::new(File::open(path)?);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        if reader.read_line(&mut line)? == 0 {
+            return Ok(None);
+        }
+        if line.contains("\"cwd\"")
+            && let Ok(metadata) = serde_json::from_str::<Metadata>(&line)
+            && let Some(cwd) = metadata.cwd.filter(|cwd| !cwd.is_empty())
+        {
+            return Ok(Some(cwd));
+        }
+    }
+}
+
+pub fn belongs_to_watched(file: &SessionFile, roots: &[String]) -> io::Result<bool> {
+    let parent = file
+        .path
+        .parent()
+        .and_then(Path::parent)
+        .map(|session| session.with_extension("jsonl"))
+        .filter(|path| file.is_subagent && path.is_file());
+    let parent_cwd = match parent {
+        Some(parent) => session_cwd(&parent)?,
+        None => None,
+    };
+    let cwd = match parent_cwd {
+        Some(cwd) => Some(cwd),
+        None => session_cwd(&file.path)?,
+    };
+    Ok(cwd.is_some_and(|cwd| roots.iter().any(|root| crate::watch::is_within(root, &cwd))))
+}
+
 /// Lo que interesa de una línea de sesión.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionEvent {

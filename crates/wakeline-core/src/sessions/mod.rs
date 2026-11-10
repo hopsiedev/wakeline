@@ -164,6 +164,14 @@ pub fn scan_files_incremental(
     files: &[SessionFile],
     state: &mut LocalState,
 ) -> io::Result<IncrementalScanReport> {
+    scan_files_incremental_with_progress(files, state, |_, _| {})
+}
+
+pub fn scan_files_incremental_with_progress(
+    files: &[SessionFile],
+    state: &mut LocalState,
+    mut on_progress: impl FnMut(usize, usize),
+) -> io::Result<IncrementalScanReport> {
     let mut report = IncrementalScanReport {
         files_scanned: files.len(),
         ..Default::default()
@@ -171,7 +179,8 @@ pub fn scan_files_incremental(
     let mut merged: Vec<SessionCard> = Vec::new();
     let mut merged_index: HashMap<Fingerprint, usize> = HashMap::new();
 
-    for file in files {
+    on_progress(0, files.len());
+    for (file_index, file) in files.iter().enumerate() {
         let key = file.path.to_string_lossy().into_owned();
         let file_len = std::fs::metadata(&file.path)?.len();
         let saved_offset = state.session_offsets.get(&key).copied().unwrap_or(0);
@@ -205,6 +214,7 @@ pub fn scan_files_incremental(
         for card in file_cards {
             merge_session_card(&mut merged, &mut merged_index, card);
         }
+        on_progress(file_index + 1, files.len());
     }
 
     merged.retain(|c| c.kind != CardKind::Error || c.occurrences >= MIN_REPEATED_ERRORS);
@@ -361,5 +371,47 @@ mod tests {
         assert_eq!(fourth.cards.len(), 1);
         assert!(fourth.cards[0].title.contains("prueba de humo"));
         assert_eq!(fourth.cards[0].occurrences, 1);
+    }
+
+    #[test]
+    fn history_progress_keeps_decisions_and_does_not_duplicate_on_refresh() {
+        let path =
+            std::env::temp_dir().join(format!("wakeline-history-{}.jsonl", std::process::id()));
+        std::fs::write(&path, "{\"type\":\"assistant\",\"sessionId\":\"old\",\"cwd\":\"C:/watched\",\"message\":{\"stop_reason\":\"end_turn\",\"content\":[{\"type\":\"text\",\"text\":\"Queda pendiente revisar el cierre.\"}]}}\n").unwrap();
+        let file = SessionFile {
+            path: path.clone(),
+            is_subagent: false,
+        };
+        assert!(claude::belongs_to_watched(&file, &["C:/watched".into()]).unwrap());
+        assert!(!claude::belongs_to_watched(&file, &["C:/other".into()]).unwrap());
+        let mut state = LocalState {
+            config_version: 1,
+            ..Default::default()
+        };
+        let mut progress = Vec::new();
+        let report = scan_files_incremental_with_progress(
+            std::slice::from_ref(&file),
+            &mut state,
+            |done, total| progress.push((done, total)),
+        )
+        .unwrap();
+        assert_eq!(progress, [(0, 1), (1, 1)]);
+        assert_eq!(report.cards.len(), 1);
+        let fingerprint = report.cards[0].fingerprint.as_str().to_string();
+        state.set_status(fingerprint.clone(), crate::CardStatus::Accepted);
+        state.full_session_history = true;
+        let state_path = path.with_extension("state.json");
+        state.save(&state_path).unwrap();
+        let mut restored = LocalState::load(&state_path);
+        assert!(restored.full_session_history);
+        let next = scan_files_incremental(&[file], &mut restored).unwrap();
+        assert_eq!(next.bytes_read, 0);
+        assert_eq!(next.cards[0].occurrences, 1);
+        assert_eq!(
+            restored.status_for(&fingerprint),
+            crate::CardStatus::Accepted
+        );
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_file(state_path).unwrap();
     }
 }

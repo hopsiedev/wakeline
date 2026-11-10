@@ -15,6 +15,7 @@ export const SummaryPage = lazy(() => import('src/pages/summary'));
 export const CardsPage = lazy(() => import('src/pages/cards'));
 export const PullRequestsPage = lazy(() => import('src/pages/pull-requests'));
 export const SettingsPage = lazy(() => import('src/pages/settings'));
+export const ProjectPage = lazy(() => import('src/pages/project'));
 export const Page404 = lazy(() => import('src/pages/page-not-found'));
 
 const renderFallback = () => (
@@ -49,7 +50,9 @@ export const routesSection: RouteObject[] = [
     children: [
       { index: true, element: <SummaryPage /> },
       { path: 'cards', element: <CardsPage /> },
+      { path: 'cards/:id', element: <CardsPage /> },
       { path: 'pull-requests', element: <PullRequestsPage /> },
+      { path: 'projects/:name', element: <ProjectPage /> },
       { path: 'settings', element: <SettingsPage /> },
     ],
   },

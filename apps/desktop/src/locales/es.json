@@ -1,5 +1,7 @@
 {
   "nav": {
+    "showFiles": "Ver archivos",
+    "hideFiles": "Ocultar archivos",
     "summary": "Resumen",
     "cards": "Tarjetas",
     "pullRequests": "Pull requests",
@@ -25,6 +27,7 @@
     "dismiss": "Descartar"
   },
   "common": {
+    "appName": "Wakeline",
     "loading": "Cargando proyectos…",
     "comingSoon": "En construcción: llega en los próximos pasos de la 0.1.",
     "error": "Error",
@@ -58,7 +61,7 @@
   "summary": {
     "title": "Hola, esto pasó hoy",
     "noFindings": "La carpeta aún no tiene hallazgos.",
-    "subtitle": "Domingo 8 de noviembre · 3 sesiones de Claude Code · 14 commits",
+    "subtitle": "Errores, tareas e ideas de las carpetas que vigilas.",
     "exportTodo": "Exportar TODO.md",
     "exportedTo": "Exportado en",
     "reviewNew": "Revisar nuevas",
@@ -88,10 +91,22 @@
     "issuesSubtitle": "Convertidos en tarjetas según su etiqueta"
   },
   "cards": {
+    "selectedCount": "{{count}} seleccionadas",
+    "selectCard": "Seleccionar tarjeta: {{title}}",
+    "selectPage": "Seleccionar esta página",
+    "selectResults": "Seleccionar resultados ({{count}})",
+    "clearSelection": "Quitar selección",
+    "updatingSelected": "Actualizando tarjetas seleccionadas",
+    "sourceDocuments": "Documentos",
+    "openStatuses": "Nueva, aceptada",
+    "noResults": "No hay tarjetas que coincidan con los filtros.",
+    "rowsPerPageLabel": "Filas por página:",
+    "nextPage": "Página siguiente",
+    "previousPage": "Página anterior",
     "title": "Tarjetas",
     "subtitle": "Errores, tareas e ideas de todos los proyectos.",
     "table": "Tabla",
-    "kanban": "Kanban",
+    "kanban": "Tablero",
     "newCard": "Nueva tarjeta",
     "newCardTitle": "Título de la tarjeta",
     "project": "Proyecto",
@@ -110,7 +125,8 @@
     "rowsPerPage": "Filas por página: 10",
     "backToCards": "Tarjetas",
     "seenPrefix": "Visto",
-    "seenTimes": "{{count}} veces",
+    "seenTimes_one": "{{count}} vez",
+    "seenTimes_other": "{{count}} veces",
     "firstSeen": "primera vez",
     "lastSeen": "última",
     "openVscode": "Abrir en VS Code",
@@ -140,11 +156,22 @@
     "occurrencesSubtitle": "Últimas 24 horas",
     "ollamaBold": "Ollama está desactivado.",
     "ollamaNotice": "Actívalo en Ajustes para agrupar tarjetas parecidas y escribir títulos más limpios.",
-    "openOnGithub": "Abrir en GitHub"
+    "openOnGithub": "Abrir en GitHub",
+    "promptProject": "Proyecto",
+    "promptOrigin": "Origen",
+    "promptPending": "Pendiente",
+    "promptEvidence": "Evidencia",
+    "promptCode": "Código"
   },
   "pullRequests": {
-    "title": "Proyectos",
-    "selectedFoldersOnly": "Solo se analizan las carpetas que eliges.",
+    "refresh": "Actualizar GitHub",
+    "noDescription": "Sin descripción.",
+    "changedFiles": "Archivos cambiados: {{count}}",
+    "noPatch": "Diff no disponible para este archivo (binario o demasiado grande).",
+    "diffNotice": "Se ocultan archivos excluidos y posibles secretos. GitHub puede truncar diffs o limitar la lista a 3000 archivos.",
+    "openGithub": "Abrir en GitHub",
+    "title": "Pull requests",
+    "selectedFoldersOnly": "PR abiertos de las carpetas que vigilas, leídos con gh en solo lectura.",
     "noWatchedFolders": "Todavía no vigilas ninguna carpeta.",
     "importingFolder": "Importando {{folder}}…",
     "importingFolderSub": "Analizando sesiones de IA y documentos de la carpeta seleccionada…",
@@ -181,6 +208,21 @@
     }
   },
   "settings": {
+    "languageSpanish": "Español",
+    "languageEnglish": "English",
+    "mcpAntigravity": "Antigravity · {{path}}",
+    "exportFolderValue": "docs/TODO.md",
+    "historyAllHint": "Todo el historial de las carpetas vigiladas",
+    "historyImportRunning": "Ya hay una importación en curso.",
+    "historyImporting": "Importando…",
+    "historyProgress": "{{processed}} de {{total}} archivos",
+    "historyImported": "Historial importado: {{count}} archivos",
+    "historyImportedWarnings": "Importados {{count}} archivos; se omitieron {{bad}} líneas no válidas.",
+    "currentVersion": "Versión actual: {{version}}",
+    "noPublishedUpdates": "El repositorio todavía no ofrece una actualización firmada para esta plataforma.",
+    "updateSigningMissing": "Falta configurar la clave pública para verificar las actualizaciones.",
+    "autoInstallingUpdate": "Instalando {{version}}. Wakeline se reiniciará automáticamente.",
+    "excludedTables": "opencode.db · tablas account, credential, control_account",
     "title": "Configuración",
     "general": "General",
     "generalSub": "Idioma, apariencia y arranque",
@@ -208,11 +250,11 @@
     "sourcesTitle": "Fuentes",
     "sourcesSub": "Sesiones de IA y GitHub",
     "claudeSource": "Claude Code",
-    "claudeSourceHint": "~/.claude/projects · 43 sesiones · 512 MB",
+    "claudeSourceHint": "~/.claude/projects · {{count}} archivos de sesión de las carpetas vigiladas",
     "cursorSource": "Cursor",
     "cursorSourceHint": "Llega en la 0.2",
     "githubSource": "GitHub: PR e issues",
-    "githubSourceHint": "Sesión de gh: hopsiedev · cada 5 min y al hacer push · solo lectura",
+    "githubSourceHint": "GitHub CLI · cada 5 min y al actualizar referencias remotas · solo lectura",
     "otherAgents": "Antigravity · OpenCode",
     "otherAgentsHint": "Llegan en la 0.2",
     "historyStart": "Historial al empezar",
@@ -224,7 +266,7 @@
     "alertsTray": "Número en la bandeja",
     "alertsTrayHint": "Errores nuevos de todos los proyectos",
     "alertsDaily": "Resumen diario al abrir",
-    "alertsDailyHint": "Lo que pasó desde ayer",
+    "alertsDailyHint": "Una vez al día, con los cambios desde la última visita",
     "exclusionsTitle": "Exclusiones fijas",
     "exclusionsSub": "Wakeline nunca lee esto. No se puede desactivar.",
     "redactNotice": "Si una línea de sesión parece contener una clave o un token, se guarda oculta (sk-••••).",
@@ -234,7 +276,7 @@
     "mcpCliReady": "CLI disponible",
     "mcpBuildHint": "Compila el ejecutable con cargo build -p wakeline-cli antes de conectar un agente.",
     "copyConfig": "Copiar configuración",
-    "copiedAlert": "Configuración de {{label}} copiada al portapapeles.",
+    "copiedAlert": "Configuración copiada",
     "alertsTest": "Probar aviso",
     "alertsTestFailed": "No se pudo mostrar el aviso",
     "updates": "Actualizaciones",
@@ -300,7 +342,8 @@
       "failed": "Falló",
       "timed_out": "Superó el tiempo",
       "not_started": "No se lanzó"
-    }
+    },
+    "reviewInSettings": "Revisar en Configuración"
   },
   "github": {
     "title": "GitHub",
@@ -312,5 +355,42 @@
     "installHint": "Instala GitHub CLI: winget install GitHub.cli",
     "checking": "Comprobando…",
     "lastError": "Última lectura falló: {{error}}"
+  },
+  "projects": {
+    "open": "Ver proyecto",
+    "notFound": "Este proyecto ya no está vigilado.",
+    "openCards": "Tarjetas abiertas",
+    "allCards": "Ver todas",
+    "noOpenCards": "No hay tarjetas abiertas.",
+    "doneCount_one": "{{count}} hecha",
+    "doneCount_other": "{{count}} hechas"
+  },
+  "sources": {
+    "session": "Sesión IA",
+    "code": "Código",
+    "specs": "specs/",
+    "roadmap": "Hoja de ruta",
+    "manual": "Manual",
+    "issue": "Issue",
+    "review": "Revisión",
+    "pr": "PR",
+    "ci": "CI"
+  },
+  "errors": {
+    "desktopCardChanges": "Cambia el estado de las tarjetas desde la aplicación de escritorio.",
+    "desktopHistoryImport": "Importa el historial desde la aplicación de escritorio.",
+    "desktopUpdates": "Comprueba las actualizaciones desde la aplicación de escritorio.",
+    "desktopFolderPicker": "Elige la carpeta desde la aplicación de escritorio",
+    "unexpected": "Error inesperado de la aplicación",
+    "unknown": "Error desconocido"
+  },
+  "dailySummary": {
+    "title": "Resumen del día",
+    "subtitle": "Cambios desde tu última visita. La primera vez se muestran las tarjetas nuevas de hoy.",
+    "errors": "Errores nuevos",
+    "tasks": "Tareas nuevas",
+    "ideas": "Ideas nuevas",
+    "completed": "Tarjetas resueltas",
+    "open": "Ver resumen"
   }
 }

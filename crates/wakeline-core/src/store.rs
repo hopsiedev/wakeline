@@ -31,6 +31,9 @@ pub struct LocalState {
     pub config_version: u8,
     #[serde(default)]
     pub watched_folders: Vec<String>,
+    /// Historial completo solicitado explícitamente por el usuario.
+    #[serde(default)]
+    pub full_session_history: bool,
     #[serde(default)]
     pub statuses: HashMap<String, CardStatus>,
     #[serde(default)]
