@@ -10,6 +10,23 @@ use std::time::{Duration, Instant};
 
 pub const COOLDOWN: Duration = Duration::from_secs(10 * 60);
 
+/// PRs already delivered in this session, shared by manual and background refreshes.
+/// Existing open PRs are eligible on startup; a failed delivery can be retried.
+#[derive(Debug, Default)]
+pub struct PullRequestTracker {
+    delivered: HashSet<(String, u64)>,
+}
+
+impl PullRequestTracker {
+    pub fn should_notify(&self, repo: &str, number: u64) -> bool {
+        !self.delivered.contains(&(repo.to_string(), number))
+    }
+
+    pub fn delivered(&mut self, repo: &str, number: u64) {
+        self.delivered.insert((repo.to_string(), number));
+    }
+}
+
 /// Un error abierto visto en una revisión.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ErrorSeen {
@@ -86,6 +103,18 @@ impl AlertTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn existing_and_new_prs_are_notified_once_and_failed_delivery_can_retry() {
+        let mut tracker = PullRequestTracker::default();
+        assert!(tracker.should_notify("o/r", 12));
+        // A failed delivery is not acknowledged and remains eligible.
+        assert!(tracker.should_notify("o/r", 12));
+        tracker.delivered("o/r", 12);
+        assert!(!tracker.should_notify("o/r", 12));
+        assert!(tracker.should_notify("o/r", 13));
+        assert!(tracker.should_notify("other/repo", 12));
+    }
 
     fn err(fp: &str) -> ErrorSeen {
         ErrorSeen {

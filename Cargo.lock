@@ -4909,7 +4909,7 @@ dependencies = [
 
 [[package]]
 name = "wakeline-app"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "dunce",
  "serde",
@@ -4929,7 +4929,7 @@ dependencies = [
 
 [[package]]
 name = "wakeline-cli"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -4940,7 +4940,7 @@ dependencies = [
 
 [[package]]
 name = "wakeline-core"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "ignore",
  "libc",
@@ -4959,7 +4959,7 @@ dependencies = [
 
 [[package]]
 name = "wakeline-mcp"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "serde",
  "serde_json",
