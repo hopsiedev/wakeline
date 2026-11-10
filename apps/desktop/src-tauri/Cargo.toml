@@ -29,6 +29,7 @@ tauri-plugin-notification = "2.8.0"
 tauri-plugin-opener = "2.7.2"
 tauri-plugin-single-instance = "2.5.5"
 wakeline-core.workspace = true
+tauri-plugin-updater = "2.14.1"
 
 [target.'cfg(windows)'.dependencies]
 tauri-winrt-notification = "0.8.1"

@@ -365,6 +365,23 @@ export async function getGithubStatus(path: string): Promise<UiGithubStatus | nu
   return invoke<UiGithubStatus>('get_github_status', { path });
 }
 
+export type UiUpdate = {
+  current_version: string;
+  version: string | null;
+  notes: string | null;
+};
+
+export async function checkUpdate(): Promise<UiUpdate | null> {
+  if (!isTauri()) return null;
+  return invoke<UiUpdate>('check_update');
+}
+
+/** Descarga, instala y reinicia. En Windows la app se cierra al lanzar el instalador. */
+export async function installUpdate(): Promise<void> {
+  if (!isTauri()) return;
+  await invoke('install_update');
+}
+
 export async function openExternal(url: string): Promise<void> {
   if (isTauri()) {
     const { openUrl } = await import('@tauri-apps/plugin-opener');
