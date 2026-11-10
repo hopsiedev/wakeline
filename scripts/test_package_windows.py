@@ -16,12 +16,12 @@ class PortablePackageTests(unittest.TestCase):
             for name in ('wakeline-app.exe', 'wakeline.exe'):
                 (binaries / name).write_bytes(b'binary fixture')
             (binaries / '.env').write_text('EXCLUDED_FIXTURE=1')
-            for name in ('LICENSE-MIT', 'LICENSE-APACHE', 'THIRD_PARTY_LICENSES.md', 'RELEASE.md'):
+            for name in ('LICENSE-MIT', 'THIRD_PARTY_LICENSES.md', 'RELEASE.md'):
                 (root / name).write_text('license or documentation fixture')
             archive = build(root, binaries, root / 'out', '0.1.0', 'test-commit')
             with zipfile.ZipFile(archive) as contents:
                 self.assertEqual(set(contents.namelist()), {
-                    'wakeline-app.exe', 'wakeline.exe', 'LICENSE-MIT', 'LICENSE-APACHE',
+                    'wakeline-app.exe', 'wakeline.exe', 'LICENSE-MIT',
                     'THIRD_PARTY_LICENSES.md', 'README.md', 'wakeline-portable.json',
                 })
                 marker = json.loads(contents.read('wakeline-portable.json'))

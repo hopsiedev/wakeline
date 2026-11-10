@@ -176,6 +176,6 @@ npm run tauri dev
 
 ## Licencia
 
-Doble licencia [MIT](LICENSE-MIT) o [Apache 2.0](LICENSE-APACHE), a tu elección.
+Licenciado bajo la [licencia MIT](LICENSE-MIT).
 
 La interfaz de escritorio está basada en [Minimal UI Kit](https://github.com/minimal-ui-kit/material-kit-react) (edición gratuita, MIT). Consulta [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
