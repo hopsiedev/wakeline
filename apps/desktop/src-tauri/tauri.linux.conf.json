@@ -5,7 +5,6 @@
     "resources": {
       "../../../target/release/wakeline": "wakeline",
       "../../../LICENSE-MIT": "LICENSE-MIT",
-      "../../../LICENSE-APACHE": "LICENSE-APACHE",
       "../../../THIRD_PARTY_LICENSES.md": "THIRD_PARTY_LICENSES.md",
       "../../../RELEASE.md": "README.md"
     },

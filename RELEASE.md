@@ -1,6 +1,6 @@
 # Wakeline: Windows and Linux
 
-Wakeline is dual-licensed under MIT OR Apache-2.0, at your option. Third-party
+Wakeline is licensed under the MIT License. Third-party
 license notices are included. No commercial signing certificate is required.
 
 Download published packages from [GitHub Releases](https://github.com/hopsiedev/wakeline/releases).

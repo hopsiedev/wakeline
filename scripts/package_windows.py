@@ -10,7 +10,7 @@ import zipfile
 def build(root, binaries, output, version, commit):
     files = {name: binaries / name for name in ('wakeline-app.exe', 'wakeline.exe')}
     files.update({name: root / name for name in (
-        'LICENSE-MIT', 'LICENSE-APACHE', 'THIRD_PARTY_LICENSES.md',
+        'LICENSE-MIT', 'THIRD_PARTY_LICENSES.md',
     )})
     files['README.md'] = root / 'RELEASE.md'
     for source in files.values():
