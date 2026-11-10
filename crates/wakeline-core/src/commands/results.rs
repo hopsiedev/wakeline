@@ -307,10 +307,24 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn absolute_tool_paths_become_project_relative() {
         assert_eq!(
             project_relative(Path::new(r"C:\Users\U\p"), "", r"c:\users\u\p\src\A.ts"),
             "src/A.ts"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn absolute_tool_paths_become_project_relative() {
+        assert_eq!(
+            project_relative(Path::new("/home/u/p"), "", "/home/u/p/src/A.ts"),
+            "src/A.ts"
+        );
+        assert_eq!(
+            project_relative(Path::new("/home/u/p"), "", "/home/u/P/src/A.ts"),
+            "/home/u/P/src/A.ts"
         );
     }
 
