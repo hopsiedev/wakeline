@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { varAlpha } from 'minimal-shared/utils';
+import { useRef, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -8,16 +8,29 @@ import Grid from '@mui/material/Grid';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
+import Tooltip from '@mui/material/Tooltip';
+import Snackbar from '@mui/material/Snackbar';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import { useColorScheme } from '@mui/material/styles';
+import LinearProgress from '@mui/material/LinearProgress';
+import CircularProgress from '@mui/material/CircularProgress';
 
+import { CONFIG } from 'src/config-global';
 import { DashboardContent } from 'src/layouts/dashboard';
+import { dailySummaryEnabled, setDailySummaryEnabled } from 'src/services/daily-summary-state';
 import { type Language, alertsEnabled, changeLanguage, setAlertsEnabled } from 'src/locales/i18n';
 import {
   checkUpdate,
   type UiUpdate,
   installUpdate,
+  getAppVersion,
+  importAllHistory,
   getMcpExecutable,
+  getHistoryProgress,
+  fetchDashboardData,
+  historyImportStatus,
+  type HistoryProgress,
   sendTestNotification,
 } from 'src/services/wakeline';
 
@@ -43,8 +56,15 @@ export function SettingsView() {
   const [testError, setTestError] = useState<string | null>(null);
   const [mcpExecutable, setMcpExecutable] = useState<string | null>(null);
   const [copiedMcp, setCopiedMcp] = useState<string | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyAttempt = useRef(0);
   const [trayBadge, setTrayBadge] = useState(true);
-  const [dailySummary, setDailySummary] = useState(false);
+  const [dailySummary, setDailySummary] = useState(dailySummaryEnabled);
+  const [historyProgress, setHistoryProgress] = useState(getHistoryProgress);
+  const [allHistory, setAllHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyNotice, setHistoryNotice] = useState<string | null>(null);
+  const [sessionCount, setSessionCount] = useState<number | null>(null);
 
   const currentLang: Language = i18n.language.startsWith('en') ? 'en' : 'es';
   const currentMode: Mode = (mode as Mode) ?? 'dark';
@@ -53,20 +73,86 @@ export function SettingsView() {
     getMcpExecutable().then(setMcpExecutable);
   }, []);
 
-  const handleCopyMcp = (label: string, text: string) => {
-    navigator.clipboard?.writeText(text);
-    setCopiedMcp(label);
-    setTimeout(() => {
-      setCopiedMcp((prev) => (prev === label ? null : prev));
-    }, 2400);
+  useEffect(() => {
+    let active = true;
+    const reload = () =>
+      fetchDashboardData().then((data) => {
+        if (active) setSessionCount(data.session_files);
+      });
+    void reload();
+    window.addEventListener('wakeline:rescan', reload);
+    return () => {
+      active = false;
+      window.removeEventListener('wakeline:rescan', reload);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    historyImportStatus()
+      .then((value) => {
+        if (active) setAllHistory(value);
+      })
+      .catch((error) => {
+        if (active) setHistoryError(String(error));
+      });
+    const onProgress = (event: Event) =>
+      setHistoryProgress((event as CustomEvent<HistoryProgress | null>).detail);
+    window.addEventListener('wakeline:history-progress', onProgress);
+    return () => {
+      active = false;
+      window.removeEventListener('wakeline:history-progress', onProgress);
+    };
+  }, []);
+
+  const importHistory = async () => {
+    setHistoryError(null);
+    setHistoryNotice(null);
+    try {
+      const result = await importAllHistory();
+      setAllHistory(true);
+      setHistoryNotice(
+        t(result.bad_lines ? 'settings.historyImportedWarnings' : 'settings.historyImported', {
+          count: result.files,
+          bad: result.bad_lines,
+        })
+      );
+    } catch (error) {
+      const message = String(error);
+      setHistoryError(
+        message.includes('NO_WATCHED_FOLDERS') ? t('pullRequests.noWatchedFolders') : message
+      );
+    }
+  };
+
+  useEffect(
+    () => () => {
+      copyAttempt.current += 1;
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current);
+    },
+    []
+  );
+
+  const handleCopyMcp = async (label: string, text: string) => {
+    const attempt = ++copyAttempt.current;
+    if (copyTimer.current !== null) clearTimeout(copyTimer.current);
+    setCopiedMcp(null);
+    try {
+      await navigator.clipboard.writeText(text);
+      if (attempt !== copyAttempt.current) return;
+      setCopiedMcp(label);
+      copyTimer.current = setTimeout(() => setCopiedMcp(null), 2400);
+    } catch {
+      // Clipboard unavailable or denied: keep the success indicator cleared.
+    }
   };
 
   const mcpCommand = mcpExecutable ?? 'wakeline';
   const mcpConfigs = [
-    { label: 'Claude Code', text: `claude mcp add wakeline -- "${mcpCommand}" mcp` },
-    { label: 'Codex', text: `codex mcp add wakeline -- "${mcpCommand}" mcp` },
+    { label: t('account.claudeCode'), text: `claude mcp add wakeline -- "${mcpCommand}" mcp` },
+    { label: t('account.codex'), text: `codex mcp add wakeline -- "${mcpCommand}" mcp` },
     {
-      label: 'Antigravity · ~/.gemini/config/mcp_config.json',
+      label: t('settings.mcpAntigravity', { path: '~/.gemini/config/mcp_config.json' }),
       text: JSON.stringify(
         { mcpServers: { wakeline: { command: mcpCommand, args: ['mcp'] } } },
         null,
@@ -119,8 +205,8 @@ export function SettingsView() {
                   value={currentLang}
                   onChange={(val) => changeLanguage(val)}
                   options={[
-                    { value: 'es', label: 'Español' },
-                    { value: 'en', label: 'English' },
+                    { value: 'es', label: t('settings.languageSpanish') },
+                    { value: 'en', label: t('settings.languageEnglish') },
                   ]}
                 />
               </SettingRow>
@@ -149,7 +235,7 @@ export function SettingsView() {
 
               <SettingRow label={t('settings.exportPath')} hint={t('settings.exportPathHint')}>
                 <Label color="default" sx={{ fontFamily: 'monospace' }}>
-                  docs/TODO.md
+                  {t('settings.exportFolderValue')}
                 </Label>
               </SettingRow>
 
@@ -276,7 +362,14 @@ export function SettingsView() {
                 {t('settings.sourcesSub')}
               </Typography>
 
-              <SettingRow label={t('settings.claudeSource')} hint={t('settings.claudeSourceHint')}>
+              <SettingRow
+                label={t('settings.claudeSource')}
+                hint={
+                  sessionCount === null
+                    ? t('common.loading')
+                    : t('settings.claudeSourceHint', { count: sessionCount })
+                }
+              >
                 <Switch
                   checked={claudeEnabled}
                   onChange={(e) => setClaudeEnabled(e.target.checked)}
@@ -308,23 +401,59 @@ export function SettingsView() {
 
               <SettingRow
                 label={t('settings.historyStart')}
-                hint={t('settings.historyStartHint')}
+                hint={t(allHistory ? 'settings.historyAllHint' : 'settings.historyStartHint')}
                 isLast
               >
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="inherit"
-                  sx={(theme) => ({
-                    height: 30,
-                    px: 1.25,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.32),
-                  })}
+                <Box
+                  sx={{
+                    minWidth: 160,
+                    maxWidth: '55%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                    gap: 1,
+                  }}
                 >
-                  {t('settings.importAll')}
-                </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="inherit"
+                    onClick={importHistory}
+                    disabled={historyProgress !== null}
+                    startIcon={
+                      historyProgress ? <CircularProgress color="inherit" size={14} /> : undefined
+                    }
+                    sx={(theme) => ({
+                      height: 30,
+                      px: 1.25,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.32),
+                    })}
+                  >
+                    {t(historyProgress ? 'settings.historyImporting' : 'settings.importAll')}
+                  </Button>
+                  {historyProgress && (
+                    <Box sx={{ width: 1 }}>
+                      <LinearProgress
+                        variant={historyProgress.total ? 'determinate' : 'indeterminate'}
+                        value={
+                          historyProgress.total
+                            ? (historyProgress.processed / historyProgress.total) * 100
+                            : 0
+                        }
+                      />
+                      <Typography sx={{ mt: 0.5, fontSize: 12, color: 'text.secondary' }}>
+                        {t('settings.historyProgress', historyProgress)}
+                      </Typography>
+                    </Box>
+                  )}
+                  {historyError && (
+                    <Typography role="alert" sx={{ color: 'error.main', fontSize: 12 }}>
+                      {historyError}
+                    </Typography>
+                  )}
+                </Box>
               </SettingRow>
             </Card>
 
@@ -398,7 +527,10 @@ export function SettingsView() {
               >
                 <Switch
                   checked={dailySummary}
-                  onChange={(e) => setDailySummary(e.target.checked)}
+                  onChange={(e) => {
+                    setDailySummary(e.target.checked);
+                    setDailySummaryEnabled(e.target.checked);
+                  }}
                 />
               </SettingRow>
             </Card>
@@ -413,36 +545,34 @@ export function SettingsView() {
               </Typography>
 
               <Box sx={{ gap: 1, display: 'flex', flexDirection: 'column', mb: 2 }}>
-                {[
-                  '~/.claude/sessions/',
-                  '**/.env · **/.env.*',
-                  'opencode.db · tablas account, credential',
-                ].map((rule) => (
-                  <Box
-                    key={rule}
-                    sx={(theme) => ({
-                      px: 1.5,
-                      py: 1.25,
-                      gap: 1.25,
-                      borderRadius: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      fontFamily: 'monospace',
-                      fontSize: 12.5,
-                      color: 'text.primary',
-                      bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
-                      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
-                    })}
-                  >
-                    <Box sx={{ color: 'warning.main', display: 'flex' }}>
-                      <AppIcon name="lock" size={16} />
+                {['~/.claude/sessions/', '**/.env · **/.env.*', t('settings.excludedTables')].map(
+                  (rule) => (
+                    <Box
+                      key={rule}
+                      sx={(theme) => ({
+                        px: 1.5,
+                        py: 1.25,
+                        gap: 1.25,
+                        borderRadius: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        fontFamily: 'monospace',
+                        fontSize: 12.5,
+                        color: 'text.primary',
+                        bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
+                        border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
+                      })}
+                    >
+                      <Box sx={{ color: 'warning.main', display: 'flex' }}>
+                        <AppIcon name="lock" size={16} />
+                      </Box>
+                      <Box component="span" sx={{ flexGrow: 1 }}>
+                        {rule}
+                      </Box>
+                      <LockedSwitch />
                     </Box>
-                    <Box component="span" sx={{ flexGrow: 1 }}>
-                      {rule}
-                    </Box>
-                    <LockedSwitch />
-                  </Box>
-                ))}
+                  )
+                )}
               </Box>
 
               <Box
@@ -487,12 +617,6 @@ export function SettingsView() {
                 </Typography>
               )}
 
-              {copiedMcp && (
-                <Alert severity="success" sx={{ mb: 2 }} onClose={() => setCopiedMcp(null)}>
-                  {t('settings.copiedAlert', { label: copiedMcp })}
-                </Alert>
-              )}
-
               {mcpConfigs.map((config) => {
                 const isCopied = copiedMcp === config.label;
                 return (
@@ -508,36 +632,32 @@ export function SettingsView() {
                         border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
                       })}
                     >
-                      <Button
-                        size="small"
-                        variant={isCopied ? 'contained' : 'outlined'}
-                        color={isCopied ? 'primary' : 'inherit'}
-                        onClick={() => handleCopyMcp(config.label, config.text)}
-                        startIcon={<AppIcon name={isCopied ? 'check' : 'copy'} size={14} />}
-                        sx={(theme) => ({
-                          position: 'absolute',
-                          top: 8,
-                          right: 8,
-                          height: 28,
-                          px: 1.25,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          zIndex: 1,
-                          ...(!isCopied && {
+                      <Tooltip title={t('settings.copyConfig')}>
+                        <IconButton
+                          size="small"
+                          aria-label={t('settings.copyConfig')}
+                          color={isCopied ? 'success' : 'default'}
+                          onClick={() => handleCopyMcp(config.label, config.text)}
+                          sx={{
+                            position: 'absolute',
+                            top: 8,
+                            right: 8,
+                            width: 28,
+                            height: 28,
+                            zIndex: 1,
                             bgcolor: 'background.paper',
-                            borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.32),
-                          }),
-                        })}
-                      >
-                        {isCopied ? t('common.copied') : t('settings.copyConfig')}
-                      </Button>
+                          }}
+                        >
+                          <AppIcon name="copy" size={16} />
+                        </IconButton>
+                      </Tooltip>
                       <Box
                         component="pre"
                         sx={{
                           m: 0,
                           py: 1.75,
                           pl: 2,
-                          pr: 22,
+                          pr: 6,
                           overflowX: 'auto',
                           fontFamily: 'monospace',
                           fontSize: 12.5,
@@ -563,6 +683,19 @@ export function SettingsView() {
           </Box>
         </Grid>
       </Grid>
+      <Snackbar
+        open={copiedMcp !== null || historyNotice !== null}
+        autoHideDuration={4000}
+        onClose={(_, reason) => {
+          if (reason !== 'clickaway') setHistoryNotice(null);
+        }}
+        transitionDuration={0}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert severity="success" variant="filled" sx={{ boxShadow: 3 }}>
+          {copiedMcp ? t('settings.copiedAlert') : historyNotice}
+        </Alert>
+      </Snackbar>
     </DashboardContent>
   );
 }
@@ -608,48 +741,72 @@ function SettingRow({
 function UpdateRow() {
   const { t } = useTranslation();
   const [update, setUpdate] = useState<UiUpdate | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState<'idle' | 'checking' | 'installing'>('idle');
+  const [version, setVersion] = useState(CONFIG.appVersion);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    getAppVersion()
+      .then((value) => {
+        if (active) setVersion(value);
+      })
+      .catch((reason) => {
+        if (active) setError(String(reason));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const check = async () => {
-    setBusy(true);
+    setPhase('checking');
     setError(null);
     try {
-      setUpdate(await checkUpdate());
+      const result = await checkUpdate();
+      setUpdate(result);
+      if (result) setVersion(result.current_version);
+      if (result?.state === 'available' && result.version) {
+        setPhase('installing');
+        await installUpdate();
+      }
     } catch (reason) {
       setError(String(reason));
     } finally {
-      setBusy(false);
-    }
-  };
-
-  const install = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await installUpdate();
-    } catch (reason) {
-      setError(String(reason));
-      setBusy(false);
+      setPhase('idle');
     }
   };
 
   let hint = t('settings.updatesHint');
-  if (update?.version) hint = t('settings.updateAvailable', { version: update.version });
-  else if (update) hint = t('settings.upToDate', { version: update.current_version });
+  if (phase === 'installing')
+    hint = t('settings.autoInstallingUpdate', { version: update?.version });
+  else if (update?.state === 'unpublished') hint = t('settings.noPublishedUpdates');
+  else if (update?.state === 'unconfigured') hint = t('settings.updateSigningMissing');
+  else if (update?.state === 'up_to_date') hint = t('settings.upToDate', { version });
 
   return (
     <SettingRow label={t('settings.updates')} hint={hint} isLast>
       <Box sx={{ gap: 0.5, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-        {update?.version ? (
-          <Button size="small" variant="contained" disabled={busy} onClick={install}>
-            {busy ? t('settings.installingUpdate') : t('settings.installUpdate')}
-          </Button>
-        ) : (
-          <Button size="small" color="inherit" variant="outlined" disabled={busy} onClick={check}>
-            {busy ? t('settings.checkingUpdates') : t('settings.checkUpdates')}
-          </Button>
-        )}
+        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+          {t('settings.currentVersion', { version })}
+        </Typography>
+        <Button
+          size="small"
+          color="inherit"
+          variant="outlined"
+          disabled={phase !== 'idle'}
+          onClick={check}
+          startIcon={phase !== 'idle' ? <CircularProgress color="inherit" size={14} /> : undefined}
+        >
+          {t(
+            phase === 'checking'
+              ? 'settings.checkingUpdates'
+              : phase === 'installing'
+                ? 'settings.installingUpdate'
+                : 'settings.checkUpdates'
+          )}
+        </Button>
+        {phase === 'installing' && <LinearProgress sx={{ width: 1 }} />}
         {error && (
           <Typography sx={{ color: 'error.main', fontSize: 12, maxWidth: 280 }}>
             {t('settings.updateFailed')}: {error}

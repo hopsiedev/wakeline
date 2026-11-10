@@ -120,7 +120,15 @@ pub fn status(gh: &dyn GhClient) -> GhStatus {
 
 /// `owner/repo` del remoto `origin` si está en github.com.
 pub fn github_repo(project_root: &Path) -> Option<String> {
-    let config = std::fs::read_to_string(project_root.join(".git").join("config")).ok()?;
+    let mut git_dir = project_root.join(".git");
+    if git_dir.is_file() {
+        let pointer = std::fs::read_to_string(&git_dir).ok()?;
+        git_dir = project_root.join(pointer.trim().strip_prefix("gitdir:")?.trim());
+    }
+    if let Ok(common) = std::fs::read_to_string(git_dir.join("commondir")) {
+        git_dir = git_dir.join(common.trim());
+    }
+    let config = std::fs::read_to_string(git_dir.join("config")).ok()?;
     let mut in_origin = false;
     for line in config.lines().map(str::trim) {
         if line.starts_with('[') {
@@ -159,7 +167,7 @@ pub struct GithubCard {
     pub fingerprint: Fingerprint,
     pub kind: CardKind,
     pub source: SourceKind,
-    /// «Issue», «Revisión», «PR», «CI».
+    /// Clave de la etiqueta de origen: `issue`, `review`, `pr` o `ci` (la traduce la interfaz).
     pub label: String,
     pub title: String,
     pub url: String,
@@ -208,6 +216,70 @@ pub struct PullRequestInfo {
     pub age_days: u64,
     pub ci: CiState,
     pub review: ReviewState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PullRequestFile {
+    pub filename: String,
+    pub additions: u64,
+    pub deletions: u64,
+    pub patch: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PullRequestDetails {
+    pub body: String,
+    pub files: Vec<PullRequestFile>,
+}
+
+pub fn fetch_pr_details(
+    gh: &dyn GhClient,
+    repo: &str,
+    number: u64,
+) -> Result<PullRequestDetails, GhError> {
+    if parse_remote(&format!("https://github.com/{repo}")).as_deref() != Some(repo) || number == 0 {
+        return Err(GhError::Failed("PR no válido".into()));
+    }
+    let endpoint = format!("repos/{repo}/pulls/{number}");
+    #[derive(Deserialize)]
+    struct Description {
+        body: Option<String>,
+    }
+    let description: Description = parse_json(gh.run(&["api", &endpoint, "--jq", "{body}"])?)?;
+    // Filter excluded patches inside gh before they reach the application.
+    let filter = r#"map(select((.filename | ascii_downcase | test("(^|/)\\.env($|\\.)|(^|/)opencode\\.db$|(^|/)\\.claude/sessions(/|$)")) | not))"#;
+    let response = gh.run(&[
+        "api",
+        &format!("{endpoint}/files?per_page=100"),
+        "--paginate",
+        "--jq",
+        filter,
+    ])?;
+    let pages: Vec<Vec<PullRequestFile>> = serde_json::Deserializer::from_str(&response)
+        .into_iter::<Vec<PullRequestFile>>()
+        .collect::<Result<_, _>>()
+        .map_err(|error| GhError::Failed(format!("respuesta de gh no válida: {error}")))?;
+    let files = pages
+        .into_iter()
+        .flatten()
+        .filter(|file| !crate::exclusions::is_excluded(Path::new(&file.filename)))
+        .map(|mut file| {
+            file.patch = file
+                .patch
+                .map(|patch| patch.lines().map(redact).collect::<Vec<_>>().join("\n"));
+            file
+        })
+        .collect();
+    Ok(PullRequestDetails {
+        body: description
+            .body
+            .unwrap_or_default()
+            .lines()
+            .map(redact)
+            .collect::<Vec<_>>()
+            .join("\n"),
+        files,
+    })
 }
 
 /// Lo leído de GitHub para un proyecto.
@@ -481,7 +553,7 @@ fn issue_card(issue: &IssueJson) -> GithubCard {
         fingerprint: Fingerprint::new(kind, SourceKind::Issue, Some(&issue.url), &title),
         kind,
         source: SourceKind::Issue,
-        label: "Issue".into(),
+        label: "issue".into(),
         title,
         url: issue.url.clone(),
         branch: None,
@@ -505,7 +577,7 @@ fn review_card(pr: &PrJson, login: &str) -> GithubCard {
         ),
         kind: CardKind::Task,
         source: SourceKind::PullRequest,
-        label: "Revisión".into(),
+        label: "review".into(),
         title,
         url: pr.url.clone(),
         branch: Some(pr.head_ref_name.clone()),
@@ -529,7 +601,7 @@ fn stale_card(pr: &PrJson) -> GithubCard {
         ),
         kind: CardKind::Task,
         source: SourceKind::PullRequest,
-        label: "PR".into(),
+        label: "pr".into(),
         title,
         url: pr.url.clone(),
         branch: Some(pr.head_ref_name.clone()),
@@ -556,7 +628,7 @@ fn ci_cards(
             fingerprint: Fingerprint::new(CardKind::Error, SourceKind::PullRequest, None, &title),
             kind: CardKind::Error,
             source: SourceKind::PullRequest,
-            label: "CI".into(),
+            label: "ci".into(),
             title,
             url,
             branch: Some(pr.head_ref_name.clone()),
@@ -583,7 +655,7 @@ fn ci_cards(
                 ),
                 kind: CardKind::Error,
                 source: SourceKind::PullRequest,
-                label: "CI".into(),
+                label: "ci".into(),
                 title,
                 url: url.clone(),
                 branch: Some(pr.head_ref_name.clone()),
@@ -828,7 +900,7 @@ impl Drop for GithubPoller {
     }
 }
 
-fn unix_now() -> u64 {
+pub fn unix_now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -908,6 +980,57 @@ mod tests {
     }
 
     #[test]
+    fn discovers_origin_in_a_linked_worktree() {
+        let root = std::env::temp_dir().join(format!("wakeline-worktree-{}", std::process::id()));
+        let git = root.join("main.git");
+        let tree = root.join("worktree");
+        std::fs::create_dir_all(git.join("worktrees/feature")).unwrap();
+        std::fs::create_dir_all(&tree).unwrap();
+        std::fs::write(tree.join(".git"), "gitdir: ../main.git/worktrees/feature\n").unwrap();
+        std::fs::write(git.join("worktrees/feature/commondir"), "../..\n").unwrap();
+        std::fs::write(
+            git.join("config"),
+            "[remote \"origin\"]\nurl = https://github.com/team/project.git\n",
+        )
+        .unwrap();
+        assert_eq!(github_repo(&tree).as_deref(), Some("team/project"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn pr_details_preserve_line_numbers_and_redact_secrets() {
+        let gh = FakeGh {
+            answers: vec![
+                ("api repos/o/r/pulls/12/files", Ok(r#"[{"filename":"src/a.ts","additions":1,"deletions":1,"patch":"@@ -4,1 +4,1 @@\n-old\n+const token=ghp_12345678901234567890"},{"filename":".env.production","additions":1,"deletions":0}]"#.into())),
+                ("api repos/o/r/pulls/12", Ok(r#"{"body":"Fix parser","html_url":"https://github.com/o/r/pull/12"}"#.into())),
+            ],
+            calls: RefCell::new(Vec::new()),
+        };
+        let detail = fetch_pr_details(&gh, "o/r", 12).unwrap();
+        assert_eq!(detail.body, "Fix parser");
+        assert_eq!(detail.files.len(), 1);
+        let patch = detail.files[0].patch.as_deref().unwrap();
+        assert!(patch.starts_with("@@ -4,1 +4,1 @@"));
+        assert!(!patch.contains("12345678901234567890"));
+    }
+
+    #[test]
+    #[ignore = "requires gh login and WAKELINE_TEST_REPO / WAKELINE_TEST_PR"]
+    fn reads_real_pr_details_with_system_gh() {
+        let repo = std::env::var("WAKELINE_TEST_REPO").unwrap();
+        let number = std::env::var("WAKELINE_TEST_PR").unwrap().parse().unwrap();
+        let detail = fetch_pr_details(&SystemGh, &repo, number).unwrap();
+        assert!(!detail.files.is_empty());
+        assert!(detail.files.iter().any(|file| file.patch.is_some()));
+        assert!(
+            detail
+                .files
+                .iter()
+                .all(|file| !crate::exclusions::is_excluded(Path::new(&file.filename)))
+        );
+    }
+
+    #[test]
     fn issues_become_cards_by_label() {
         let issues = r#"[
           {"number":1,"title":"Se cae","url":"https://github.com/o/r/issues/1","labels":[{"name":"bug"}]},
@@ -967,7 +1090,7 @@ mod tests {
         assert_eq!(snap.cards.len(), 1);
         let card = &snap.cards[0];
         assert_eq!(card.kind, CardKind::Error);
-        assert_eq!(card.label, "CI");
+        assert_eq!(card.label, "ci");
         assert_eq!(card.location(), "apps/desktop/src/a.ts:3");
         assert_eq!(card.branch.as_deref(), Some("feat"));
         assert_eq!(card.title, "TS2304: Cannot find name 'x'.");

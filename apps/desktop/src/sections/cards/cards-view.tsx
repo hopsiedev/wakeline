@@ -1,36 +1,45 @@
 import { useTranslation } from 'react-i18next';
 import { varAlpha } from 'minimal-shared/utils';
-import { useSearchParams } from 'react-router-dom';
 import { useMemo, useState, useEffect } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
+import Alert from '@mui/material/Alert';
 import Table from '@mui/material/Table';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import Drawer from '@mui/material/Drawer';
 import Select from '@mui/material/Select';
+import Checkbox from '@mui/material/Checkbox';
 import MenuItem from '@mui/material/MenuItem';
 import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TextField from '@mui/material/TextField';
+import InputLabel from '@mui/material/InputLabel';
 import Typography from '@mui/material/Typography';
+import FormControl from '@mui/material/FormControl';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import LinearProgress from '@mui/material/LinearProgress';
+import TablePagination from '@mui/material/TablePagination';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
   type UiCard,
+  originLabel,
   openInVscode,
   openExternal,
   type CardKind,
   type CardStatus,
   createManualCard,
   updateCardStatus,
+  updateCardsStatus,
   chooseWatchFolder,
   fetchDashboardData,
   getImportingFolder,
@@ -39,7 +48,11 @@ import {
 } from 'src/services/wakeline';
 
 import { Label } from 'src/components/label';
+import { EvidenceMarkdown } from 'src/components/evidence-markdown';
 import { AppIcon, type AppIconName } from 'src/components/nav-icon';
+
+import { type SourceFilter, type StatusFilter, matchesCardFilters } from './card-filters';
+import { toggleCardSelection, togglePageSelection, selectedStatusInputs } from './card-selection';
 
 // ----------------------------------------------------------------------
 
@@ -48,7 +61,9 @@ type TypeFilter = 'all' | CardKind;
 
 export function CardsView() {
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { id: routeId } = useParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [cards, setCards] = useState<UiCard[]>([]);
   const [projects, setProjects] = useState<UiProjectSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -58,6 +73,10 @@ export function CardsView() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedCard, setSelectedCard] = useState<UiCard | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [resumedSession, setResumedSession] = useState(false);
@@ -65,6 +84,9 @@ export function CardsView() {
   const [newTitle, setNewTitle] = useState('');
   const [newKind, setNewKind] = useState<CardKind>('task');
   const [newProject, setNewProject] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
 
   const loadCards = (force = false) => {
     fetchDashboardData({ force }).then((res) => {
@@ -83,8 +105,8 @@ export function CardsView() {
     loadCards();
     const onRescan = () => loadCards(true);
     const onImporting = (event: Event) => {
-      const custom = event as CustomEvent<{ folder: string | null }>;
-      setImportingFolder(custom.detail?.folder ?? null);
+      const custom = event as CustomEvent<string | null>;
+      setImportingFolder(custom.detail ?? null);
     };
     window.addEventListener('wakeline:rescan', onRescan);
     window.addEventListener('wakeline:importing', onImporting);
@@ -94,43 +116,94 @@ export function CardsView() {
     };
   }, []);
 
+  // El Detalle se abre en `/cards/<huella>` (Q49). La huella no cambia entre escaneos,
+  // así que el enlace sirve desde el MCP o desde otra pantalla. `?detail=` queda por
+  // compatibilidad con enlaces viejos.
+  const detailId = routeId ?? searchParams.get('detail');
   useEffect(() => {
-    const detailId = searchParams.get('detail');
-    if (detailId) {
-      setSelectedCard(cards.find((c) => c.short_id === detailId) ?? null);
-    } else if (
-      selectedCard &&
-      !cards.some((card) => card.fingerprint === selectedCard.fingerprint)
-    ) {
+    if (!detailId) {
       setSelectedCard(null);
+      return;
     }
-  }, [searchParams, cards, selectedCard]);
+    if (!loaded) return;
+    setSelectedCard(
+      cards.find(
+        (c) =>
+          c.fingerprint === detailId || c.fingerprints.includes(detailId) || c.short_id === detailId
+      ) ?? null
+    );
+  }, [detailId, cards, loaded]);
 
-  const detailFingerprint = selectedCard?.fingerprint;
-  useEffect(() => {
-    if (detailFingerprint) {
-      document.querySelector('main')?.scrollTo(0, 0);
-      window.scrollTo(0, 0);
-    }
-  }, [detailFingerprint]);
+  const openDetail = (card: UiCard) => {
+    setSelectedCard(card);
+    navigate(`/cards/${card.fingerprint}`);
+  };
 
-  const filtered = useMemo(
+  const scopedCards = useMemo(
     () =>
-      cards.filter((c) => {
-        if (typeFilter !== 'all' && c.kind !== typeFilter) return false;
-        if (projectFilter !== 'all' && c.project !== projectFilter) return false;
-        if (search.trim()) {
-          const q = search.toLowerCase();
-          return (
-            c.title.toLowerCase().includes(q) ||
-            c.location.toLowerCase().includes(q) ||
-            c.branch.toLowerCase().includes(q)
-          );
-        }
-        return true;
-      }),
-    [cards, typeFilter, projectFilter, search]
+      cards.filter((card) =>
+        matchesCardFilters(card, {
+          kind: 'all',
+          project: projectFilter,
+          source: sourceFilter,
+          status: statusFilter,
+          search,
+        })
+      ),
+    [cards, projectFilter, sourceFilter, statusFilter, search]
   );
+  const filtered = useMemo(
+    () => scopedCards.filter((card) => typeFilter === 'all' || card.kind === typeFilter),
+    [scopedCards, typeFilter]
+  );
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(filtered.length / rowsPerPage) - 1));
+  const pageCards = filtered.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
+  const pageIds = pageCards.map((card) => card.fingerprint);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const somePageSelected = pageIds.some((id) => selected.has(id));
+  const selectedCards = filtered.filter((card) => selected.has(card.fingerprint));
+  useEffect(() => setPage(0), [typeFilter, projectFilter, sourceFilter, statusFilter, search]);
+  useEffect(() => {
+    const visible = new Set(filtered.map((card) => card.fingerprint));
+    setSelected((previous) => {
+      const next = new Set([...previous].filter((id) => visible.has(id)));
+      return next.size === previous.size ? previous : next;
+    });
+  }, [filtered]);
+
+  const changeSelectedStatus = async (status: CardStatus) => {
+    setBulkBusy(true);
+    setBulkError(null);
+    const inputs = selectedStatusInputs(filtered, selected, status);
+    try {
+      await updateCardsStatus(inputs);
+      const changed = new Set(inputs.map((input) => input.fingerprint));
+      setCards((previous) =>
+        previous.map((card) => (changed.has(card.fingerprint) ? { ...card, status } : card))
+      );
+      setSelected(new Set());
+    } catch (error) {
+      setBulkError(String(error));
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const sourceOptions = [
+    { value: 'all', label: t('common.all') },
+    { value: 'code', label: t('sources.code') },
+    { value: 'session', label: t('sources.session') },
+    { value: 'github', label: t('github.title') },
+    { value: 'document', label: t('cards.sourceDocuments') },
+  ] as const;
+  const statusOptions = [
+    { value: 'all', label: t('common.all') },
+    { value: 'open', label: t('cards.openStatuses') },
+    ...(['new', 'accepted', 'done', 'dismissed'] as const).map((value) => ({
+      value,
+      label: t(`common.${value}`),
+    })),
+  ];
 
   const handleStatusChange = async (card: UiCard, status: CardStatus) => {
     await updateCardStatus(card.fingerprint, status, card.fingerprints);
@@ -166,288 +239,281 @@ export function CardsView() {
 
   const closeDetail = () => {
     setSelectedCard(null);
-    if (searchParams.has('detail')) {
-      setSearchParams({});
-    }
+    navigate('/cards');
   };
 
-  if (selectedCard) {
-    return (
-      <DashboardContent maxWidth={false}>
+  const detail = selectedCard ? (
+    <Box sx={{ p: 3 }}>
+      <Box
+        sx={{
+          mb: 1.5,
+          gap: 1.25,
+          display: 'flex',
+          alignItems: 'center',
+          fontSize: 14,
+          color: 'text.disabled',
+        }}
+      >
         <Box
+          component="button"
+          type="button"
+          onClick={closeDetail}
           sx={{
-            mb: 1.5,
-            gap: 1.25,
-            display: 'flex',
-            alignItems: 'center',
+            p: 0,
+            border: 0,
+            cursor: 'pointer',
             fontSize: 14,
-            color: 'text.disabled',
+            fontFamily: 'inherit',
+            bgcolor: 'transparent',
+            color: 'text.secondary',
+            '&:hover': { color: 'text.primary' },
           }}
         >
-          <Box
-            component="button"
-            type="button"
-            onClick={closeDetail}
-            sx={{
-              p: 0,
-              border: 0,
-              cursor: 'pointer',
-              fontSize: 14,
-              fontFamily: 'inherit',
-              bgcolor: 'transparent',
-              color: 'text.secondary',
-              '&:hover': { color: 'text.primary' },
-            }}
-          >
-            ‹ {t('cards.backToCards')}
-          </Box>
-          <Box
-            component="i"
-            sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'text.disabled' }}
-          />
-          <Box component="b" sx={{ color: 'text.primary', fontWeight: 400 }}>
-            {selectedCard.short_id}
-          </Box>
+          ‹ {t('cards.backToCards')}
         </Box>
         <Box
+          component="i"
+          sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'text.disabled' }}
+        />
+        <Box component="b" sx={{ color: 'text.primary', fontWeight: 400 }}>
+          {selectedCard.short_id}
+        </Box>
+      </Box>
+      <Box
+        sx={{
+          mb: 3,
+          gap: 2,
+          display: 'flex',
+          alignItems: 'flex-start',
+        }}
+      >
+        <Box sx={{ maxWidth: 740, minWidth: 0 }}>
+          <Box sx={{ gap: 1, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+            <KindBadge kind={selectedCard.kind} />
+            <StatusBadge status={selectedCard.status} />
+            <Typography sx={{ color: 'text.disabled', fontSize: 13 }}>
+              {selectedCard.short_id} · {selectedCard.project}
+            </Typography>
+          </Box>
+
+          <Typography sx={{ mt: 0.75, mb: 1, fontSize: 24, fontWeight: 700, lineHeight: 1.4 }}>
+            {selectedCard.title}
+          </Typography>
+
+          <Typography sx={{ color: 'text.disabled', fontSize: 13 }}>
+            {t('cards.seenPrefix')}{' '}
+            <Box component="b" sx={{ color: 'text.primary' }}>
+              {t('cards.seenTimes', { count: selectedCard.occurrences })}
+            </Box>{' '}
+            · {t('cards.firstSeen')} {selectedCard.first_seen} · {t('cards.lastSeen')}{' '}
+            {selectedCard.last_seen}
+          </Typography>
+        </Box>
+
+        <Box
           sx={{
-            mb: 3,
-            gap: 2,
+            gap: 1,
             display: 'flex',
-            alignItems: 'flex-start',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-start',
           }}
         >
-          <Box sx={{ maxWidth: 740, minWidth: 0 }}>
-            <Box sx={{ gap: 1, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-              <KindBadge kind={selectedCard.kind} />
-              <StatusBadge status={selectedCard.status} />
-              <Typography sx={{ color: 'text.disabled', fontSize: 13 }}>
-                {selectedCard.short_id} · {selectedCard.project}
-              </Typography>
-            </Box>
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={() => openInVscode(selectedCard)}
+            startIcon={<AppIcon name="vscode" size={18} />}
+            sx={(theme) => ({
+              height: 36,
+              px: 1.75,
+              fontWeight: 700,
+              borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.32),
+            })}
+          >
+            {t('cards.openVscode')}
+          </Button>
 
-            <Typography sx={{ mt: 0.75, mb: 1, fontSize: 24, fontWeight: 700, lineHeight: 1.4 }}>
-              {selectedCard.title}
-            </Typography>
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={() => handleResumeSession(selectedCard)}
+            startIcon={<AppIcon name={resumedSession ? 'check' : 'play'} size={18} />}
+            sx={(theme) => ({
+              height: 36,
+              px: 1.75,
+              fontWeight: 700,
+              borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.32),
+            })}
+          >
+            {t('cards.resumeSession')}
+          </Button>
 
-            <Typography sx={{ color: 'text.disabled', fontSize: 13 }}>
-              {t('cards.seenPrefix')}{' '}
-              <Box component="b" sx={{ color: 'text.primary' }}>
-                {t('cards.seenTimes', { count: selectedCard.occurrences })}
-              </Box>{' '}
-              · {t('cards.firstSeen')} {selectedCard.first_seen} · {t('cards.lastSeen')}{' '}
-              {selectedCard.last_seen}
-            </Typography>
-          </Box>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() =>
+              copyPromptText(
+                [
+                  `${t('cards.promptProject')}: ${selectedCard.project} (${selectedCard.branch})`,
+                  `${t('cards.promptOrigin')}: ${selectedCard.location}`,
+                  `${t('cards.promptPending')}: ${selectedCard.title}`,
+                  selectedCard.evidence &&
+                    `${t('cards.promptEvidence')}:\n${selectedCard.evidence}`,
+                  selectedCard.code_excerpt &&
+                    `${t('cards.promptCode')}:\n${selectedCard.code_excerpt}`,
+                ]
+                  .filter(Boolean)
+                  .join('\n\n')
+              )
+            }
+            startIcon={<AppIcon name={copiedPrompt ? 'check' : 'copy'} size={18} />}
+            sx={{ height: 36, px: 1.75, fontWeight: 700 }}
+          >
+            {copiedPrompt ? t('common.copied') : t('cards.copyPrompt')}
+          </Button>
 
-          <Box
+          <Button
+            color="inherit"
+            onClick={() =>
+              handleStatusChange(
+                selectedCard,
+                selectedCard.status === 'accepted' ? 'done' : 'accepted'
+              )
+            }
+            sx={(theme) => ({
+              height: 36,
+              px: 1.75,
+              fontWeight: 700,
+              bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
+            })}
+          >
+            {selectedCard.status === 'accepted'
+              ? t('common.markDone')
+              : selectedCard.status === 'done'
+                ? t('common.done')
+                : t('common.accept')}
+          </Button>
+
+          <Button
+            onClick={async () => {
+              await handleStatusChange(selectedCard, 'dismissed');
+              closeDetail();
+            }}
             sx={{
-              gap: 1,
-              display: 'flex',
-              flexWrap: 'wrap',
-              maxWidth: 460,
-              ml: 'auto',
-              justifyContent: 'flex-end',
+              height: 36,
+              px: 1.75,
+              fontWeight: 700,
+              color: 'error.main',
+              bgcolor: 'rgba(255, 86, 48, 0.16)',
+              '&:hover': { bgcolor: 'rgba(255, 86, 48, 0.24)' },
             }}
           >
-            <Button
-              variant="outlined"
-              color="inherit"
-              onClick={() => openInVscode(selectedCard)}
-              startIcon={<AppIcon name="vscode" size={18} />}
-              sx={(theme) => ({
-                height: 36,
-                px: 1.75,
-                fontWeight: 700,
-                borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.32),
-              })}
-            >
-              {t('cards.openVscode')}
-            </Button>
-
-            <Button
-              variant="outlined"
-              color="inherit"
-              onClick={() => handleResumeSession(selectedCard)}
-              startIcon={<AppIcon name={resumedSession ? 'check' : 'play'} size={18} />}
-              sx={(theme) => ({
-                height: 36,
-                px: 1.75,
-                fontWeight: 700,
-                borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.32),
-              })}
-            >
-              {t('cards.resumeSession')}
-            </Button>
-
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() =>
-                copyPromptText(
-                  [
-                    `Proyecto: ${selectedCard.project} (${selectedCard.branch})`,
-                    `Origen: ${selectedCard.location}`,
-                    `Pendiente: ${selectedCard.title}`,
-                    selectedCard.evidence && `Evidencia:\n${selectedCard.evidence}`,
-                    selectedCard.code_excerpt && `Código:\n${selectedCard.code_excerpt}`,
-                  ]
-                    .filter(Boolean)
-                    .join('\n\n')
-                )
-              }
-              startIcon={<AppIcon name={copiedPrompt ? 'check' : 'copy'} size={18} />}
-              sx={{ height: 36, px: 1.75, fontWeight: 700 }}
-            >
-              {copiedPrompt ? t('common.copied') : t('cards.copyPrompt')}
-            </Button>
-
-            <Button
-              color="inherit"
-              onClick={() =>
-                handleStatusChange(
-                  selectedCard,
-                  selectedCard.status === 'accepted' ? 'done' : 'accepted'
-                )
-              }
-              sx={(theme) => ({
-                height: 36,
-                px: 1.75,
-                fontWeight: 700,
-                bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
-              })}
-            >
-              {selectedCard.status === 'accepted'
-                ? t('common.markDone')
-                : selectedCard.status === 'done'
-                  ? t('common.done')
-                  : t('common.accept')}
-            </Button>
-
-            <Button
-              onClick={async () => {
-                await handleStatusChange(selectedCard, 'dismissed');
-                closeDetail();
-              }}
-              sx={{
-                height: 36,
-                px: 1.75,
-                fontWeight: 700,
-                color: 'error.main',
-                bgcolor: 'rgba(255, 86, 48, 0.16)',
-                '&:hover': { bgcolor: 'rgba(255, 86, 48, 0.24)' },
-              }}
-            >
-              {t('common.dismiss')}
-            </Button>
-          </Box>
+            {t('common.dismiss')}
+          </Button>
         </Box>
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, lg: 8 }}>
+      </Box>
+      <Grid container spacing={3}>
+        <Grid size={12}>
+          <Card sx={{ p: 3 }}>
+            <Typography sx={{ fontSize: 18, fontWeight: 600 }}>{t('cards.whereTitle')}</Typography>
+            <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 14 }}>
+              {selectedCard.location}
+            </Typography>
+            {selectedCard.code_excerpt ? (
+              <CodeExcerptBlock code={selectedCard.code_excerpt} location={selectedCard.location} />
+            ) : !selectedCard.evidence ? (
+              <Typography sx={{ mt: 2, color: 'text.secondary', fontSize: 13 }}>
+                {t(
+                  /[/\\]/.test(selectedCard.location)
+                    ? 'cards.unreadableFile'
+                    : 'cards.noCodeExcerpt'
+                )}
+              </Typography>
+            ) : null}
+          </Card>
+        </Grid>
+        <Grid size={12}>
+          <Card sx={{ p: 3 }}>
+            <Typography sx={{ fontSize: 18, fontWeight: 600 }}>{t('cards.metaTitle')}</Typography>
+            <Box sx={{ mt: 2, gap: 1.5, display: 'grid', fontSize: 14 }}>
+              <Box>
+                <b>{t('cards.project')}:</b> {selectedCard.project}
+              </Box>
+              <Box>
+                <b>{t('cards.metaBranch')}:</b> {selectedCard.branch}
+              </Box>
+              <Box>
+                <b>{t('cards.metaOrigin')}:</b>
+                {selectedCard.origins.length > 1 ? (
+                  <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+                    {selectedCard.origins.map((origin) => (
+                      <li key={origin.fingerprint}>
+                        {originLabel(t, origin.source_kind, origin.source_label)}
+                        {origin.location ? ` · ${origin.location}` : ''}
+                        {origin.url && (
+                          <Box
+                            component="button"
+                            type="button"
+                            onClick={() => openExternal(origin.url ?? '')}
+                            sx={{
+                              ml: 0.75,
+                              p: 0,
+                              border: 0,
+                              cursor: 'pointer',
+                              fontSize: 'inherit',
+                              fontFamily: 'inherit',
+                              color: 'primary.main',
+                              bgcolor: 'transparent',
+                            }}
+                          >
+                            {t('cards.openOnGithub')}
+                          </Box>
+                        )}
+                      </li>
+                    ))}
+                  </Box>
+                ) : (
+                  ` ${originLabel(t, selectedCard.source_kind, selectedCard.source_label)}`
+                )}
+                {selectedCard.origins.length <= 1 && selectedCard.url && (
+                  <Button
+                    size="small"
+                    color="inherit"
+                    variant="outlined"
+                    onClick={() => openExternal(selectedCard.url ?? '')}
+                    sx={{ ml: 1 }}
+                  >
+                    {t('cards.openOnGithub')}
+                  </Button>
+                )}
+              </Box>
+              <Box>
+                <b>{t('cards.whereTitle')}:</b> {selectedCard.location}
+              </Box>
+              {selectedCard.session_id && (
+                <Box sx={{ overflowWrap: 'anywhere' }}>
+                  <b>{t('cards.metaSession')}:</b> {selectedCard.session_id}
+                </Box>
+              )}
+              <Box sx={{ overflowWrap: 'anywhere', color: 'text.secondary', fontSize: 12 }}>
+                <b>{t('cards.metaFingerprint')}:</b> {selectedCard.fingerprint}
+              </Box>
+            </Box>
+          </Card>
+        </Grid>
+        {selectedCard.evidence && (
+          <Grid size={12}>
             <Card sx={{ p: 3 }}>
               <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
-                {t('cards.whereTitle')}
+                {selectedCard.kind === 'error' ? t('cards.errorOutput') : t('cards.sourceEvidence')}
               </Typography>
-              <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 14 }}>
-                {selectedCard.location}
+              <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 13 }}>
+                {originLabel(t, selectedCard.source_kind, selectedCard.source_label)}
+                {selectedCard.session_id ? ` · ${selectedCard.session_id}` : ''}
               </Typography>
-              {selectedCard.code_excerpt ? (
-                <CodeExcerptBlock
-                  code={selectedCard.code_excerpt}
-                  location={selectedCard.location}
-                />
-              ) : !selectedCard.evidence ? (
-                <Typography sx={{ mt: 2, color: 'text.secondary', fontSize: 13 }}>
-                  {t(
-                    /[/\\]/.test(selectedCard.location)
-                      ? 'cards.unreadableFile'
-                      : 'cards.noCodeExcerpt'
-                  )}
-                </Typography>
-              ) : null}
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, lg: 4 }}>
-            <Card sx={{ p: 3 }}>
-              <Typography sx={{ fontSize: 18, fontWeight: 600 }}>{t('cards.metaTitle')}</Typography>
-              <Box sx={{ mt: 2, gap: 1.5, display: 'grid', fontSize: 14 }}>
-                <Box>
-                  <b>{t('cards.project')}:</b> {selectedCard.project}
-                </Box>
-                <Box>
-                  <b>{t('cards.metaBranch')}:</b> {selectedCard.branch}
-                </Box>
-                <Box>
-                  <b>{t('cards.metaOrigin')}:</b>
-                  {selectedCard.origins.length > 1 ? (
-                    <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
-                      {selectedCard.origins.map((origin) => (
-                        <li key={origin.fingerprint}>
-                          {origin.source_label}
-                          {origin.location ? ` · ${origin.location}` : ''}
-                          {origin.url && (
-                            <Box
-                              component="button"
-                              type="button"
-                              onClick={() => openExternal(origin.url ?? '')}
-                              sx={{
-                                ml: 0.75,
-                                p: 0,
-                                border: 0,
-                                cursor: 'pointer',
-                                fontSize: 'inherit',
-                                fontFamily: 'inherit',
-                                color: 'primary.main',
-                                bgcolor: 'transparent',
-                              }}
-                            >
-                              {t('cards.openOnGithub')}
-                            </Box>
-                          )}
-                        </li>
-                      ))}
-                    </Box>
-                  ) : (
-                    ` ${selectedCard.source_label}`
-                  )}
-                  {selectedCard.origins.length <= 1 && selectedCard.url && (
-                    <Button
-                      size="small"
-                      color="inherit"
-                      variant="outlined"
-                      onClick={() => openExternal(selectedCard.url ?? '')}
-                      sx={{ ml: 1 }}
-                    >
-                      {t('cards.openOnGithub')}
-                    </Button>
-                  )}
-                </Box>
-                <Box>
-                  <b>{t('cards.whereTitle')}:</b> {selectedCard.location}
-                </Box>
-                {selectedCard.session_id && (
-                  <Box sx={{ overflowWrap: 'anywhere' }}>
-                    <b>{t('cards.metaSession')}:</b> {selectedCard.session_id}
-                  </Box>
-                )}
-                <Box sx={{ overflowWrap: 'anywhere', color: 'text.secondary', fontSize: 12 }}>
-                  <b>{t('cards.metaFingerprint')}:</b> {selectedCard.fingerprint}
-                </Box>
-              </Box>
-            </Card>
-          </Grid>
-          {selectedCard.evidence && (
-            <Grid size={{ xs: 12, lg: 8 }}>
-              <Card sx={{ p: 3 }}>
-                <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
-                  {selectedCard.kind === 'error'
-                    ? t('cards.errorOutput')
-                    : t('cards.sourceEvidence')}
-                </Typography>
-                <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 13 }}>
-                  {selectedCard.source_label}
-                  {selectedCard.session_id ? ` · ${selectedCard.session_id}` : ''}
-                </Typography>
+              {selectedCard.kind !== 'error' ? (
+                <EvidenceMarkdown text={selectedCard.evidence} />
+              ) : (
                 <Box
                   component="pre"
                   sx={(theme) => ({
@@ -464,34 +530,31 @@ export function CardsView() {
                 >
                   {selectedCard.evidence}
                 </Box>
-              </Card>
-            </Grid>
-          )}
-          <Grid
-            size={{ xs: 12, lg: 4 }}
-            sx={!selectedCard.evidence ? { ml: { lg: 'auto' } } : undefined}
-          >
-            <Card sx={{ p: 3 }}>
-              <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
-                {t('cards.occurrencesTitle')}
-              </Typography>
-              <Typography sx={{ mt: 1, fontSize: 30, fontWeight: 700 }}>
-                {selectedCard.occurrences}
-              </Typography>
-              <Typography sx={{ color: 'text.secondary', fontSize: 13 }}>
-                {t('cards.firstSeen')} {selectedCard.first_seen} · {t('cards.lastSeen')}{' '}
-                {selectedCard.last_seen}
-              </Typography>
+              )}
             </Card>
           </Grid>
+        )}
+        <Grid size={12}>
+          <Card sx={{ p: 3 }}>
+            <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
+              {t('cards.occurrencesTitle')}
+            </Typography>
+            <Typography sx={{ mt: 1, fontSize: 30, fontWeight: 700 }}>
+              {selectedCard.occurrences}
+            </Typography>
+            <Typography sx={{ color: 'text.secondary', fontSize: 13 }}>
+              {t('cards.firstSeen')} {selectedCard.first_seen} · {t('cards.lastSeen')}{' '}
+              {selectedCard.last_seen}
+            </Typography>
+          </Card>
         </Grid>
-      </DashboardContent>
-    );
-  }
+      </Grid>
+    </Box>
+  ) : null;
 
-  const errTotal = cards.filter((c) => c.kind === 'error').length;
-  const taskTotal = cards.filter((c) => c.kind === 'task').length;
-  const ideaTotal = cards.filter((c) => c.kind === 'idea').length;
+  const errTotal = scopedCards.filter((c) => c.kind === 'error').length;
+  const taskTotal = scopedCards.filter((c) => c.kind === 'task').length;
+  const ideaTotal = scopedCards.filter((c) => c.kind === 'idea').length;
 
   return (
     <DashboardContent maxWidth={false}>
@@ -632,8 +695,8 @@ export function CardsView() {
         </Card>
       )}
 
-      {viewMode === 'table' && projects.length > 0 && (
-        <Card>
+      {projects.length > 0 && (
+        <Card sx={{ mb: viewMode === 'kanban' ? 3 : 0 }}>
           {/* Pestañas por tipo */}
           <Box
             sx={(theme) => ({
@@ -645,7 +708,7 @@ export function CardsView() {
           >
             {(
               [
-                ['all', t('common.all'), cards.length, 'default'],
+                ['all', t('common.all'), scopedCards.length, 'default'],
                 ['error', t('common.errors'), errTotal, 'error'],
                 ['task', t('common.tasks'), taskTotal, 'info'],
                 ['idea', t('common.ideas'), ideaTotal, 'secondary'],
@@ -699,7 +762,7 @@ export function CardsView() {
               size="small"
               value={projectFilter}
               onChange={(event) => setProjectFilter(event.target.value)}
-              aria-label={t('cards.project')}
+              inputProps={{ 'aria-label': t('cards.project') }}
               sx={{ width: 200, height: 54 }}
             >
               <MenuItem value="all">{t('common.all')}</MenuItem>
@@ -710,25 +773,38 @@ export function CardsView() {
               ))}
             </Select>
 
-            <Box
-              sx={(theme) => ({
-                width: 220,
-                height: 54,
-                px: 1.75,
-                display: 'flex',
-                position: 'relative',
-                alignItems: 'center',
-                borderRadius: 1,
-                color: 'text.secondary',
-                border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.32)}`,
-              })}
-            >
-              <FieldLegend label={t('cards.source')} />
-              <span>{t('cards.sourceAll')}</span>
-              <Box component="span" sx={{ ml: 'auto' }}>
-                ▾
-              </Box>
-            </Box>
+            <FormControl size="small" sx={{ minWidth: 170 }}>
+              <InputLabel id="cards-source-label">{t('cards.source')}</InputLabel>
+              <Select
+                labelId="cards-source-label"
+                label={t('cards.source')}
+                value={sourceFilter}
+                onChange={(event) => setSourceFilter(event.target.value as SourceFilter)}
+                sx={{ height: 54 }}
+              >
+                {sourceOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel id="cards-status-label">{t('cards.colStatus')}</InputLabel>
+              <Select
+                labelId="cards-status-label"
+                label={t('cards.colStatus')}
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                sx={{ height: 54 }}
+              >
+                {statusOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
             <Box
               sx={(theme) => ({
@@ -749,6 +825,7 @@ export function CardsView() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t('cards.searchPlaceholder')}
+                aria-label={t('cards.searchPlaceholder')}
                 sx={{
                   border: 0,
                   outline: 'none',
@@ -778,15 +855,35 @@ export function CardsView() {
               {filtered.length}
             </Box>{' '}
             {t('cards.results')} ·
-            <FilterChip text={t('cards.chipStatus')} />
-            <FilterChip
-              text={`${t('cards.chipProject')}: ${projectFilter === 'all' ? t('common.all') : projectFilter}`}
-            />
+            {statusFilter !== 'all' && (
+              <FilterChip
+                text={`${t('cards.colStatus')}: ${statusOptions.find((option) => option.value === statusFilter)?.label}`}
+                onDelete={() => setStatusFilter('all')}
+              />
+            )}
+            {projectFilter !== 'all' && (
+              <FilterChip
+                text={`${t('cards.chipProject')}: ${projectFilter === 'all' ? t('common.all') : projectFilter}`}
+                onDelete={() => setProjectFilter('all')}
+              />
+            )}
+            {sourceFilter !== 'all' && (
+              <FilterChip
+                text={`${t('cards.source')}: ${sourceOptions.find((option) => option.value === sourceFilter)?.label}`}
+                onDelete={() => setSourceFilter('all')}
+              />
+            )}
+            {typeFilter !== 'all' && (
+              <FilterChip text={t(`common.${typeFilter}`)} onDelete={() => setTypeFilter('all')} />
+            )}
+            {search.trim() && <FilterChip text={search.trim()} onDelete={() => setSearch('')} />}
             <Button
               size="small"
               onClick={() => {
                 setTypeFilter('all');
                 setProjectFilter('all');
+                setSourceFilter('all');
+                setStatusFilter('all');
                 setSearch('');
               }}
               sx={{ color: 'error.main', fontWeight: 700, fontSize: 13 }}
@@ -796,85 +893,166 @@ export function CardsView() {
           </Box>
 
           {/* Tabla limpia sin barra horizontal */}
-          <Table sx={{ width: 1, borderCollapse: 'collapse' }}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ width: 48 }}>
-                  <CheckSquare />
-                </TableCell>
-                <TableCell>{t('cards.colCard')}</TableCell>
-                <TableCell>{t('cards.colType')}</TableCell>
-                <TableCell>{t('cards.colSource')}</TableCell>
-                <TableCell align="right">{t('cards.colOccurrences')}</TableCell>
-                <TableCell>{t('cards.colStatus')}</TableCell>
-                <TableCell>{t('cards.colLastSeen')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filtered.slice(0, 25).map((card, idx) => (
-                <TableRow
-                  hover
-                  key={card.fingerprint}
-                  onClick={() => setSelectedCard(card)}
-                  sx={{
-                    cursor: 'pointer',
-                    ...(idx === 0 &&
-                      typeFilter === 'all' && {
-                        bgcolor: 'rgba(0, 167, 111, 0.08)',
-                      }),
-                  }}
-                >
-                  <TableCell>
-                    <CheckSquare />
-                  </TableCell>
-                  <TableCell>
-                    <Typography sx={{ fontWeight: 600, fontSize: 14 }}>{card.title}</Typography>
-                    <Typography
-                      sx={{ color: 'text.disabled', fontSize: 12, fontFamily: 'monospace' }}
-                    >
-                      {card.short_id} · {card.location}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <KindBadge kind={card.kind} />
-                  </TableCell>
-                  <TableCell>
-                    <SourcePill card={card} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
-                      ×{card.occurrences}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={card.status} />
-                  </TableCell>
-                  <TableCell>
-                    <Typography sx={{ color: 'text.disabled', fontSize: 13 }}>
-                      {card.last_seen}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
           <Box
-            sx={{
-              py: 1.5,
-              px: 2.5,
-              gap: 3,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              fontSize: 14,
-              color: 'text.secondary',
-            }}
+            sx={{ px: 2.5, pb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}
           >
-            <span>{t('cards.rowsPerPage')} ▾</span>
-            <span>1–10 / {filtered.length}</span>
-            <span>‹ &nbsp; ›</span>
+            <Typography sx={{ mr: 1, fontSize: 13, fontWeight: 600 }} aria-live="polite">
+              {t('cards.selectedCount', { count: selectedCards.length })}
+            </Typography>
+            <Button
+              size="small"
+              disabled={bulkBusy || !filtered.length}
+              onClick={() => setSelected(new Set(filtered.map((card) => card.fingerprint)))}
+            >
+              {t('cards.selectResults', { count: filtered.length })}
+            </Button>
+            {selectedCards.length > 0 && (
+              <>
+                <Button size="small" disabled={bulkBusy} onClick={() => setSelected(new Set())}>
+                  {t('cards.clearSelection')}
+                </Button>
+                <Button
+                  size="small"
+                  disabled={bulkBusy}
+                  onClick={() => changeSelectedStatus('accepted')}
+                >
+                  {t('common.accept')}
+                </Button>
+                <Button
+                  size="small"
+                  disabled={bulkBusy}
+                  onClick={() => changeSelectedStatus('done')}
+                >
+                  {t('common.markDone')}
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  disabled={bulkBusy}
+                  onClick={() => changeSelectedStatus('dismissed')}
+                >
+                  {t('common.dismiss')}
+                </Button>
+              </>
+            )}
           </Box>
+          {bulkBusy && <LinearProgress aria-label={t('cards.updatingSelected')} />}
+          {bulkError && (
+            <Alert severity="error" sx={{ mx: 2.5, mb: 2 }}>
+              {bulkError}
+            </Alert>
+          )}
+          {viewMode === 'table' && (
+            <>
+              <Table sx={{ width: 1, borderCollapse: 'collapse' }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ width: 48 }}>
+                      <Checkbox
+                        checked={allPageSelected}
+                        indeterminate={!allPageSelected && somePageSelected}
+                        disabled={bulkBusy || !pageIds.length}
+                        onChange={() =>
+                          setSelected((previous) => togglePageSelection(previous, pageIds))
+                        }
+                        slotProps={{ input: { 'aria-label': t('cards.selectPage') } }}
+                      />
+                    </TableCell>
+                    <TableCell>{t('cards.colCard')}</TableCell>
+                    <TableCell>{t('cards.colType')}</TableCell>
+                    <TableCell>{t('cards.colSource')}</TableCell>
+                    <TableCell align="right">{t('cards.colOccurrences')}</TableCell>
+                    <TableCell>{t('cards.colStatus')}</TableCell>
+                    <TableCell>{t('cards.colLastSeen')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pageCards.map((card, idx) => (
+                    <TableRow
+                      hover
+                      key={card.fingerprint}
+                      selected={selected.has(card.fingerprint)}
+                      onClick={() => openDetail(card)}
+                      sx={{
+                        cursor: 'pointer',
+                        ...(idx === 0 &&
+                          typeFilter === 'all' && {
+                            bgcolor: 'rgba(0, 167, 111, 0.08)',
+                          }),
+                      }}
+                    >
+                      <TableCell onClick={(event) => event.stopPropagation()}>
+                        <Checkbox
+                          checked={selected.has(card.fingerprint)}
+                          disabled={bulkBusy}
+                          onChange={() =>
+                            setSelected((previous) =>
+                              toggleCardSelection(previous, card.fingerprint)
+                            )
+                          }
+                          slotProps={{
+                            input: { 'aria-label': t('cards.selectCard', { title: card.title }) },
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography sx={{ fontWeight: 600, fontSize: 14 }}>{card.title}</Typography>
+                        <Typography
+                          sx={{ color: 'text.disabled', fontSize: 12, fontFamily: 'monospace' }}
+                        >
+                          {card.short_id} · {card.location}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <KindBadge kind={card.kind} />
+                      </TableCell>
+                      <TableCell>
+                        <SourcePill card={card} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
+                          ×{card.occurrences}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={card.status} />
+                      </TableCell>
+                      <TableCell>
+                        <Typography sx={{ color: 'text.disabled', fontSize: 13 }}>
+                          {card.last_seen}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                        {t('cards.noResults')}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+
+              <TablePagination
+                component="div"
+                count={filtered.length}
+                page={currentPage}
+                rowsPerPage={rowsPerPage}
+                rowsPerPageOptions={[10, 25, 50]}
+                onPageChange={(_, value) => setPage(value)}
+                onRowsPerPageChange={(event) => {
+                  setRowsPerPage(Number(event.target.value));
+                  setPage(0);
+                }}
+                labelRowsPerPage={t('cards.rowsPerPageLabel')}
+                labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count}`}
+                getItemAriaLabel={(type) =>
+                  t(type === 'next' ? 'cards.nextPage' : 'cards.previousPage')
+                }
+              />
+            </>
+          )}
         </Card>
       )}
 
@@ -908,20 +1086,41 @@ export function CardsView() {
                     <Label color={colColor}>{colCards.length}</Label>
                   </Box>
 
-                  {colCards.slice(0, 15).map((card) => (
+                  {colCards.map((card) => (
                     <Card
                       key={card.fingerprint}
-                      onClick={() => setSelectedCard(card)}
+                      onClick={() => openDetail(card)}
                       sx={{
                         p: 2,
                         gap: 1.25,
                         cursor: 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
+                        outline: selected.has(card.fingerprint) ? '2px solid' : 'none',
+                        outlineColor: 'primary.main',
                       }}
                     >
-                      <Box>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
                         <KindBadge kind={card.kind} />
+                        <Checkbox
+                          checked={selected.has(card.fingerprint)}
+                          disabled={bulkBusy}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={() =>
+                            setSelected((previous) =>
+                              toggleCardSelection(previous, card.fingerprint)
+                            )
+                          }
+                          slotProps={{
+                            input: { 'aria-label': t('cards.selectCard', { title: card.title }) },
+                          }}
+                        />
                       </Box>
                       <Typography sx={{ fontWeight: 600, fontSize: 14, lineHeight: 1.45 }}>
                         {card.title}
@@ -993,6 +1192,14 @@ export function CardsView() {
           </Button>
         </DialogActions>
       </Dialog>
+      <Drawer
+        anchor="right"
+        open={selectedCard !== null}
+        onClose={closeDetail}
+        slotProps={{ paper: { sx: { width: { xs: 1, md: 760 }, maxWidth: 1 } } }}
+      >
+        {detail}
+      </Drawer>
     </DashboardContent>
   );
 }
@@ -1043,6 +1250,7 @@ function sourceIcon(kind: UiCard['source_kind']): AppIconName {
 
 // Un chip por origen: «tsc · CI» cuando la tarjeta junta varios (Q62).
 function SourcePill({ card }: { card: UiCard }) {
+  const { t } = useTranslation();
   const origins =
     card.origins.length > 0
       ? card.origins
@@ -1064,87 +1272,15 @@ function SourcePill({ card }: { card: UiCard }) {
           }}
         >
           <AppIcon name={sourceIcon(origin.source_kind)} size={16} />
-          {origin.source_label}
+          {originLabel(t, origin.source_kind, origin.source_label)}
         </Box>
       ))}
     </Box>
   );
 }
 
-function CheckSquare() {
-  return (
-    <Box
-      component="span"
-      sx={{
-        width: 20,
-        height: 20,
-        borderRadius: '6px',
-        display: 'inline-block',
-        verticalAlign: 'middle',
-        border: '2px solid',
-        borderColor: 'text.disabled',
-      }}
-    />
-  );
-}
-
-function FieldLegend({ label }: { label: string }) {
-  return (
-    <Box
-      component="span"
-      sx={{
-        top: -9,
-        left: 10,
-        px: 0.5,
-        fontSize: 12,
-        fontWeight: 600,
-        position: 'absolute',
-        color: 'text.secondary',
-        bgcolor: 'background.paper',
-      }}
-    >
-      {label}
-    </Box>
-  );
-}
-
-function FilterChip({ text }: { text: string }) {
-  return (
-    <Box
-      component="span"
-      sx={(theme) => ({
-        pl: 1.25,
-        pr: 0.75,
-        height: 28,
-        gap: 0.75,
-        display: 'inline-flex',
-        alignItems: 'center',
-        borderRadius: 1,
-        fontSize: 13,
-        color: 'text.primary',
-        bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.16),
-      })}
-    >
-      {text}
-      <Box
-        component="i"
-        sx={{
-          width: 16,
-          height: 16,
-          borderRadius: '50%',
-          display: 'grid',
-          placeItems: 'center',
-          fontStyle: 'normal',
-          fontSize: 11,
-          fontWeight: 800,
-          color: 'background.paper',
-          bgcolor: 'text.disabled',
-        }}
-      >
-        ×
-      </Box>
-    </Box>
-  );
+function FilterChip({ text, onDelete }: { text: string; onDelete: () => void }) {
+  return <Chip label={text} onDelete={onDelete} size="small" />;
 }
 
 const CODE_KEYWORDS = new Set([
@@ -1221,7 +1357,7 @@ function highlightCodeLine(text: string) {
       nodes.push(text.slice(lastIndex, match.index));
     }
     const token = match[0];
-    let color = '#D4D4D4';
+    let color = 'text.primary';
 
     if (token.startsWith('//') || token.startsWith('#')) {
       color = '#6A9955';
@@ -1271,9 +1407,10 @@ function CodeExcerptBlock({ code, location }: { code: string; location: string }
         lineHeight: 1.75,
         fontFamily:
           '"JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, "Courier New", monospace',
-        color: '#D4D4D4',
-        bgcolor: '#181B22',
-        border: '1px solid rgba(145, 158, 171, 0.14)',
+        color: 'text.primary',
+        bgcolor: 'background.neutral',
+        border: '1px solid',
+        borderColor: 'divider',
       }}
     >
       {rawLines.map((rawLine, index) => {
@@ -1289,8 +1426,8 @@ function CodeExcerptBlock({ code, location }: { code: string; location: string }
               px: 2,
               display: 'flex',
               alignItems: 'baseline',
-              bgcolor: isTarget ? 'rgba(187, 154, 247, 0.1)' : 'transparent',
-              borderLeft: isTarget ? '2px solid #BB9AF7' : '2px solid transparent',
+              bgcolor: isTarget ? 'rgba(0, 167, 111, 0.1)' : 'transparent',
+              borderLeft: isTarget ? '2px solid #00A76F' : '2px solid transparent',
             }}
           >
             <Box
@@ -1300,7 +1437,7 @@ function CodeExcerptBlock({ code, location }: { code: string; location: string }
                 mr: 2,
                 textAlign: 'right',
                 userSelect: 'none',
-                color: isTarget ? '#E0AF68' : '#565F89',
+                color: isTarget ? 'warning.main' : 'text.secondary',
                 fontWeight: isTarget ? 700 : 400,
                 flexShrink: 0,
               }}

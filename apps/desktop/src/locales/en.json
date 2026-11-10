@@ -1,5 +1,7 @@
 {
   "nav": {
+    "showFiles": "Show files",
+    "hideFiles": "Hide files",
     "summary": "Summary",
     "cards": "Cards",
     "pullRequests": "Pull requests",
@@ -25,6 +27,7 @@
     "dismiss": "Dismiss"
   },
   "common": {
+    "appName": "Wakeline",
     "loading": "Loading projects…",
     "comingSoon": "Under construction: coming in the next steps of 0.1.",
     "error": "Error",
@@ -58,7 +61,7 @@
   "summary": {
     "title": "Here is what happened today",
     "noFindings": "No findings in the selected folder yet.",
-    "subtitle": "Sunday, November 8 · 3 Claude Code sessions · 14 commits",
+    "subtitle": "Errors, tasks and ideas from the folders you watch.",
     "exportTodo": "Export TODO.md",
     "exportedTo": "Exported to",
     "reviewNew": "Review new",
@@ -88,10 +91,22 @@
     "issuesSubtitle": "Turned into cards by label"
   },
   "cards": {
+    "selectedCount": "{{count}} selected",
+    "selectCard": "Select card: {{title}}",
+    "selectPage": "Select this page",
+    "selectResults": "Select results ({{count}})",
+    "clearSelection": "Clear selection",
+    "updatingSelected": "Updating selected cards",
+    "sourceDocuments": "Documents",
+    "openStatuses": "New, accepted",
+    "noResults": "No cards match the filters.",
+    "rowsPerPageLabel": "Rows per page:",
+    "nextPage": "Next page",
+    "previousPage": "Previous page",
     "title": "Cards",
     "subtitle": "Errors, tasks and ideas from every project.",
     "table": "Table",
-    "kanban": "Kanban",
+    "kanban": "Board",
     "newCard": "New card",
     "newCardTitle": "Card title",
     "project": "Project",
@@ -110,7 +125,8 @@
     "rowsPerPage": "Rows per page: 10",
     "backToCards": "Cards",
     "seenPrefix": "Seen",
-    "seenTimes": "{{count}} times",
+    "seenTimes_one": "{{count}} time",
+    "seenTimes_other": "{{count}} times",
     "firstSeen": "first seen",
     "lastSeen": "last seen",
     "openVscode": "Open in VS Code",
@@ -140,11 +156,22 @@
     "occurrencesSubtitle": "Last 24 hours",
     "ollamaBold": "Ollama is disabled.",
     "ollamaNotice": "Enable it in Settings to group similar cards and write cleaner titles.",
-    "openOnGithub": "Open on GitHub"
+    "openOnGithub": "Open on GitHub",
+    "promptProject": "Project",
+    "promptOrigin": "Origin",
+    "promptPending": "Pending",
+    "promptEvidence": "Evidence",
+    "promptCode": "Code"
   },
   "pullRequests": {
-    "title": "Projects",
-    "selectedFoldersOnly": "Only folders you choose are scanned.",
+    "refresh": "Refresh GitHub",
+    "noDescription": "No description.",
+    "changedFiles": "Changed files: {{count}}",
+    "noPatch": "Diff unavailable for this file (binary or too large).",
+    "diffNotice": "Excluded files and possible secrets are hidden. GitHub may truncate diffs or limit the list to 3000 files.",
+    "openGithub": "Open on GitHub",
+    "title": "Pull requests",
+    "selectedFoldersOnly": "Open PRs of the folders you watch, read with gh in read-only mode.",
     "noWatchedFolders": "You are not watching any folders yet.",
     "importingFolder": "Importing {{folder}}…",
     "importingFolderSub": "Scanning AI sessions and documents in the selected folder…",
@@ -181,6 +208,21 @@
     }
   },
   "settings": {
+    "languageSpanish": "Español",
+    "languageEnglish": "English",
+    "mcpAntigravity": "Antigravity · {{path}}",
+    "exportFolderValue": "docs/TODO.md",
+    "historyAllHint": "Full history of watched folders",
+    "historyImportRunning": "An import is already running.",
+    "historyImporting": "Importing…",
+    "historyProgress": "{{processed}} of {{total}} files",
+    "historyImported": "History imported: {{count}} files",
+    "historyImportedWarnings": "Imported {{count}} files; skipped {{bad}} invalid lines.",
+    "currentVersion": "Current version: {{version}}",
+    "noPublishedUpdates": "The repository does not yet offer a signed update for this platform.",
+    "updateSigningMissing": "Configure the public key to verify updates.",
+    "autoInstallingUpdate": "Installing {{version}}. Wakeline will restart automatically.",
+    "excludedTables": "opencode.db · tables account, credential, control_account",
     "title": "Settings",
     "general": "General",
     "generalSub": "Language, appearance and startup",
@@ -208,11 +250,11 @@
     "sourcesTitle": "Sources",
     "sourcesSub": "AI sessions and GitHub",
     "claudeSource": "Claude Code",
-    "claudeSourceHint": "~/.claude/projects · 43 sessions · 512 MB",
+    "claudeSourceHint": "~/.claude/projects · {{count}} session files from watched folders",
     "cursorSource": "Cursor",
     "cursorSourceHint": "Coming in 0.2",
     "githubSource": "GitHub: PRs & issues",
-    "githubSourceHint": "gh session: hopsiedev · every 5 min and on push · read-only",
+    "githubSourceHint": "GitHub CLI · every 5 min and on remote reference updates · read-only",
     "otherAgents": "Antigravity · OpenCode",
     "otherAgentsHint": "Coming in 0.2",
     "historyStart": "Initial history",
@@ -224,7 +266,7 @@
     "alertsTray": "Tray badge count",
     "alertsTrayHint": "New errors across all projects",
     "alertsDaily": "Daily summary on open",
-    "alertsDailyHint": "What happened since yesterday",
+    "alertsDailyHint": "Once a day, with changes since your last visit",
     "exclusionsTitle": "Hard exclusions",
     "exclusionsSub": "Wakeline never reads this. Cannot be disabled.",
     "redactNotice": "If a session line appears to contain a key or token, it is stored redacted (sk-••••).",
@@ -234,7 +276,7 @@
     "mcpCliReady": "CLI available",
     "mcpBuildHint": "Build the executable with cargo build -p wakeline-cli before connecting an agent.",
     "copyConfig": "Copy configuration",
-    "copiedAlert": "{{label}} configuration copied to clipboard.",
+    "copiedAlert": "Configuration copied",
     "alertsTest": "Send test",
     "alertsTestFailed": "Could not show the notification",
     "updates": "Updates",
@@ -300,7 +342,8 @@
       "failed": "Failed",
       "timed_out": "Timed out",
       "not_started": "Did not start"
-    }
+    },
+    "reviewInSettings": "Review in Settings"
   },
   "github": {
     "title": "GitHub",
@@ -312,5 +355,42 @@
     "installHint": "Install GitHub CLI: winget install GitHub.cli",
     "checking": "Checking…",
     "lastError": "Last read failed: {{error}}"
+  },
+  "projects": {
+    "open": "Open project",
+    "notFound": "This project is no longer watched.",
+    "openCards": "Open cards",
+    "allCards": "See all",
+    "noOpenCards": "No open cards.",
+    "doneCount_one": "{{count}} done",
+    "doneCount_other": "{{count}} done"
+  },
+  "sources": {
+    "session": "AI session",
+    "code": "Code",
+    "specs": "specs/",
+    "roadmap": "Roadmap",
+    "manual": "Manual",
+    "issue": "Issue",
+    "review": "Review",
+    "pr": "PR",
+    "ci": "CI"
+  },
+  "errors": {
+    "desktopCardChanges": "Change card status from the desktop application.",
+    "desktopHistoryImport": "Import history from the desktop application.",
+    "desktopUpdates": "Check updates from the desktop application.",
+    "desktopFolderPicker": "Choose the folder from the desktop application",
+    "unexpected": "Unexpected application error",
+    "unknown": "Unknown error"
+  },
+  "dailySummary": {
+    "title": "Daily summary",
+    "subtitle": "Changes since your last visit. The first summary shows cards first seen today.",
+    "errors": "New errors",
+    "tasks": "New tasks",
+    "ideas": "New ideas",
+    "completed": "Resolved cards",
+    "open": "View summary"
   }
 }
