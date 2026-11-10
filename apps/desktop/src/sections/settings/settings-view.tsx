@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router';
 import { varAlpha } from 'minimal-shared/utils';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -32,7 +33,6 @@ import {
   fetchDashboardData,
   historyImportStatus,
   type HistoryProgress,
-  sendTestNotification,
 } from 'src/services/wakeline';
 
 import { Label } from 'src/components/label';
@@ -54,7 +54,6 @@ export function SettingsView() {
   const [claudeEnabled, setClaudeEnabled] = useState(true);
   const [githubEnabled, setGithubEnabled] = useState(true);
   const [winToast, setWinToast] = useState(alertsEnabled);
-  const [testError, setTestError] = useState<string | null>(null);
   const [mcpExecutable, setMcpExecutable] = useState<string | null>(null);
   const [copiedMcp, setCopiedMcp] = useState<string | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -479,45 +478,13 @@ export function SettingsView() {
               </Typography>
 
               <SettingRow label={t('settings.alertsWin')} hint={t('settings.alertsWinHint')}>
-                <Box
-                  sx={{
-                    gap: 0.5,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-end',
+                <Switch
+                  checked={winToast}
+                  onChange={(e) => {
+                    setWinToast(e.target.checked);
+                    setAlertsEnabled(e.target.checked);
                   }}
-                >
-                  <Box sx={{ gap: 1, display: 'flex', alignItems: 'center' }}>
-                    <Button
-                      size="small"
-                      color="inherit"
-                      variant="outlined"
-                      disabled={!winToast}
-                      onClick={async () => {
-                        try {
-                          await sendTestNotification();
-                          setTestError(null);
-                        } catch (error) {
-                          setTestError(String(error));
-                        }
-                      }}
-                    >
-                      {t('settings.alertsTest')}
-                    </Button>
-                    <Switch
-                      checked={winToast}
-                      onChange={(e) => {
-                        setWinToast(e.target.checked);
-                        setAlertsEnabled(e.target.checked);
-                      }}
-                    />
-                  </Box>
-                  {testError && (
-                    <Typography sx={{ color: 'error.main', fontSize: 12, maxWidth: 280 }}>
-                      {t('settings.alertsTestFailed')}: {testError}
-                    </Typography>
-                  )}
-                </Box>
+                />
               </SettingRow>
 
               <SettingRow label={t('settings.alertsTray')} hint={t('settings.alertsTrayHint')}>
@@ -744,6 +711,9 @@ function SettingRow({
 // Busca una versión firmada en GitHub Releases y la instala si el usuario lo pide (Q60).
 function UpdateRow() {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const checkRequested = searchParams.get('checkUpdates') === '1';
+  const checking = useRef(false);
   const [update, setUpdate] = useState<UiUpdate | null>(null);
   const [phase, setPhase] = useState<'idle' | 'checking' | 'installing'>('idle');
   const [version, setVersion] = useState(CONFIG.appVersion);
@@ -763,11 +733,13 @@ function UpdateRow() {
     };
   }, []);
 
-  const check = async () => {
+  const check = useCallback(async () => {
+    if (checking.current) return;
     if (update?.state === 'manual') {
       await openExternal('https://github.com/hopsiedev/wakeline/releases');
       return;
     }
+    checking.current = true;
     setPhase('checking');
     setError(null);
     try {
@@ -781,9 +753,22 @@ function UpdateRow() {
     } catch (reason) {
       setError(String(reason));
     } finally {
+      checking.current = false;
       setPhase('idle');
     }
-  };
+  }, [update?.state]);
+
+  useEffect(() => {
+    if (!checkRequested) return;
+    setSearchParams(
+      (params) => {
+        params.delete('checkUpdates');
+        return params;
+      },
+      { replace: true }
+    );
+    void check();
+  }, [checkRequested, check, setSearchParams]);
 
   let hint = t('settings.updatesHint');
   if (phase === 'installing')
