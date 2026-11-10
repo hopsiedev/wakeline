@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Wakeline",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "identifier": "dev.wakeline.app",
   "build": {
     "frontendDist": "../dist",
@@ -44,7 +44,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "REEMPLAZAR_CON_LA_CLAVE_PUBLICA_DE_npm_run_tauri_signer_generate",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVBMjIwRjA1NkZBQkI3RTEKUldUaHQ2dHZCUThpNmlPMXJtRFhseU9lbUp2N0JsNG5sL0M1OHo2dXVmVHNHMEpqZVlQdXFEdTgK",
       "endpoints": [
         "https://github.com/hopsiedev/wakeline/releases/latest/download/latest.json"
       ],

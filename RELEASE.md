@@ -5,6 +5,13 @@ license notices are included. No commercial signing certificate is required.
 
 Download published packages from [GitHub Releases](https://github.com/hopsiedev/wakeline/releases).
 
+## Windows x64 (installer)
+
+Run `Wakeline_*_x64-setup.exe`. It installs Wakeline for the current user, with
+`wakeline.exe` beside the app for MCP. Installed copies update themselves: open
+Settings > Updates and choose Check. The updater downloads `latest.json` from the
+latest published release and only installs an installer signed with Wakeline's key.
+
 ## Windows x64 (ZIP)
 
 Extract the entire ZIP into a writable folder and run `wakeline-app.exe`.
@@ -30,7 +37,7 @@ unknown publisher warning. ZIP packaging does not suppress Windows security chec
 
 ## Manual updates
 
-These initial packages use manual updates. Exit Wakeline before replacing files.
+ZIP, AppImage and DEB packages use manual updates. Exit Wakeline before replacing files.
 For ZIP/AppImage, extract the new release into a separate folder, keeping the CLI
 beside the app. For DEB, install the newer package through the package manager.
 
@@ -47,8 +54,9 @@ platforms. Version tags run the release workflow and create a draft with package
 the workflow never publishes it automatically. The tag must match the app version.
 
 Review the packages, checksums, and commit metadata before publishing a draft.
-Automatic updater signing and `latest.json` are reserved for a future release;
-the current manual packages do not require signing secrets.
+The release workflow signs the Windows installer with the `TAURI_SIGNING_PRIVATE_KEY`
+repository secrets and writes `latest.json`. Installed copies see the update only
+after the draft is published.
 
 ## Remaining validation
 

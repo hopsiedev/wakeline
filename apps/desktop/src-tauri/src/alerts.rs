@@ -78,7 +78,13 @@ fn send(app: &AppHandle, alert: &Alert) {
     }
 }
 
-fn deliver(app: &AppHandle, title: String, body: String) -> Result<(), String> {
+/// Idioma elegido en la interfaz para los avisos.
+pub fn spanish(app: &AppHandle) -> bool {
+    let prefs = app.state::<Mutex<AlertPrefs>>();
+    prefs.lock().map(|p| p.spanish).unwrap_or(true)
+}
+
+pub fn deliver(app: &AppHandle, title: String, body: String) -> Result<(), String> {
     #[cfg(windows)]
     if tauri::is_dev() {
         return windows::send(app, &title, &body);

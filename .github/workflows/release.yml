@@ -1,5 +1,5 @@
 # Manual runs only build review artifacts. Tags create a draft, never a public release.
-# Initial packages use manual updates and need no signing secrets.
+# The Windows installer is signed for the updater; ZIP, AppImage and DEB stay manual.
 name: Release
 on:
   workflow_dispatch:
@@ -10,6 +10,9 @@ permissions:
 jobs:
   build:
     uses: ./.github/workflows/packages.yml
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
   draft:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
@@ -27,7 +30,13 @@ jobs:
           TAG: ${{ github.ref_name }}
           COMMIT: ${{ github.sha }}
         run: |
-          test "$TAG" = "v$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")"
-          mapfile -t assets < <(find release-packages -type f \( -name '*.zip' -o -name '*.sha256' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.tar.gz' -o -name SHA256SUMS -o -name 'build-info-*.json' \))
+          version=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          test "$TAG" = "v$version"
+          installer=$(find release-packages -type f -name '*-setup.exe')
+          test -f "$installer" && test -f "$installer.sig"
+          name=$(basename "$installer")
+          SIGNATURE="$(cat "$installer.sig")" URL="https://github.com/hopsiedev/wakeline/releases/download/$TAG/$name" VERSION="$version" \
+            node -e 'const e=process.env; console.log(JSON.stringify({version:e.VERSION,pub_date:new Date().toISOString(),platforms:{"windows-x86_64":{signature:e.SIGNATURE,url:e.URL}}},null,2))' > release-packages/latest.json
+          mapfile -t assets < <(find release-packages -type f \( -name '*.zip' -o -name '*.sha256' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.tar.gz' -o -name '*-setup.exe' -o -name '*-setup.exe.sig' -o -name latest.json -o -name SHA256SUMS -o -name 'build-info-*.json' \))
           test "${#assets[@]}" -gt 0
           gh release create "$TAG" "${assets[@]}" --verify-tag --target "$COMMIT" --draft --title "Wakeline $TAG - Windows and Linux" --notes-file RELEASE.md
