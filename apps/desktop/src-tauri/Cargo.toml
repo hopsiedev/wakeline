@@ -34,3 +34,6 @@ tauri-plugin-updater = "2.14.1"
 [target.'cfg(windows)'.dependencies]
 tauri-winrt-notification = "0.8.1"
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_UI_Shell", "Win32_UI_Shell_PropertiesSystem"] }
+
+[target."cfg(not(windows))".dependencies]
+tauri-plugin-dialog = "2"

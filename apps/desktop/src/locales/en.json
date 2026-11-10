@@ -208,6 +208,8 @@
     }
   },
   "settings": {
+    "manualUpdates": "Manual updates: download the new version from Releases. Your local data is kept.",
+    "openDownloads": "Open downloads",
     "languageSpanish": "Español",
     "languageEnglish": "English",
     "mcpAntigravity": "Antigravity · {{path}}",
@@ -261,7 +263,7 @@
     "historyStartHint": "Last 30 days only",
     "importAll": "Import all",
     "alertsTitle": "Notifications",
-    "alertsWin": "Windows toast for new errors",
+    "alertsWin": "Desktop notifications for new errors",
     "alertsWinHint": "At most one every 10 minutes",
     "alertsTray": "Tray badge count",
     "alertsTrayHint": "New errors across all projects",

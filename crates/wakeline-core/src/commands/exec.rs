@@ -59,6 +59,11 @@ fn run_spec(project_root: &Path, spec: &CommandSpec) -> io::Result<RunOutput> {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
 
     let started = Instant::now();
     let mut child = command.spawn()?;
@@ -194,18 +199,24 @@ mod job {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(unix)]
 mod job {
     use std::process::Child;
 
-    pub struct Job;
+    pub struct Job(libc::pid_t);
 
     impl Job {
-        pub fn assign(_child: &Child) -> Option<Self> {
-            None
+        pub fn assign(child: &Child) -> Option<Self> {
+            Some(Self(child.id().try_into().ok()?))
         }
 
-        pub fn terminate(&self) {}
+        pub fn terminate(&self) {
+            // SAFETY: the child starts its own process group before exec; the
+            // negative PID targets that group, including descendants with pipes.
+            unsafe {
+                libc::kill(-self.0, libc::SIGKILL);
+            }
+        }
     }
 }
 
@@ -214,6 +225,21 @@ mod tests {
     use super::*;
     use crate::commands::{approve, load_trusted};
     use crate::store::LocalState;
+
+    #[cfg(unix)]
+    #[test]
+    fn unix_timeout_stops_descendants_holding_output_pipes() {
+        let (dir, state) = project_with(
+            "unix-tree",
+            "[[command]]\nname = \"slow\"\nrun = [\"/bin/sh\", \"-c\", \"sleep 30 & wait\"]\ntimeout_secs = 1\n",
+        );
+        let trusted = load_trusted(&dir, &state).unwrap();
+        let started = Instant::now();
+        let result = execute(&dir, &trusted, "slow").unwrap();
+        assert!(result.timed_out);
+        assert!(started.elapsed() < Duration::from_secs(5));
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     fn project_with(name: &str, toml: &str) -> (PathBuf, LocalState) {
         let dir = std::env::temp_dir().join(format!("wakeline-exec-{name}-{}", std::process::id()));

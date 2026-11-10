@@ -246,6 +246,7 @@ fn unix_now() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
     use crate::commands::{CONFIG_FILE, RunStatus, approve};
 
     #[test]
