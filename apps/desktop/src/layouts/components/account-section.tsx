@@ -260,13 +260,17 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
           {t('account.shortcuts')}
         </MenuItem>
         <Divider />
-        <MenuItem disabled sx={{ '&.Mui-disabled': { opacity: 1 } }}>
+        <MenuItem
+          onClick={() => {
+            closeMenu();
+            router.push('/settings?checkUpdates=1');
+          }}
+        >
           <AppIcon name="refresh" size={17} />
           <Box>
             <Typography sx={{ fontSize: 14 }}>{t('account.checkUpdates')}</Typography>
             <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-              {t('account.version', { version: account?.version ?? '0.1.0' })} ·{' '}
-              {t('account.updatesSoon')}
+              {t('account.version', { version: account?.version ?? '…' })}
             </Typography>
           </Box>
         </MenuItem>

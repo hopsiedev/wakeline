@@ -41,8 +41,7 @@ fn manual_updates(app: &AppHandle) -> bool {
 const FIRST_CHECK_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
 const CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(6 * 60 * 60);
 
-/// Busca versiones nuevas en segundo plano y avisa una sola vez por versión.
-/// La instalación sigue siendo manual: el usuario pulsa Actualizar en Configuración.
+/// Busca e instala versiones firmadas en segundo plano.
 pub fn start(app: &AppHandle) {
     if manual_updates(app) {
         return;
@@ -50,29 +49,24 @@ pub fn start(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(FIRST_CHECK_AFTER);
-        let mut notified: Option<String> = None;
         loop {
             if let Ok(UiUpdate {
-                state: "available",
-                version: Some(version),
-                ..
+                state: "available", ..
             }) = tauri::async_runtime::block_on(check_update(app.clone()))
-                && notified.as_deref() != Some(version.as_str())
+                && let Err(error) = tauri::async_runtime::block_on(install_update(app.clone()))
             {
                 let (title, body) = if crate::alerts::spanish(&app) {
                     (
-                        format!("Wakeline {version} disponible"),
-                        "Abre Configuración > Actualizaciones y pulsa Actualizar.".to_string(),
+                        "No se pudo actualizar Wakeline".to_string(),
+                        format!("Vuelve a intentarlo en Configuración > Actualizaciones. {error}"),
                     )
                 } else {
                     (
-                        format!("Wakeline {version} is available"),
-                        "Open Settings > Updates and choose Update.".to_string(),
+                        "Wakeline could not update".to_string(),
+                        format!("Try again in Settings > Updates. {error}"),
                     )
                 };
-                if crate::alerts::deliver(&app, title, body).is_ok() {
-                    notified = Some(version);
-                }
+                let _ = crate::alerts::deliver(&app, title, body);
             }
             std::thread::sleep(CHECK_EVERY);
         }
@@ -130,6 +124,12 @@ pub async fn check_update(app: AppHandle) -> Result<UiUpdate, String> {
 
 #[tauri::command]
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
+    static INSTALL_LOCK: std::sync::OnceLock<tauri::async_runtime::Mutex<()>> =
+        std::sync::OnceLock::new();
+    let _guard = INSTALL_LOCK
+        .get_or_init(|| tauri::async_runtime::Mutex::new(()))
+        .try_lock()
+        .map_err(|_| "UPDATE_ALREADY_INSTALLING".to_string())?;
     if manual_updates(&app) {
         return Err("MANUAL_UPDATE_REQUIRED".into());
     }

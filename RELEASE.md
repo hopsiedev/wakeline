@@ -8,8 +8,10 @@ Download published packages from [GitHub Releases](https://github.com/hopsiedev/
 ## Windows x64 (installer)
 
 Run `Wakeline_*_x64-setup.exe`. It installs Wakeline for the current user, with
-`wakeline.exe` beside the app for MCP. Installed copies update themselves: open
-Settings > Updates and choose Check. The updater downloads `latest.json` from the
+`wakeline.exe` beside the app for MCP. Installed copies check after one minute and
+every six hours, install new signed versions and restart automatically. To check
+immediately, choose Check for updates in the account menu or Settings > Updates.
+The updater downloads `latest.json` from the
 latest published release and only installs an installer signed with Wakeline's key.
 
 ## Windows x64 (ZIP)
