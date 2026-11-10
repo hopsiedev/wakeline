@@ -23,7 +23,7 @@ use crate::watch::normalized_path;
 /// cuenta como completa y no cierra nada (Q54).
 pub const LIST_LIMIT: usize = 100;
 /// Cada cuánto se consulta GitHub con la app o `wakeline watch` abiertos.
-pub const POLL_SECS: u64 = 5 * 60;
+pub const POLL_SECS: u64 = 60;
 /// Un PR abierto más tiempo que esto genera una Tarea (Q48).
 pub const STALE_PR_DAYS: u64 = 7;
 
@@ -828,9 +828,15 @@ pub fn refresh(
     let repo = github_repo(project_root)?;
     let result = fetch(gh, project_root, &repo, now);
     let outcome = result.as_ref().map(|_| ()).map_err(Clone::clone);
+    static CACHE_ACCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _guard = CACHE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
     let mut cache = GithubCache::load(cache_path);
     cache.record(project_root, result);
-    let _ = cache.save(cache_path);
+    if let Err(error) = cache.save(cache_path) {
+        return Some(Err(GhError::Failed(error.to_string())));
+    }
     Some(outcome)
 }
 
@@ -852,19 +858,29 @@ impl GithubPoller {
         interval: std::time::Duration,
         on_update: impl Fn(&Path) + Send + 'static,
     ) -> Self {
+        Self::spawn_with_client(SystemGh, state_path, cache_path, interval, on_update)
+    }
+
+    fn spawn_with_client(
+        gh: impl GhClient + Send + 'static,
+        state_path: PathBuf,
+        cache_path: PathBuf,
+        interval: std::time::Duration,
+        on_update: impl Fn(&Path) + Send + 'static,
+    ) -> Self {
         use std::sync::mpsc::RecvTimeoutError;
         use std::time::Instant;
 
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
-            let gh = SystemGh;
             let mut next_poll = Instant::now();
             loop {
                 let wait = next_poll.saturating_duration_since(Instant::now());
+                // A busy push queue must not starve the periodic scan of other repos.
                 let pushed = match rx.recv_timeout(wait) {
-                    Ok(PollMessage::Push(project)) => Some(project),
+                    Ok(PollMessage::Push(project)) if !wait.is_zero() => Some(project),
+                    Ok(PollMessage::Push(_)) | Err(RecvTimeoutError::Timeout) => None,
                     Ok(PollMessage::Stop) | Err(RecvTimeoutError::Disconnected) => break,
-                    Err(RecvTimeoutError::Timeout) => None,
                 };
                 let projects: Vec<PathBuf> = match pushed {
                     Some(project) => vec![project],
@@ -911,6 +927,79 @@ pub fn unix_now() -> u64 {
 mod tests {
     use super::*;
     use std::cell::RefCell;
+
+    #[test]
+    fn polling_updates_other_projects_even_during_a_stream_of_pushes() {
+        use std::sync::{Arc, Mutex, mpsc};
+        use std::time::{Duration, Instant};
+
+        struct RemotePrs(Arc<Mutex<String>>);
+        impl GhClient for RemotePrs {
+            fn run(&self, args: &[&str]) -> Result<String, GhError> {
+                std::thread::sleep(Duration::from_millis(2));
+                Ok(if args.starts_with(&["pr", "list"]) {
+                    self.0.lock().unwrap().clone()
+                } else {
+                    "[]".into()
+                })
+            }
+        }
+        let root = std::env::temp_dir().join(format!(
+            "wakeline-poll-{}-{}",
+            std::process::id(),
+            unix_now()
+        ));
+        let first = root.join("first");
+        let second = root.join("second");
+        for path in [&first, &second] {
+            std::fs::create_dir_all(path.join(".git")).unwrap();
+            std::fs::write(
+                path.join(".git/config"),
+                "[remote \"origin\"]\nurl = https://github.com/o/r.git\n",
+            )
+            .unwrap();
+        }
+        let state_path = root.join("state.json");
+        LocalState {
+            config_version: 1,
+            watched_folders: vec![first.display().to_string(), second.display().to_string()],
+            ..Default::default()
+        }
+        .save(&state_path)
+        .unwrap();
+        let remote = Arc::new(Mutex::new("[]".to_string()));
+        let (tx, rx) = mpsc::channel();
+        let cache_path = root.join("github.json");
+        let poller = GithubPoller::spawn_with_client(
+            RemotePrs(remote.clone()),
+            state_path,
+            cache_path.clone(),
+            Duration::from_millis(25),
+            move |path| {
+                let _ = tx.send(path.to_path_buf());
+            },
+        );
+        // Initial automatic pass, without Refresh or a push.
+        assert_eq!(rx.recv_timeout(Duration::from_secs(2)).unwrap(), first);
+        assert_eq!(rx.recv_timeout(Duration::from_secs(2)).unwrap(), second);
+        *remote.lock().unwrap() = pr_json("2026-11-09T00:00:00Z", "[]", "[]");
+        // Local churn in one project must not postpone remote PRs in the other.
+        for _ in 0..100 {
+            poller.pushed(&first);
+        }
+        let deadline = Instant::now() + Duration::from_millis(250);
+        loop {
+            let path = rx
+                .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                .expect("periodic polling was starved by push events");
+            if path == second {
+                break;
+            }
+        }
+        let snapshot = GithubCache::load(&cache_path);
+        assert_eq!(snapshot.get(&second).unwrap().pull_requests[0].number, 12);
+        drop(poller);
+    }
 
     /// `gh` simulado: responde por el primer argumento que coincide.
     struct FakeGh {
@@ -1159,6 +1248,22 @@ mod tests {
         cache.record(root, Err(GhError::Failed("sin red".into())));
         assert!(cache.get(root).is_some());
         assert_eq!(cache.error(root), Some("sin red"));
+    }
+
+    #[test]
+    fn refresh_reports_a_cache_write_failure_instead_of_claiming_success() {
+        let root =
+            std::env::temp_dir().join(format!("wakeline-cache-failure-{}", std::process::id()));
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        std::fs::write(
+            root.join(".git/config"),
+            "[remote \"origin\"]\nurl = https://github.com/o/r.git\n",
+        )
+        .unwrap();
+        let cache = root.join("cache.json");
+        std::fs::create_dir_all(&cache).unwrap();
+        let gh = fake("[]", "[]", Ok(String::new()));
+        assert!(matches!(refresh(&gh, &root, &cache, NOW), Some(Err(_))));
     }
 
     #[test]
