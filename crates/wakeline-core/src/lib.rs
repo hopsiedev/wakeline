@@ -10,6 +10,7 @@ pub mod detect;
 pub mod docs;
 pub mod exclusions;
 pub mod fingerprint;
+pub mod github;
 pub mod redact;
 pub mod sessions;
 pub mod signals;
