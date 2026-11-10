@@ -1,6 +1,11 @@
 name: Build packages
 on:
   workflow_call:
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: false
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: false
   workflow_dispatch:
 permissions:
   contents: read
@@ -59,13 +64,24 @@ jobs:
           rustc --edition 2024 --test apps/desktop/src-tauri/src/distribution.rs -o target/distribution-tests.exe
           ./target/distribution-tests.exe
           python -m unittest discover -s scripts -p 'test_package_*.py'
-      - name: Build Windows app and ZIP
+      - name: Build Windows app, ZIP and signed installer
         if: runner.os == 'Windows'
         working-directory: apps/desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          npm run tauri build -- --no-bundle
+          # Without the secret (pull requests from forks) only the unsigned ZIP is built.
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            npm run tauri build -- --bundles nsis --config src-tauri/tauri.updater.conf.json
+          else
+            npm run tauri build -- --no-bundle
+          fi
           cd ../..
           python scripts/package_windows.py
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            cp target/release/bundle/nsis/*-setup.exe target/release/bundle/nsis/*-setup.exe.sig packages/
+          fi
       - name: Build Linux AppImage and DEB
         if: runner.os == 'Linux'
         working-directory: apps/desktop

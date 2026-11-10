@@ -37,6 +37,48 @@ fn manual_updates(app: &AppHandle) -> bool {
         })
 }
 
+/// Primera revisión un minuto después de arrancar, para no frenar el inicio.
+const FIRST_CHECK_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
+const CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(6 * 60 * 60);
+
+/// Busca versiones nuevas en segundo plano y avisa una sola vez por versión.
+/// La instalación sigue siendo manual: el usuario pulsa Actualizar en Configuración.
+pub fn start(app: &AppHandle) {
+    if manual_updates(app) {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(FIRST_CHECK_AFTER);
+        let mut notified: Option<String> = None;
+        loop {
+            if let Ok(UiUpdate {
+                state: "available",
+                version: Some(version),
+                ..
+            }) = tauri::async_runtime::block_on(check_update(app.clone()))
+                && notified.as_deref() != Some(version.as_str())
+            {
+                let (title, body) = if crate::alerts::spanish(&app) {
+                    (
+                        format!("Wakeline {version} disponible"),
+                        "Abre Configuración > Actualizaciones y pulsa Actualizar.".to_string(),
+                    )
+                } else {
+                    (
+                        format!("Wakeline {version} is available"),
+                        "Open Settings > Updates and choose Update.".to_string(),
+                    )
+                };
+                if crate::alerts::deliver(&app, title, body).is_ok() {
+                    notified = Some(version);
+                }
+            }
+            std::thread::sleep(CHECK_EVERY);
+        }
+    });
+}
+
 #[tauri::command]
 pub async fn check_update(app: AppHandle) -> Result<UiUpdate, String> {
     let current_version = app.package_info().version.to_string();
@@ -57,7 +99,11 @@ pub async fn check_update(app: AppHandle) -> Result<UiUpdate, String> {
         .await;
     let update = match result {
         Ok(update) => update,
-        Err(tauri_plugin_updater::Error::ReleaseNotFound) => {
+        Err(
+            tauri_plugin_updater::Error::ReleaseNotFound
+            | tauri_plugin_updater::Error::TargetNotFound(_)
+            | tauri_plugin_updater::Error::TargetsNotFound(_),
+        ) => {
             return Ok(UiUpdate {
                 current_version,
                 version: None,

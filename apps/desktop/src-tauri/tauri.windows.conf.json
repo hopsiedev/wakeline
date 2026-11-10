@@ -1,0 +1,9 @@
+{
+  "bundle": {
+    "resources": {
+      "../../../target/release/wakeline.exe": "wakeline.exe",
+      "../../../LICENSE-MIT": "LICENSE-MIT",
+      "../../../THIRD_PARTY_LICENSES.md": "THIRD_PARTY_LICENSES.md"
+    }
+  }
+}

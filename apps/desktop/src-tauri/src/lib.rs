@@ -1184,6 +1184,7 @@ pub fn run() {
             project_commands::start(app.handle());
             github_source::start(app.handle());
             live::start(app.handle());
+            updates::start(app.handle());
 
             if let Some(window) = app.get_webview_window(shell::MAIN_WINDOW) {
                 shell::fit_to_screen(&window);
