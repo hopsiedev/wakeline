@@ -1,5 +1,7 @@
+import type { TFunction } from 'i18next';
 import type { Theme, CSSObject } from '@mui/material/styles';
 
+import { useTranslation } from 'react-i18next';
 import { useRouteError, isRouteErrorResponse } from 'react-router';
 
 import GlobalStyles from '@mui/material/GlobalStyles';
@@ -7,6 +9,7 @@ import GlobalStyles from '@mui/material/GlobalStyles';
 // ----------------------------------------------------------------------
 
 export function ErrorBoundary() {
+  const { t } = useTranslation();
   const error = useRouteError();
 
   return (
@@ -14,7 +17,7 @@ export function ErrorBoundary() {
       {inputGlobalStyles()}
 
       <div className={errorBoundaryClasses.root}>
-        <div className={errorBoundaryClasses.container}>{renderErrorMessage(error)}</div>
+        <div className={errorBoundaryClasses.container}>{renderErrorMessage(error, t)}</div>
       </div>
     </>
   );
@@ -34,7 +37,7 @@ function parseStackTrace(stack?: string) {
   };
 }
 
-function renderErrorMessage(error: any) {
+function renderErrorMessage(error: unknown, t: TFunction) {
   if (isRouteErrorResponse(error)) {
     return (
       <>
@@ -51,7 +54,7 @@ function renderErrorMessage(error: any) {
 
     return (
       <>
-        <h1 className={errorBoundaryClasses.title}>Unexpected Application Error!</h1>
+        <h1 className={errorBoundaryClasses.title}>{t('errors.unexpected')}</h1>
         <p className={errorBoundaryClasses.message}>
           {error.name}: {error.message}
         </p>
@@ -65,7 +68,7 @@ function renderErrorMessage(error: any) {
     );
   }
 
-  return <h1 className={errorBoundaryClasses.title}>Unknown Error</h1>;
+  return <h1 className={errorBoundaryClasses.title}>{t('errors.unknown')}</h1>;
 }
 
 // ----------------------------------------------------------------------
@@ -85,8 +88,8 @@ const cssVars: CSSObject = {
   '--error-color': '#ff5555',
   '--error-background': '#2a1e1e',
   '--details-background': '#111111',
-  '--root-background': '#2c2c2e',
-  '--container-background': '#1c1c1e',
+  '--root-background': '#131313',
+  '--container-background': '#1B1B1B',
   '--font-stack-monospace':
     '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace',
   '--font-stack-sans':

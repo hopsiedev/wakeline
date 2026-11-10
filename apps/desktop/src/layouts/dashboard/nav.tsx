@@ -401,7 +401,7 @@ export function NavContent({ data, collapsed = false, onToggleCollapse, sx }: Na
             <ListItemButton
               key={card.fingerprint}
               component={RouterLink}
-              href={`/cards?detail=${card.short_id}`}
+              href={`/cards/${card.fingerprint}`}
               onClick={() => setAlertsAnchor(null)}
               sx={{ gap: 1.25, borderRadius: 1, alignItems: 'flex-start', py: 1 }}
             >
@@ -610,6 +610,7 @@ function ProjectTree({
   const { t } = useTranslation();
   const storageKey = `wakeline-project-open:${project.path}`;
   const [open, setOpen] = useState(() => localStorage.getItem(storageKey) !== 'false');
+  const [showFiles, setShowFiles] = useState(false);
 
   const toggle = () => {
     localStorage.setItem(storageKey, String(!open));
@@ -663,15 +664,31 @@ function ProjectTree({
 
       <Collapse in={open} unmountOnExit>
         <Box sx={{ pl: 2.25, gap: 0.25, display: 'flex', flexDirection: 'column' }}>
+          <ListItemButton
+            disableGutters
+            component={RouterLink}
+            href={`/projects/${encodeURIComponent(project.name)}`}
+            sx={{ px: 1.25, gap: 1, minHeight: 32, borderRadius: 1, fontSize: 13.5 }}
+          >
+            <NavIcon name="home" size={15} />
+            {t('projects.open')}
+          </ListItemButton>
           {branches.map((branch) => (
             <BranchTree key={branch.name} branch={branch} />
           ))}
-          <Typography
-            sx={{ px: 1.25, pt: 1.25, color: 'text.disabled', fontSize: 11, fontWeight: 700 }}
+          <ListItemButton
+            onClick={() => setShowFiles((value) => !value)}
+            aria-expanded={showFiles}
+            sx={{ px: 1.25, gap: 1, minHeight: 32, borderRadius: 1 }}
           >
-            {t('nav.projectFiles')}
-          </Typography>
-          <FolderEntries project={project.name} relativePath="" depth={0} />
+            <NavIcon name="folder" size={15} />
+            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+              {t(showFiles ? 'nav.hideFiles' : 'nav.showFiles')}
+            </Typography>
+          </ListItemButton>
+          <Collapse in={showFiles} unmountOnExit>
+            <FolderEntries project={project.name} relativePath="" depth={0} />
+          </Collapse>
         </Box>
       </Collapse>
     </Box>
@@ -702,7 +719,7 @@ function BranchTree({ branch }: { branch: BranchRow }) {
             <ListItemButton
               key={card.fingerprint}
               component={RouterLink}
-              href={`/cards?detail=${card.short_id}`}
+              href={`/cards/${card.fingerprint}`}
               sx={{ minHeight: 30, px: 1, borderRadius: 1 }}
             >
               <Typography noWrap title={card.title} sx={{ fontSize: 12.5 }}>

@@ -8,6 +8,7 @@ mod alerts;
 #[cfg(windows)]
 mod folder_picker;
 mod github_source;
+mod history;
 mod live;
 mod project_commands;
 mod shell;
@@ -30,6 +31,8 @@ use wakeline_core::store::{ExportItem, LocalState, ManualCard, format_todo_markd
 use wakeline_core::watch::{is_within, normalized_path};
 use wakeline_core::{CardKind, CardStatus, Fingerprint, SourceKind};
 
+pub(crate) static STATE_ACCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[derive(Debug, Clone, Serialize)]
 pub struct UiCard {
     pub fingerprint: String,
@@ -40,6 +43,8 @@ pub struct UiCard {
     pub project: String,
     pub branch: String,
     pub source_kind: SourceKind,
+    /// Clave del origen (`session`, `code`, `specs`, `ci`…) que traduce la interfaz; en
+    /// los comandos es el nombre del comando.
     pub source_label: String,
     pub location: String,
     pub code_excerpt: Option<String>,
@@ -139,6 +144,9 @@ async fn get_dashboard_data() -> Result<DashboardPayload, String> {
 }
 
 fn scan_dashboard() -> Result<DashboardPayload, String> {
+    let _guard = STATE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
     let started = Instant::now();
     let state_path = LocalState::default_path();
     let mut state = LocalState::load(&state_path);
@@ -160,16 +168,29 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
     let sessions_root = home.join(".claude").join("projects");
     let cutoff = SystemTime::now() - Duration::from_secs(30 * 24 * 3600);
 
-    let mut files = claude::discover(&sessions_root).unwrap_or_default();
+    let mut files = if sessions_root.is_dir() {
+        claude::discover(&sessions_root).map_err(|error| error.to_string())?
+    } else {
+        Vec::new()
+    };
     files.retain(|f| {
-        std::fs::metadata(&f.path)
-            .and_then(|m| m.modified())
-            .ok()
-            .is_none_or(|m| m >= cutoff)
+        state.full_session_history
+            || std::fs::metadata(&f.path)
+                .and_then(|m| m.modified())
+                .ok()
+                .is_none_or(|m| m >= cutoff)
     });
+    let mut scoped_files = Vec::new();
+    for file in files {
+        if claude::belongs_to_watched(&file, &state.watched_folders)
+            .map_err(|error| error.to_string())?
+        {
+            scoped_files.push(file);
+        }
+    }
+    let files = scoped_files;
 
-    let report = scan_files_incremental(&files, &mut state).unwrap_or_default();
-    let _ = state.save(&state_path);
+    let report = scan_files_incremental(&files, &mut state).map_err(|error| error.to_string())?;
     let bytes = report.bytes_read;
     let session_cards = report.cards;
     let mut cards: Vec<UiCard> = Vec::new();
@@ -196,8 +217,8 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
         let session_location = sc
             .session_id
             .get(..7)
-            .map(|id| format!("sesión {id} · {branch}"))
-            .unwrap_or_else(|| format!("sesión · {branch}"));
+            .map(|id| format!("{id} · {branch}"))
+            .unwrap_or_else(|| branch.clone());
         let source_file = extract_file_target(&watched_project.path, &sc.title).or_else(|| {
             sc.evidence
                 .as_deref()
@@ -226,7 +247,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             project,
             branch,
             source_kind: SourceKind::Session,
-            source_label: "Sesión IA".into(),
+            source_label: "session".into(),
             location,
             code_excerpt,
             evidence: sc.evidence,
@@ -284,9 +305,9 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
                 branch: read_git_branch(&watched_project.path, "—"),
                 source_kind: SourceKind::Document,
                 source_label: if dc.location.starts_with("specs/") {
-                    "specs/".into()
+                    "specs".into()
                 } else {
-                    "Hoja de ruta".into()
+                    "roadmap".into()
                 },
                 location: dc.location,
                 code_excerpt,
@@ -331,7 +352,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
                 project: watched_project.name.clone(),
                 branch: branch.clone(),
                 source_kind: SourceKind::Comment,
-                source_label: "Código".into(),
+                source_label: "code".into(),
                 code_excerpt,
                 evidence: None,
                 session_id: None,
@@ -453,8 +474,8 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             project: mc.project.clone(),
             branch: mc.branch.clone().unwrap_or_else(|| "—".into()),
             source_kind: SourceKind::Comment,
-            source_label: "Manual".into(),
-            location: "creada en Wakeline".into(),
+            source_label: "manual".into(),
+            location: "Wakeline".into(),
             code_excerpt: None,
             evidence: None,
             session_id: None,
@@ -494,7 +515,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             });
         }
     }
-    let _ = state.save(&state_path);
+    state.save(&state_path).map_err(|error| error.to_string())?;
     let mut cards = group_cards(cards, &state);
 
     cards.sort_by(|a, b| {
@@ -521,18 +542,31 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
 
 #[tauri::command]
 fn set_card_status(input: StatusInput) -> Result<(), String> {
+    set_cards_status(vec![input])
+}
+
+#[tauri::command]
+fn set_cards_status(inputs: Vec<StatusInput>) -> Result<(), String> {
+    let _guard = STATE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
     let path = LocalState::default_path();
     let mut state = LocalState::load(&path);
-    let mut fingerprints = input.fingerprints;
-    if !fingerprints.contains(&input.fingerprint) {
-        fingerprints.push(input.fingerprint);
+    for input in inputs {
+        let mut fingerprints = input.fingerprints;
+        if !fingerprints.contains(&input.fingerprint) {
+            fingerprints.push(input.fingerprint);
+        }
+        signals::set_group_status(&mut state, &fingerprints, input.status);
     }
-    signals::set_group_status(&mut state, &fingerprints, input.status);
     state.save(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn create_card(input: CreateCardInput) -> Result<String, String> {
+    let _guard = STATE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
     let title = input.title.trim();
     if title.is_empty() {
         return Err("El título no puede estar vacío".into());
@@ -736,6 +770,9 @@ async fn choose_watch_folder(app: tauri::AppHandle) -> Result<Option<String>, St
         }
         let path_text = path.display().to_string();
         let state_path = LocalState::default_path();
+        let _guard = STATE_ACCESS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         let mut state = LocalState::load(&state_path);
         if !state
             .watched_folders
@@ -746,6 +783,7 @@ async fn choose_watch_folder(app: tauri::AppHandle) -> Result<Option<String>, St
             state.save(&state_path).map_err(|error| error.to_string())?;
             live::restart(&app);
         }
+        github_source::pushed(&app, &path);
         Ok(Some(path_text))
     })
     .await
@@ -760,6 +798,9 @@ async fn choose_watch_folder(_app: tauri::AppHandle) -> Result<Option<String>, S
 
 #[tauri::command]
 fn remove_watch_folder(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    let _guard = STATE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
     let state_path = LocalState::default_path();
     let mut state = LocalState::load(&state_path);
     let before = state.watched_folders.len();
@@ -1128,6 +1169,7 @@ pub fn run() {
             choose_watch_folder,
             remove_watch_folder,
             set_card_status,
+            set_cards_status,
             create_card,
             export_todo,
             get_account,
@@ -1142,8 +1184,12 @@ pub fn run() {
             project_commands::approve_project_commands,
             project_commands::run_project_command,
             github_source::get_github_status,
+            github_source::refresh_github,
+            github_source::get_pull_request_details,
             updates::check_update,
             updates::install_update,
+            history::import_all_history,
+            history::history_import_status,
         ])
         .run(tauri::generate_context!())
         .expect("no se pudo iniciar Wakeline");

@@ -274,7 +274,7 @@ pub fn reconcile_code(
                     scope: scope.clone(),
                     kind: card.kind,
                     source: SourceKind::Comment,
-                    label: "TODO".into(),
+                    label: "code".into(),
                     title: card.title.clone(),
                     project: project.to_string(),
                     location: Some(card.location()),

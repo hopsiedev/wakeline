@@ -113,6 +113,9 @@ pub fn get_project_commands(path: String) -> Result<UiProjectCommands, String> {
 
 #[tauri::command]
 pub fn approve_project_commands(path: String, hash: String) -> Result<(), String> {
+    let _guard = crate::STATE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
     let root = watched_root(&path)?;
     let loaded = commands::load(&root)?.ok_or("el proyecto no tiene wakeline.toml")?;
     if loaded.hash != hash {

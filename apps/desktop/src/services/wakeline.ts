@@ -1,5 +1,10 @@
+import type { TFunction } from 'i18next';
+
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+
+import i18n from 'src/locales/i18n';
+import { CONFIG } from 'src/config-global';
 
 // ----------------------------------------------------------------------
 
@@ -52,6 +57,31 @@ export type UiPullRequest = {
   ci: CiState;
   review: ReviewState;
 };
+
+export type PullRequestDetails = {
+  body: string;
+  files: { filename: string; additions: number; deletions: number; patch: string | null }[];
+};
+
+export async function getPullRequestDetails(
+  project: string,
+  number: number
+): Promise<PullRequestDetails> {
+  const data = await fetchDashboardData();
+  const folder = data.projects.find((item) => item.name === project);
+  if (!folder) throw new Error(i18n.t('projects.notFound'));
+  return invoke('get_pull_request_details', { path: folder.path, number });
+}
+
+export async function refreshGithub(): Promise<void> {
+  if (!isTauri()) throw new Error(i18n.t('errors.desktopFolderPicker'));
+  try {
+    await invoke('refresh_github');
+  } finally {
+    invalidateDashboardCache();
+    window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+  }
+}
 
 export type GhStatus =
   { state: 'not_installed' } | { state: 'not_logged_in' } | { state: 'connected'; login: string };
@@ -150,6 +180,38 @@ export function getImportingFolder(): string | null {
   return importingFolder;
 }
 
+export type HistoryProgress = { processed: number; total: number };
+let historyProgress: HistoryProgress | null = null;
+export const getHistoryProgress = () => historyProgress;
+
+function publishHistoryProgress(progress: HistoryProgress | null) {
+  historyProgress = progress;
+  window.dispatchEvent(new CustomEvent('wakeline:history-progress', { detail: progress }));
+}
+
+export async function historyImportStatus(): Promise<boolean> {
+  return isTauri() ? invoke('history_import_status') : false;
+}
+
+export async function importAllHistory(): Promise<{ files: number; bad_lines: number }> {
+  if (!isTauri()) throw new Error(i18n.t('errors.desktopHistoryImport'));
+  if (historyProgress) throw new Error(i18n.t('settings.historyImportRunning'));
+  publishHistoryProgress({ processed: 0, total: 0 });
+  let stop: (() => void) | undefined;
+  try {
+    stop = await listen<HistoryProgress>('wakeline://history-progress', (event) =>
+      publishHistoryProgress(event.payload)
+    );
+    const result = await invoke<{ files: number; bad_lines: number }>('import_all_history');
+    invalidateDashboardCache();
+    window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+    return result;
+  } finally {
+    stop?.();
+    publishHistoryProgress(null);
+  }
+}
+
 async function loadDashboardData(): Promise<DashboardPayload> {
   if (!isTauri()) {
     return EMPTY_PAYLOAD;
@@ -162,7 +224,7 @@ async function loadDashboardData(): Promise<DashboardPayload> {
 }
 
 export async function chooseWatchFolder(): Promise<void> {
-  if (!isTauri()) throw new Error('Elige la carpeta desde la aplicación de escritorio');
+  if (!isTauri()) throw new Error(i18n.t('errors.desktopFolderPicker'));
   const selected = await invoke<string | null>('choose_watch_folder');
   if (selected) {
     const folderName = selected.split(/[\\/]/).filter(Boolean).pop() ?? selected;
@@ -286,6 +348,16 @@ export async function createManualCard(
   }
 }
 
+export async function updateCardsStatus(
+  inputs: { fingerprint: string; fingerprints: string[]; status: CardStatus }[]
+): Promise<void> {
+  if (!inputs.length) return;
+  if (!isTauri()) throw new Error(i18n.t('errors.desktopCardChanges'));
+  await invoke('set_cards_status', { inputs });
+  invalidateDashboardCache();
+  window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+}
+
 export async function openInVscode(card: UiCard): Promise<void> {
   if (isTauri()) {
     await invoke('open_in_vscode', {
@@ -360,6 +432,11 @@ export async function quitApp(): Promise<void> {
   }
 }
 
+/** Etiqueta de origen traducida; los comandos se muestran con su nombre. */
+export function originLabel(t: TFunction, kind: SourceKind, label: string): string {
+  return kind === 'command' ? label : t(`sources.${label}`, { defaultValue: label });
+}
+
 export async function getGithubStatus(path: string): Promise<UiGithubStatus | null> {
   if (!isTauri()) return null;
   return invoke<UiGithubStatus>('get_github_status', { path });
@@ -369,10 +446,17 @@ export type UiUpdate = {
   current_version: string;
   version: string | null;
   notes: string | null;
+  state: 'available' | 'up_to_date' | 'unpublished' | 'unconfigured';
 };
 
+export async function getAppVersion(): Promise<string> {
+  if (!isTauri()) return CONFIG.appVersion;
+  const { getVersion } = await import('@tauri-apps/api/app');
+  return getVersion();
+}
+
 export async function checkUpdate(): Promise<UiUpdate | null> {
-  if (!isTauri()) return null;
+  if (!isTauri()) throw new Error(i18n.t('errors.desktopUpdates'));
   return invoke<UiUpdate>('check_update');
 }
 
