@@ -12,8 +12,14 @@ import Typography from '@mui/material/Typography';
 import { useColorScheme } from '@mui/material/styles';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { getMcpExecutable, sendTestNotification } from 'src/services/wakeline';
 import { type Language, alertsEnabled, changeLanguage, setAlertsEnabled } from 'src/locales/i18n';
+import {
+  checkUpdate,
+  type UiUpdate,
+  installUpdate,
+  getMcpExecutable,
+  sendTestNotification,
+} from 'src/services/wakeline';
 
 import { Label } from 'src/components/label';
 import { AppIcon } from 'src/components/nav-icon';
@@ -141,15 +147,13 @@ export function SettingsView() {
                 />
               </SettingRow>
 
-              <SettingRow
-                label={t('settings.exportPath')}
-                hint={t('settings.exportPathHint')}
-                isLast
-              >
+              <SettingRow label={t('settings.exportPath')} hint={t('settings.exportPathHint')}>
                 <Label color="default" sx={{ fontFamily: 'monospace' }}>
                   docs/TODO.md
                 </Label>
               </SettingRow>
+
+              <UpdateRow />
             </Card>
 
             {/* Inteligencia (opcional) */}
@@ -597,6 +601,62 @@ function SettingRow({
       </Box>
       {children}
     </Box>
+  );
+}
+
+// Busca una versión firmada en GitHub Releases y la instala si el usuario lo pide (Q60).
+function UpdateRow() {
+  const { t } = useTranslation();
+  const [update, setUpdate] = useState<UiUpdate | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const check = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setUpdate(await checkUpdate());
+    } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const install = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await installUpdate();
+    } catch (reason) {
+      setError(String(reason));
+      setBusy(false);
+    }
+  };
+
+  let hint = t('settings.updatesHint');
+  if (update?.version) hint = t('settings.updateAvailable', { version: update.version });
+  else if (update) hint = t('settings.upToDate', { version: update.current_version });
+
+  return (
+    <SettingRow label={t('settings.updates')} hint={hint} isLast>
+      <Box sx={{ gap: 0.5, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+        {update?.version ? (
+          <Button size="small" variant="contained" disabled={busy} onClick={install}>
+            {busy ? t('settings.installingUpdate') : t('settings.installUpdate')}
+          </Button>
+        ) : (
+          <Button size="small" color="inherit" variant="outlined" disabled={busy} onClick={check}>
+            {busy ? t('settings.checkingUpdates') : t('settings.checkUpdates')}
+          </Button>
+        )}
+        {error && (
+          <Typography sx={{ color: 'error.main', fontSize: 12, maxWidth: 280 }}>
+            {t('settings.updateFailed')}: {error}
+          </Typography>
+        )}
+      </Box>
+    </SettingRow>
   );
 }
 
