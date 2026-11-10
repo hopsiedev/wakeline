@@ -139,7 +139,8 @@
     "occurrencesTitle": "Occurrences",
     "occurrencesSubtitle": "Last 24 hours",
     "ollamaBold": "Ollama is disabled.",
-    "ollamaNotice": "Enable it in Settings to group similar cards and write cleaner titles."
+    "ollamaNotice": "Enable it in Settings to group similar cards and write cleaner titles.",
+    "openOnGithub": "Open on GitHub"
   },
   "pullRequests": {
     "title": "Projects",
@@ -161,7 +162,23 @@
     "configSubtitle": "In the repo root. Wakeline only runs what is listed here.",
     "ciRed": "Red CI",
     "stalePr": "+7 days",
-    "changesRequested": "Changes requested"
+    "changesRequested": "Changes requested",
+    "openPrs_one": "{{count}} open PR",
+    "openPrs_other": "{{count}} open PRs",
+    "noOpenPrs": "No open PRs or GitHub not connected.",
+    "draft": "Draft",
+    "ageDays_one": "{{count}} day ago",
+    "ageDays_other": "{{count}} days ago",
+    "ci": {
+      "passing": "CI green",
+      "failing": "CI red",
+      "pending": "CI running",
+      "none": "No CI"
+    },
+    "review": {
+      "approved": "Approved",
+      "changes_requested": "Changes requested"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -275,5 +292,16 @@
       "timed_out": "Timed out",
       "not_started": "Did not start"
     }
+  },
+  "github": {
+    "title": "GitHub",
+    "notInstalled": "gh not installed",
+    "notLoggedIn": "gh not signed in",
+    "connectedAs": "Signed in as @{{login}}",
+    "noRemote": "No GitHub remote",
+    "loginHint": "Run it yourself in a terminal: gh auth login",
+    "installHint": "Install GitHub CLI: winget install GitHub.cli",
+    "checking": "Checking…",
+    "lastError": "Last read failed: {{error}}"
   }
 }

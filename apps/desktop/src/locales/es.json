@@ -139,7 +139,8 @@
     "occurrencesTitle": "Apariciones",
     "occurrencesSubtitle": "Últimas 24 horas",
     "ollamaBold": "Ollama está desactivado.",
-    "ollamaNotice": "Actívalo en Ajustes para agrupar tarjetas parecidas y escribir títulos más limpios."
+    "ollamaNotice": "Actívalo en Ajustes para agrupar tarjetas parecidas y escribir títulos más limpios.",
+    "openOnGithub": "Abrir en GitHub"
   },
   "pullRequests": {
     "title": "Proyectos",
@@ -161,7 +162,23 @@
     "configSubtitle": "En la raíz del repo. Wakeline solo ejecuta lo que está aquí.",
     "ciRed": "CI rojo",
     "stalePr": "+7 días",
-    "changesRequested": "Cambios pedidos"
+    "changesRequested": "Cambios pedidos",
+    "openPrs_one": "{{count}} PR abierto",
+    "openPrs_other": "{{count}} PR abiertos",
+    "noOpenPrs": "Sin PR abiertos o sin GitHub conectado.",
+    "draft": "Borrador",
+    "ageDays_one": "hace {{count}} día",
+    "ageDays_other": "hace {{count}} días",
+    "ci": {
+      "passing": "CI en verde",
+      "failing": "CI rojo",
+      "pending": "CI en curso",
+      "none": "Sin CI"
+    },
+    "review": {
+      "approved": "Aprobado",
+      "changes_requested": "Cambios pedidos"
+    }
   },
   "settings": {
     "title": "Configuración",
@@ -275,5 +292,16 @@
       "timed_out": "Superó el tiempo",
       "not_started": "No se lanzó"
     }
+  },
+  "github": {
+    "title": "GitHub",
+    "notInstalled": "gh no instalado",
+    "notLoggedIn": "gh sin sesión",
+    "connectedAs": "Conectado como @{{login}}",
+    "noRemote": "Sin remoto de GitHub",
+    "loginHint": "Ejecuta tú en una terminal: gh auth login",
+    "installHint": "Instala GitHub CLI: winget install GitHub.cli",
+    "checking": "Comprobando…",
+    "lastError": "Última lectura falló: {{error}}"
   }
 }

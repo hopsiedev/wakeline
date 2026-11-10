@@ -11,15 +11,18 @@ import LinearProgress from '@mui/material/LinearProgress';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
+  openExternal,
   chooseWatchFolder,
   removeWatchFolder,
   fetchDashboardData,
   getImportingFolder,
+  type UiPullRequest,
   type DashboardPayload,
   type UiProjectSummary,
   getCachedDashboardData,
 } from 'src/services/wakeline';
 
+import { Label } from 'src/components/label';
 import { AppIcon } from 'src/components/nav-icon';
 
 export function PullRequestsView() {
@@ -151,7 +154,11 @@ export function PullRequestsView() {
       <Grid container spacing={3}>
         {data?.projects.map((project) => (
           <Grid key={project.path} size={{ xs: 12, md: 6, xl: 4 }}>
-            <ProjectCard project={project} onRemove={remove} />
+            <ProjectCard
+              project={project}
+              pullRequests={data.pull_requests.filter((pr) => pr.project === project.name)}
+              onRemove={remove}
+            />
           </Grid>
         ))}
       </Grid>
@@ -161,9 +168,11 @@ export function PullRequestsView() {
 
 function ProjectCard({
   project,
+  pullRequests,
   onRemove,
 }: {
   project: UiProjectSummary;
+  pullRequests: UiPullRequest[];
   onRemove: (path: string) => void;
 }) {
   const { t } = useTranslation();
@@ -205,6 +214,20 @@ function ProjectCard({
         {t('cards.metaBranch')}: {project.branch}
       </Typography>
 
+      <Box sx={{ gap: 1, display: 'flex', flexDirection: 'column' }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 600 }}>
+          {t('pullRequests.openPrs', { count: pullRequests.length })}
+        </Typography>
+        {pullRequests.length === 0 && (
+          <Typography sx={{ color: 'text.disabled', fontSize: 13 }}>
+            {t('pullRequests.noOpenPrs')}
+          </Typography>
+        )}
+        {pullRequests.map((pr) => (
+          <PullRequestRow key={pr.number} pr={pr} />
+        ))}
+      </Box>
+
       <Box
         sx={{
           mt: 'auto',
@@ -229,6 +252,55 @@ function ProjectCard({
         {t('nav.stopWatching')}
       </Button>
     </Card>
+  );
+}
+
+const CI_COLOR: Record<UiPullRequest['ci'], 'success' | 'error' | 'warning' | 'default'> = {
+  passing: 'success',
+  failing: 'error',
+  pending: 'warning',
+  none: 'default',
+};
+
+function PullRequestRow({ pr }: { pr: UiPullRequest }) {
+  const { t } = useTranslation();
+  return (
+    <Box
+      component="button"
+      type="button"
+      onClick={() => openExternal(pr.url)}
+      sx={(theme) => ({
+        p: 1.25,
+        gap: 0.5,
+        border: 0,
+        width: 1,
+        display: 'flex',
+        cursor: 'pointer',
+        textAlign: 'left',
+        borderRadius: 1.5,
+        fontFamily: 'inherit',
+        color: 'text.primary',
+        flexDirection: 'column',
+        bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.08),
+        '&:hover': { bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.16) },
+      })}
+    >
+      <Typography noWrap sx={{ width: 1, fontSize: 13, fontWeight: 600 }}>
+        #{pr.number} {pr.title}
+      </Typography>
+      <Box sx={{ gap: 0.75, display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
+        <Label color={CI_COLOR[pr.ci]}>{t(`pullRequests.ci.${pr.ci}`)}</Label>
+        {pr.review !== 'none' && (
+          <Label color={pr.review === 'approved' ? 'success' : 'warning'}>
+            {t(`pullRequests.review.${pr.review}`)}
+          </Label>
+        )}
+        {pr.draft && <Label color="default">{t('pullRequests.draft')}</Label>}
+        <Typography sx={{ color: 'text.secondary', fontSize: 12, fontFamily: 'monospace' }}>
+          {pr.branch} · {t('pullRequests.ageDays', { count: pr.age_days })}
+        </Typography>
+      </Box>
+    </Box>
   );
 }
 

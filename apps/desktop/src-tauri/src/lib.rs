@@ -7,6 +7,7 @@
 mod alerts;
 #[cfg(windows)]
 mod folder_picker;
+mod github_source;
 mod live;
 mod project_commands;
 mod shell;
@@ -20,6 +21,7 @@ use wakeline_core::code::CodeScanner;
 use wakeline_core::commands::{self as wl_commands, CommandResults};
 use wakeline_core::docs;
 use wakeline_core::exclusions;
+use wakeline_core::github;
 use wakeline_core::redact::redact;
 use wakeline_core::sessions::{claude, scan_files_incremental};
 use wakeline_core::signals;
@@ -49,6 +51,8 @@ pub struct UiCard {
     pub fingerprints: Vec<String>,
     /// Un elemento por origen, para los chips y el Detalle (Q62).
     pub origins: Vec<UiOrigin>,
+    /// Enlace a GitHub (issue, PR o job del CI).
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -58,6 +62,15 @@ pub struct UiOrigin {
     pub source_label: String,
     pub location: String,
     pub occurrences: u32,
+    pub url: Option<String>,
+}
+
+/// Un PR abierto de un proyecto, para la vista «Pull requests».
+#[derive(Debug, Clone, Serialize)]
+pub struct UiPullRequest {
+    pub project: String,
+    #[serde(flatten)]
+    pub info: github::PullRequestInfo,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -95,6 +108,7 @@ pub struct DashboardPayload {
     pub cards: Vec<UiCard>,
     pub projects: Vec<UiProjectSummary>,
     pub spec_gaps: Vec<UiSpecGap>,
+    pub pull_requests: Vec<UiPullRequest>,
     pub session_files: usize,
     pub megabytes_read: f64,
     pub scan_ms: u64,
@@ -134,6 +148,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             cards: Vec::new(),
             projects: Vec::new(),
             spec_gaps: Vec::new(),
+            pull_requests: Vec::new(),
             session_files: 0,
             megabytes_read: 0.0,
             scan_ms: started.elapsed().as_millis() as u64,
@@ -220,6 +235,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             last_seen,
             fingerprints: Vec::new(),
             origins: Vec::new(),
+            url: None,
         });
     }
 
@@ -230,6 +246,8 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
         .unwrap_or_default();
     let mut code_scanner = CodeScanner::new();
     let command_results = CommandResults::load(&wl_commands::results_path());
+    let github_cache = github::GithubCache::load(&github::cache_path());
+    let mut pull_requests: Vec<UiPullRequest> = Vec::new();
 
     for watched_project in &watched {
         let doc_cards = docs::scan_project_docs(&watched_project.path).unwrap_or_default();
@@ -278,6 +296,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
                 last_seen: today_date(),
                 fingerprints: Vec::new(),
                 origins: Vec::new(),
+                url: None,
             });
         }
 
@@ -320,6 +339,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
                 last_seen: today_date(),
                 fingerprints: Vec::new(),
                 origins: Vec::new(),
+                url: None,
             });
         }
 
@@ -364,8 +384,55 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
                     last_seen: finished.clone(),
                     fingerprints: Vec::new(),
                     origins: Vec::new(),
+                    url: None,
                 });
             }
+        }
+
+        if let Some(snapshot) = github_cache.get(&watched_project.path) {
+            signals::reconcile_github(
+                &mut state,
+                &watched_project.path,
+                &watched_project.name,
+                snapshot,
+                now,
+            );
+            let fetched = unix_date(snapshot.fetched_at);
+            for card in &snapshot.cards {
+                let fp_str = card.fingerprint.as_str().to_string();
+                let status = state.status_for(&fp_str);
+                let code_excerpt = card.path.as_ref().and_then(|path| {
+                    read_code_excerpt(
+                        &watched_project.path.join(path),
+                        card.line.and_then(|l| u32::try_from(l).ok()),
+                    )
+                });
+                cards.push(UiCard {
+                    fingerprint: fp_str,
+                    short_id: String::new(),
+                    kind: card.kind,
+                    status,
+                    title: card.title.clone(),
+                    project: watched_project.name.clone(),
+                    branch: card.branch.clone().unwrap_or_else(|| branch.clone()),
+                    source_kind: card.source,
+                    source_label: card.label.clone(),
+                    location: card.location(),
+                    code_excerpt,
+                    evidence: None,
+                    session_id: None,
+                    occurrences: card.occurrences,
+                    first_seen: fetched.clone(),
+                    last_seen: fetched.clone(),
+                    fingerprints: Vec::new(),
+                    origins: Vec::new(),
+                    url: Some(card.url.clone()),
+                });
+            }
+            pull_requests.extend(snapshot.pull_requests.iter().map(|info| UiPullRequest {
+                project: watched_project.name.clone(),
+                info: info.clone(),
+            }));
         }
     }
 
@@ -395,6 +462,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             last_seen: mc.created_at.clone(),
             fingerprints: Vec::new(),
             origins: Vec::new(),
+            url: None,
         });
     }
 
@@ -421,6 +489,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
                 last_seen: seen,
                 fingerprints: Vec::new(),
                 origins: Vec::new(),
+                url: None,
             });
         }
     }
@@ -442,6 +511,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
         cards,
         projects,
         spec_gaps,
+        pull_requests,
         session_files: files.len(),
         megabytes_read,
         scan_ms,
@@ -526,11 +596,8 @@ fn group_cards(cards: Vec<UiCard>, state: &LocalState) -> Vec<UiCard> {
         .iter()
         .map(|card| {
             let branch = (card.branch != "—").then_some(card.branch.as_str());
-            let path = matches!(
-                card.source_kind,
-                SourceKind::Comment | SourceKind::Command | SourceKind::Document
-            )
-            .then_some(card.location.as_str());
+            // El CI rojo lleva `archivo:línea` igual que el error local: se juntan (Q53).
+            let path = (card.source_kind != SourceKind::Session).then_some(card.location.as_str());
             format!(
                 "{}\u{1f}{}",
                 card.project.to_lowercase(),
@@ -572,6 +639,7 @@ fn group_cards(cards: Vec<UiCard>, state: &LocalState) -> Vec<UiCard> {
                 source_label: p.source_label.clone(),
                 location: p.location.clone(),
                 occurrences: p.occurrences,
+                url: p.url.clone(),
             })
             .collect();
         grouped.push(card);
@@ -1030,6 +1098,7 @@ pub fn run() {
             app.manage(labels);
             alerts::start(app.handle());
             project_commands::start(app.handle());
+            github_source::start(app.handle());
             live::start(app.handle());
 
             if let Some(window) = app.get_webview_window(shell::MAIN_WINDOW) {
@@ -1070,6 +1139,7 @@ pub fn run() {
             project_commands::get_project_commands,
             project_commands::approve_project_commands,
             project_commands::run_project_command,
+            github_source::get_github_status,
         ])
         .run(tauri::generate_context!())
         .expect("no se pudo iniciar Wakeline");

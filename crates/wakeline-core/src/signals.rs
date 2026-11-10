@@ -18,6 +18,7 @@ use crate::card::{CardKind, CardStatus, SourceKind};
 use crate::code::CodeCard;
 use crate::commands::CommandResult;
 use crate::fingerprint::{normalize_message, normalize_path};
+use crate::github::GithubSnapshot;
 use crate::store::LocalState;
 use crate::watch::normalized_path;
 
@@ -165,13 +166,62 @@ pub fn closed_in_project<'a>(
     project_root: &Path,
 ) -> impl Iterator<Item = (&'a String, &'a SignalMemo)> + 'a {
     let code = code_scope(project_root);
+    let github = github_scope(project_root);
     let commands = format!(
         "command:{}:",
         normalized_path(&project_root.to_string_lossy())
     );
     state.signals.iter().filter(move |(fp, memo)| {
-        state.auto_closed.contains(*fp) && (memo.scope == code || memo.scope.starts_with(&commands))
+        state.auto_closed.contains(*fp)
+            && (memo.scope == code || memo.scope == github || memo.scope.starts_with(&commands))
     })
+}
+
+/// Alcance de GitHub de un proyecto.
+pub fn github_scope(project_root: &Path) -> String {
+    format!(
+        "github:{}",
+        normalized_path(&project_root.to_string_lossy())
+    )
+}
+
+/// Reconcilia la última lectura de GitHub. Si no fue completa (topes, logs que no se
+/// pudieron leer), solo se recuerdan las señales vistas y no se cierra nada (Q54).
+pub fn reconcile_github(
+    state: &mut LocalState,
+    project_root: &Path,
+    project: &str,
+    snapshot: &GithubSnapshot,
+    now: u64,
+) {
+    let scope = github_scope(project_root);
+    let present: Vec<(String, SignalMemo)> = snapshot
+        .cards
+        .iter()
+        .map(|card| {
+            (
+                card.fingerprint.as_str().to_string(),
+                SignalMemo {
+                    scope: scope.clone(),
+                    kind: card.kind,
+                    source: card.source,
+                    label: card.label.clone(),
+                    title: card.title.clone(),
+                    project: project.to_string(),
+                    location: Some(card.location()),
+                    branch: card.branch.clone(),
+                    last_seen: now,
+                },
+            )
+        })
+        .collect();
+    if snapshot.complete {
+        reconcile(state, &scope, present, now);
+    } else {
+        for (fp, memo) in present {
+            state.signals.insert(fp, memo);
+        }
+    }
 }
 
 /// Agrupa por clave conservando el orden de la primera aparición de cada grupo.
@@ -417,6 +467,41 @@ mod tests {
         assert_eq!(state.status_for("a"), CardStatus::Done);
         assert_eq!(state.status_for("b"), CardStatus::Done);
         assert_eq!(group_status(&state, &members), CardStatus::Done);
+    }
+
+    #[test]
+    fn closed_issue_closes_its_card_only_after_a_complete_read() {
+        use crate::fingerprint::Fingerprint;
+        use crate::github::GithubCard;
+
+        let card = GithubCard {
+            fingerprint: Fingerprint::new(CardKind::Error, SourceKind::Issue, Some("u"), "#1 x"),
+            kind: CardKind::Error,
+            source: SourceKind::Issue,
+            label: "Issue".into(),
+            title: "#1 x".into(),
+            url: "u".into(),
+            branch: None,
+            path: None,
+            line: None,
+            occurrences: 1,
+        };
+        let fp = card.fingerprint.as_str().to_string();
+        let snapshot = |cards: Vec<GithubCard>, complete: bool| GithubSnapshot {
+            repo: "o/r".into(),
+            fetched_at: 0,
+            complete,
+            cards,
+            pull_requests: Vec::new(),
+        };
+        let root = Path::new("C:/p");
+        let mut state = LocalState::default();
+        reconcile_github(&mut state, root, "p", &snapshot(vec![card], true), 10);
+        reconcile_github(&mut state, root, "p", &snapshot(Vec::new(), false), 20);
+        assert_eq!(state.status_for(&fp), CardStatus::New);
+        reconcile_github(&mut state, root, "p", &snapshot(Vec::new(), true), 30);
+        assert_eq!(state.status_for(&fp), CardStatus::Done);
+        assert_eq!(closed_in_project(&state, root).count(), 1);
     }
 
     #[test]

@@ -118,7 +118,7 @@ fn read_in_background<R: Read + Send + 'static>(
 
 /// Busca el programa como lo haría la consola, pero sin pasar por ella: `npx` encuentra
 /// `npx.cmd` gracias a `PATHEXT`. Una ruta con barras se toma relativa a `cwd`.
-fn resolve_program(name: &str, cwd: &Path) -> Option<PathBuf> {
+pub(crate) fn resolve_program(name: &str, cwd: &Path) -> Option<PathBuf> {
     let path = Path::new(name);
     if path.components().count() > 1 || path.is_absolute() {
         let candidate = if path.is_absolute() {

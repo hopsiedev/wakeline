@@ -92,11 +92,27 @@ impl DirWatcher {
 }
 
 /// Rutas cuyos cambios no interesan: secretos, dependencias y carpetas de build.
+/// Dentro de `.git` solo interesan las referencias remotas, que cambian al hacer push.
 pub fn is_ignored_path(path: &Path) -> bool {
-    is_excluded(path)
-        || path
-            .components()
-            .any(|c| is_ignored_dir(&c.as_os_str().to_string_lossy()))
+    if is_excluded(path) {
+        return true;
+    }
+    if is_push_signal(path) {
+        return false;
+    }
+    path.components()
+        .any(|c| is_ignored_dir(&c.as_os_str().to_string_lossy()))
+}
+
+/// `true` si el cambio indica un `git push` o `git fetch`: `.git/refs/remotes/**` o
+/// `.git/packed-refs` (Q56).
+pub fn is_push_signal(path: &Path) -> bool {
+    let normalized = path.to_string_lossy().replace('\\', "/");
+    let Some((before, inside)) = normalized.split_once("/.git/") else {
+        return false;
+    };
+    let in_dependency = before.split('/').any(is_ignored_dir);
+    !in_dependency && (inside.starts_with("refs/remotes/") || inside == "packed-refs")
 }
 
 #[cfg(test)]
@@ -109,6 +125,19 @@ mod tests {
         assert!(is_ignored_path(Path::new(r"C:\p\.git\index")));
         assert!(is_ignored_path(Path::new(r"C:\p\.env.local")));
         assert!(!is_ignored_path(Path::new(r"C:\p\src\main.rs")));
+    }
+
+    #[test]
+    fn remote_refs_are_watched_as_push_signals() {
+        let push = Path::new(r"C:\p\.git\refs\remotes\origin\main");
+        assert!(is_push_signal(push));
+        assert!(!is_ignored_path(push));
+        assert!(is_push_signal(Path::new(r"C:\p\.git\packed-refs")));
+        assert!(!is_push_signal(Path::new(r"C:\p\.git\refs\heads\main")));
+        assert!(is_ignored_path(Path::new(r"C:\p\.git\refs\heads\main")));
+        assert!(!is_push_signal(Path::new(
+            r"C:\p\node_modules\x\.git\packed-refs"
+        )));
     }
 
     #[test]

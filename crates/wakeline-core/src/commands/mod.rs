@@ -5,7 +5,7 @@
 //! que aprobarlo otra vez. El único camino para ejecutar es [`TrustedConfig`], que solo
 //! se obtiene con una aprobación vigente.
 
-mod exec;
+pub(crate) mod exec;
 pub mod parsers;
 mod results;
 mod runner;
