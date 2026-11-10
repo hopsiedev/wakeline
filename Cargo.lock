@@ -4943,6 +4943,7 @@ name = "wakeline-core"
 version = "0.1.1"
 dependencies = [
  "ignore",
+ "libc",
  "notify",
  "serde",
  "serde_json",

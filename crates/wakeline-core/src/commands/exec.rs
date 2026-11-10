@@ -59,6 +59,11 @@ fn run_spec(project_root: &Path, spec: &CommandSpec) -> io::Result<RunOutput> {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
 
     let started = Instant::now();
     let mut child = command.spawn()?;
@@ -194,18 +199,24 @@ mod job {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(unix)]
 mod job {
     use std::process::Child;
 
-    pub struct Job;
+    pub struct Job(libc::pid_t);
 
     impl Job {
-        pub fn assign(_child: &Child) -> Option<Self> {
-            None
+        pub fn assign(child: &Child) -> Option<Self> {
+            Some(Self(child.id().try_into().ok()?))
         }
 
-        pub fn terminate(&self) {}
+        pub fn terminate(&self) {
+            // SAFETY: the child starts its own process group before exec; the
+            // negative PID targets that group, including descendants with pipes.
+            unsafe {
+                libc::kill(-self.0, libc::SIGKILL);
+            }
+        }
     }
 }
 

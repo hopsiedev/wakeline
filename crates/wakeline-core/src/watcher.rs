@@ -121,22 +121,22 @@ mod tests {
 
     #[test]
     fn ignores_build_dirs_and_secrets() {
-        assert!(is_ignored_path(Path::new(r"C:\p\node_modules\a\b.js")));
-        assert!(is_ignored_path(Path::new(r"C:\p\.git\index")));
-        assert!(is_ignored_path(Path::new(r"C:\p\.env.local")));
-        assert!(!is_ignored_path(Path::new(r"C:\p\src\main.rs")));
+        assert!(is_ignored_path(Path::new(r"C:/p/node_modules/a/b.js")));
+        assert!(is_ignored_path(Path::new(r"C:/p/.git/index")));
+        assert!(is_ignored_path(Path::new(r"C:/p/.env.local")));
+        assert!(!is_ignored_path(Path::new(r"C:/p/src/main.rs")));
     }
 
     #[test]
     fn remote_refs_are_watched_as_push_signals() {
-        let push = Path::new(r"C:\p\.git\refs\remotes\origin\main");
+        let push = Path::new(r"C:/p/.git/refs/remotes/origin/main");
         assert!(is_push_signal(push));
         assert!(!is_ignored_path(push));
-        assert!(is_push_signal(Path::new(r"C:\p\.git\packed-refs")));
-        assert!(!is_push_signal(Path::new(r"C:\p\.git\refs\heads\main")));
-        assert!(is_ignored_path(Path::new(r"C:\p\.git\refs\heads\main")));
+        assert!(is_push_signal(Path::new(r"C:/p/.git/packed-refs")));
+        assert!(!is_push_signal(Path::new(r"C:/p/.git/refs/heads/main")));
+        assert!(is_ignored_path(Path::new(r"C:/p/.git/refs/heads/main")));
         assert!(!is_push_signal(Path::new(
-            r"C:\p\node_modules\x\.git\packed-refs"
+            r"C:/p/node_modules/x/.git/packed-refs"
         )));
     }
 
