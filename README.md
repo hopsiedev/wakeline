@@ -10,7 +10,15 @@
 
 ---
 
-Wakeline is a Windows desktop app that watches the project folders you choose and gathers the errors, tasks, and ideas left behind in your AI coding sessions and repository docs into cards.
+Wakeline is a desktop app for Windows and Linux that watches the project folders you choose and gathers the errors, tasks, and ideas left behind in your AI coding sessions and repository docs into cards.
+
+## Download and install
+
+Windows x64: extract the ZIP and run `wakeline-app.exe` (WebView2 Runtime required).
+Linux x64: AppImage or DEB, built on Ubuntu 22.04 for Ubuntu 22.04+ / Debian 12+.
+These initial packages use manual updates and no commercial signing certificate.
+See [installation, MCP setup and update instructions](RELEASE.md). Review builds are
+available as CI artifacts; public releases appear only after validation.
 
 Each card keeps its origin (the session, the command that failed, or the file where it was found) and follows a simple workflow: accept it, mark it as done, or dismiss it. Wakeline organizes what needs your attention; it does not edit your code on its own, and it only scans the folders you select.
 
@@ -83,7 +91,7 @@ flowchart LR
   subgraph Core["wakeline-core (Rust)"]
     W["Watched folder filter<br/>watch::is_within"]
     X["Exclusions & redaction<br/>exclusions + redact"]
-    P["Detector & BLAKE3 fingerprint<br/>sessions + docs + fingerprint"]
+    P["Detector & FNV-1a fingerprint<br/>sessions + docs + fingerprint"]
     ST[("Local state<br/>%APPDATA%\\wakeline\\state.json")]
   end
 
@@ -108,7 +116,7 @@ flowchart LR
 
 ### How cards are fingerprinted and persisted
 
-Every finding is normalized (stripping timestamps, temporary paths, and shifting line numbers) and hashed into a stable `BLAKE3` `Fingerprint`:
+Every finding is normalized (stripping timestamps, temporary paths, and shifting line numbers) and hashed into a stable `FNV-1a` `Fingerprint`:
 
 - If a command fails three times with the same error during a session, Wakeline collapses those occurrences into **one card** with a `×3` counter.
 - When you accept, complete, or dismiss a card, that decision is stored by fingerprint in `%APPDATA%\wakeline\state.json`, so rescanning the project never resets your decisions.
@@ -129,7 +137,7 @@ stateDiagram-v2
 
 | Component | Responsibility |
 | --- | --- |
-| `crates/wakeline-core` | Incremental reader for Claude Code JSONL sessions, Markdown pending-section parser, `BLAKE3` fingerprinting, hard secret exclusions (`.env`, credentials, private keys), token redaction, alert cooldowns, and local state persistence in `%APPDATA%\wakeline\state.json`. |
+| `crates/wakeline-core` | Incremental reader for Claude Code JSONL sessions, Markdown pending-section parser, `FNV-1a` fingerprinting, hard secret exclusions (`.env`, credentials, private keys), token redaction, alert cooldowns, and local state persistence in `%APPDATA%\wakeline\state.json`. |
 | `crates/wakeline-mcp` | JSON-RPC 2.0 server over `stdio` supporting MCP protocol versions `2024-11-05`, `2025-11-25`, and `2026-07-28`. Exposes `list_cards`, `get_card`, `create_card`, and `complete_card` over the same watched folders and sources as the desktop app. |
 | `crates/wakeline-cli` | Command-line binary (`wakeline scan`, `wakeline watch`, `wakeline export`, `wakeline mcp`). |
 | `apps/desktop` | Native Windows desktop app built with Tauri v2 (`src-tauri`) and React 19 + MUI v7 (`src`). Includes system tray integration, native Windows toast notifications for new errors, folder picker, and direct VS Code deep links. |

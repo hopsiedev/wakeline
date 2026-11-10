@@ -1,50 +1,13 @@
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
-
+permissions:
+  contents: read
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
-  check:
-    name: Windows
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: apps/desktop/package-lock.json
-
-      - name: Frontend
-        working-directory: apps/desktop
-        run: |
-          npm ci
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm run lint
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm run fm:check
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test tests/card-filters.test.mjs tests/card-selection.test.mjs tests/daily-summary.test.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm run build
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Rust
-        run: |
-          cargo fmt --all -- --check
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --workspace --all-targets -- -D warnings
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --workspace
+  packages:
+    uses: ./.github/workflows/packages.yml
