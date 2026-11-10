@@ -12,19 +12,19 @@ dist/
 # Tauri
 apps/desktop/src-tauri/gen/
 
-# Entorno
+# Environment
 .env
 .env.*
 !.env.example
 
-# Editor y sistema
+# Editors and operating systems
 .vscode/*
 !.vscode/extensions.json
 .idea/
 .DS_Store
 Thumbs.db
 
-# Maquetas, notas de diseño y archivos locales de agentes (quedan en tu disco, fuera del repo)
+# Local mockups, design notes, and agent files
 design/
 docs/
 CLAUDE.md
@@ -32,3 +32,6 @@ CLAUDE.md
 .agents/
 .gemini/
 .clawhub/
+
+# Generated launch videos and render outputs
+/brag-output*/
