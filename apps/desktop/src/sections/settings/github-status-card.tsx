@@ -34,7 +34,7 @@ export function GithubStatusCard() {
   );
 }
 
-function ProjectGithub({ project, isLast }: { project: UiProjectSummary; isLast: boolean }) {
+export function ProjectGithub({ project, isLast }: { project: UiProjectSummary; isLast: boolean }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<UiGithubStatus | null>(null);
 

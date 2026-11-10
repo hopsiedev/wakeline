@@ -10,6 +10,8 @@ import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
+import { RouterLink } from 'src/routes/components';
+
 import {
   runProjectCommand,
   getProjectCommands,
@@ -57,6 +59,7 @@ export function ProjectCommandsCard() {
       {projects.map((project, idx) => (
         <ProjectCommands
           key={project.path}
+          mode="approve"
           project={project}
           isLast={idx === projects.length - 1}
         />
@@ -65,7 +68,16 @@ export function ProjectCommandsCard() {
   );
 }
 
-function ProjectCommands({ project, isLast }: { project: UiProjectSummary; isLast: boolean }) {
+// En Configuración se aprueban los comandos (Q63); en Proyectos se ejecutan (Q64).
+export function ProjectCommands({
+  project,
+  mode,
+  isLast = true,
+}: {
+  project: UiProjectSummary;
+  mode: 'approve' | 'run';
+  isLast?: boolean;
+}) {
   const { t } = useTranslation();
   const [info, setInfo] = useState<UiProjectCommands | null>(null);
   const [running, setRunning] = useState<string | null>(null);
@@ -122,9 +134,14 @@ function ProjectCommands({ project, isLast }: { project: UiProjectSummary; isLas
         <Typography sx={{ flexGrow: 1, fontWeight: 600, fontSize: 14 }}>{project.name}</Typography>
         {info?.trust === 'approved' && <Label color="success">{t('commands.approved')}</Label>}
         {info?.trust === 'changed' && <Label color="warning">{t('commands.changed')}</Label>}
-        {info?.trust && info.trust !== 'approved' && (
+        {mode === 'approve' && info?.trust && info.trust !== 'approved' && (
           <Button size="small" variant="contained" onClick={approve}>
             {t('commands.approve')}
+          </Button>
+        )}
+        {mode === 'run' && info?.trust && info.trust !== 'approved' && (
+          <Button size="small" color="inherit" component={RouterLink} href="/settings">
+            {t('commands.reviewInSettings')}
           </Button>
         )}
       </Box>
@@ -164,7 +181,7 @@ function ProjectCommands({ project, isLast }: { project: UiProjectSummary; isLas
               {command.run.join(' ')}
             </Typography>
           </Box>
-          {approved && (
+          {mode === 'run' && approved && (
             <Button
               size="small"
               color="inherit"
