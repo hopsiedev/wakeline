@@ -5,6 +5,7 @@
 //! exportar `docs/TODO.md` a pedido.
 
 mod alerts;
+mod distribution;
 #[cfg(windows)]
 mod folder_picker;
 mod github_source;
@@ -757,11 +758,21 @@ fn read_git_branch(repo_path: &Path, fallback: &str) -> String {
     fallback.into()
 }
 
-#[cfg(windows)]
 #[tauri::command]
 async fn choose_watch_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let Some(path) = folder_picker::pick()? else {
+        #[cfg(windows)]
+        let picked = folder_picker::pick()?;
+        #[cfg(not(windows))]
+        let picked = {
+            use tauri_plugin_dialog::DialogExt;
+            app.dialog()
+                .file()
+                .blocking_pick_folder()
+                .map(|path| path.into_path().map_err(|error| error.to_string()))
+                .transpose()?
+        };
+        let Some(path) = picked else {
             return Ok(None);
         };
         let path = dunce::canonicalize(path).map_err(|error| error.to_string())?;
@@ -788,12 +799,6 @@ async fn choose_watch_folder(app: tauri::AppHandle) -> Result<Option<String>, St
     })
     .await
     .map_err(|error| error.to_string())?
-}
-
-#[cfg(not(windows))]
-#[tauri::command]
-async fn choose_watch_folder(_app: tauri::AppHandle) -> Result<Option<String>, String> {
-    Err("El selector de carpetas aún no está disponible en este sistema".into())
 }
 
 #[tauri::command]
@@ -1082,24 +1087,41 @@ fn resume_session(project: String, session_id: Option<String>) -> Result<(), Str
                 .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'))
         .then(|| trimmed.to_string())
     });
-    let claude_cmd = match safe_id {
-        Some(id) => format!("claude --resume {id}"),
-        None => "claude --continue".into(),
-    };
-    std::process::Command::new("cmd")
-        .args([
-            "/C",
-            "start",
-            "Claude Code",
-            "/D",
-            &base_dir.to_string_lossy(),
-            "cmd",
-            "/K",
-            &claude_cmd,
-        ])
-        .spawn()
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+    #[cfg(not(windows))]
+    {
+        let mut terminal = std::process::Command::new("x-terminal-emulator");
+        terminal.current_dir(&base_dir).args(["-e", "claude"]);
+        if let Some(id) = safe_id {
+            terminal.args(["--resume", &id]);
+        } else {
+            terminal.arg("--continue");
+        }
+        terminal
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+    #[cfg(windows)]
+    {
+        let claude_cmd = match safe_id {
+            Some(id) => format!("claude --resume {id}"),
+            None => "claude --continue".into(),
+        };
+        std::process::Command::new("cmd")
+            .args([
+                "/C",
+                "start",
+                "Claude Code",
+                "/D",
+                &base_dir.to_string_lossy(),
+                "cmd",
+                "/K",
+                &claude_cmd,
+            ])
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
 }
 
 /// Botón «Probar aviso» de la configuración.
@@ -1109,7 +1131,18 @@ fn test_notification(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn get_mcp_executable() -> Option<String> {
+fn get_mcp_executable(app: tauri::AppHandle) -> Option<String> {
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(image) = std::env::var_os("APPIMAGE") {
+            let cli = PathBuf::from(image).with_file_name("wakeline");
+            return cli.is_file().then(|| cli.display().to_string());
+        }
+        let installed = Path::new("/usr/bin/wakeline");
+        if installed.is_file() {
+            return Some(installed.display().to_string());
+        }
+    }
     let sibling = std::env::current_exe()
         .ok()?
         .with_file_name(if cfg!(windows) {
@@ -1117,13 +1150,21 @@ fn get_mcp_executable() -> Option<String> {
         } else {
             "wakeline"
         });
-    sibling.is_file().then(|| sibling.display().to_string())
+    if sibling.is_file() {
+        return Some(sibling.display().to_string());
+    }
+    let resource = app.path().resource_dir().ok()?.join("wakeline");
+    resource.is_file().then(|| resource.display().to_string())
 }
 
 /// Arranca la app de escritorio con los comandos del núcleo registrados.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default();
+    #[cfg(not(windows))]
+    {
+        builder = builder.plugin(tauri_plugin_dialog::init());
+    }
     // En desarrollo, la instancia vieja puede seguir abierta sin su servidor Vite.
     // Si intercepta `tauri dev`, el proceso nuevo sale y mata el servidor recién iniciado.
     if !tauri::is_dev() {
@@ -1156,7 +1197,8 @@ pub fn run() {
         })
         // La ✕ esconde la ventana en la bandeja en vez de cerrar la app.
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event
+            if cfg!(windows)
+                && let tauri::WindowEvent::CloseRequested { api, .. } = event
                 && window.label() == shell::MAIN_WINDOW
             {
                 api.prevent_close();

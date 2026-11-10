@@ -1,74 +1,33 @@
-# Publica Wakeline en GitHub Releases al etiquetar una versión (Q60).
-#
-# Antes de la primera versión, una sola vez y en tu equipo:
-#   1. cd apps/desktop && npm run tauri signer generate -- -w "%USERPROFILE%\.tauri\wakeline.key"
-#   2. Pega la clave pública (wakeline.key.pub) en `plugins.updater.pubkey` de
-#      apps/desktop/src-tauri/tauri.conf.json.
-#   3. En GitHub, Settings > Secrets and variables > Actions, crea:
-#        TAURI_SIGNING_PRIVATE_KEY           contenido de wakeline.key
-#        TAURI_SIGNING_PRIVATE_KEY_PASSWORD  su contraseña (vacío si no pusiste)
-#      La clave privada no se sube nunca al repositorio.
-#
-# Para publicar: sube la versión en tauri.conf.json y los Cargo.toml, crea la etiqueta
-# `vX.Y.Z` y súbela. El workflow deja un release en borrador con el .msi, el instalador
-# NSIS, sus firmas y latest.json; revísalo y publícalo a mano. Mientras siga en
-# borrador, el actualizador de la app no lo ve.
-#
-# Sin firma de código de Windows por ahora: SmartScreen avisará al instalar.
-
+# Manual runs only build review artifacts. Tags create a draft, never a public release.
+# Initial packages use manual updates and need no signing secrets.
 name: Release
-
 on:
+  workflow_dispatch:
   push:
     tags: ['v*']
-
 permissions:
-  contents: write
-
+  contents: read
 jobs:
-  release:
-    name: Windows
-    runs-on: windows-latest
+  build:
+    uses: ./.github/workflows/packages.yml
+  draft:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v4
+      - uses: actions/download-artifact@v8
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: apps/desktop/package-lock.json
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Dependencias del frontend
-        working-directory: apps/desktop
-        run: npm ci
-
-      - name: Comprobar la clave pública del actualizador
-        shell: pwsh
-        run: |
-          $config = Get-Content apps/desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
-          if ($config.plugins.updater.pubkey -like 'REEMPLAZAR*') {
-            Write-Error 'Falta la clave pública en plugins.updater.pubkey (ver cabecera de este archivo).'
-            exit 1
-          }
-
-      # tauri-apps/tauri-action action-v1.0.0
-      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f
+          path: release-packages
+      - name: Create review draft from the tagged commit
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          projectPath: apps/desktop
-          tagName: ${{ github.ref_name }}
-          releaseName: Wakeline ${{ github.ref_name }}
-          releaseDraft: true
-          prerelease: false
-          uploadUpdaterJson: true
-          updaterJsonPreferNsis: true
-          # En local no hace falta la clave: solo el release genera los artefactos firmados
-          # (src-tauri/tauri.release.conf.json activa createUpdaterArtifacts).
-          args: --config src-tauri/tauri.release.conf.json
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          test "$TAG" = "v$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")"
+          mapfile -t assets < <(find release-packages -type f \( -name '*.zip' -o -name '*.sha256' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.tar.gz' -o -name SHA256SUMS -o -name 'build-info-*.json' \))
+          test "${#assets[@]}" -gt 0
+          gh release create "$TAG" "${assets[@]}" --verify-tag --target "$COMMIT" --draft --title "Wakeline $TAG - Windows and Linux" --notes-file RELEASE.md

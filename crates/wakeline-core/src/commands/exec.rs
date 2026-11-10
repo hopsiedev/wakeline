@@ -215,6 +215,21 @@ mod tests {
     use crate::commands::{approve, load_trusted};
     use crate::store::LocalState;
 
+    #[cfg(unix)]
+    #[test]
+    fn unix_timeout_stops_descendants_holding_output_pipes() {
+        let (dir, state) = project_with(
+            "unix-tree",
+            "[[command]]\nname = \"slow\"\nrun = [\"/bin/sh\", \"-c\", \"sleep 30 & wait\"]\ntimeout_secs = 1\n",
+        );
+        let trusted = load_trusted(&dir, &state).unwrap();
+        let started = Instant::now();
+        let result = execute(&dir, &trusted, "slow").unwrap();
+        assert!(result.timed_out);
+        assert!(started.elapsed() < Duration::from_secs(5));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     fn project_with(name: &str, toml: &str) -> (PathBuf, LocalState) {
         let dir = std::env::temp_dir().join(format!("wakeline-exec-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
