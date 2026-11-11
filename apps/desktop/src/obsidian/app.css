@@ -239,6 +239,16 @@
   background: #0008;
   backdrop-filter: blur(5px);
 }
+.obsidian-analytics-dashboard .real-card-detail .wk-todo-side-body {
+  grid-template-columns: minmax(0, 1fr);
+  overflow-wrap: anywhere;
+}
+.obsidian-analytics-dashboard .real-card-detail .wk-todo-side-body > * {
+  min-width: 0;
+}
+.obsidian-analytics-dashboard .real-card-detail dl > div {
+  grid-template-columns: 70px minmax(0, 1fr);
+}
 .obsidian-analytics-dashboard .real-modal pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
