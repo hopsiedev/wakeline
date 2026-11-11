@@ -138,7 +138,3 @@ To regenerate documentation images: run `npm run dev`, then `npx playwright inst
 
 The Rust core is shared by the desktop app, CLI, and MCP server. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for interface, library, font, and logo credits. Licensed under [MIT](LICENSE-MIT).
 From 0.1.6, a new version triggers a system notification and a green sidebar indicator. Open it and choose **Update now**. The app waits for your action before installing; portable and Linux builds open the manual download. Weekly/monthly metrics show comparisons when a prior baseline exists; Today has no percentage.
-
-![Up-to-date summary](assets/screenshots/daily-summary-empty-en.png)
-
-![Update available](assets/screenshots/update-available-en.png)
