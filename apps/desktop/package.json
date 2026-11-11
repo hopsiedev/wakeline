@@ -1,7 +1,7 @@
 {
   "name": "wakeline-desktop",
   "author": "The Wakeline contributors",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,7 +16,8 @@
     "tsc:watch": "tsc --noEmit --watch",
     "tsc:print": "npx tsc --showConfig",
     "tauri": "tauri",
-    "docs:screenshots": "node scripts/capture-docs.mjs"
+    "docs:screenshots": "node scripts/capture-docs.mjs",
+    "test:fixes": "node scripts/regression-016.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -69,6 +69,32 @@ export function PrChat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const readingImages = useRef(false);
+  const pickersRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const closePickers = (event: PointerEvent | globalThis.KeyboardEvent) => {
+      const root = pickersRef.current;
+      if (!root) return;
+      if (event.type === 'keydown' && (event as globalThis.KeyboardEvent).key !== 'Escape') return;
+      const inside =
+        event.type === 'pointerdown' ? (event.target as Element).closest?.('details') : null;
+      const open = root.querySelectorAll<HTMLDetailsElement>('details[open]');
+      for (const picker of open) {
+        if (inside === picker) continue;
+        picker.open = false;
+        if (event.type === 'keydown') picker.querySelector<HTMLElement>('summary')?.focus();
+      }
+      if (event.type === 'keydown' && open.length) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    document.addEventListener('pointerdown', closePickers);
+    document.addEventListener('keydown', closePickers, true);
+    return () => {
+      document.removeEventListener('pointerdown', closePickers);
+      document.removeEventListener('keydown', closePickers, true);
+    };
+  }, []);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentsError, setAgentsError] = useState(false);
   const uid = useId();
@@ -397,7 +423,7 @@ export function PrChat({
               void addImages(files);
             }}
           />
-          <div className="wk-chat-selectors">
+          <div className="wk-chat-selectors" ref={pickersRef}>
             <details className="wk-chat-picker" name={`${uid}-picker`}>
               <summary className="chip">
                 <AgentLogo id={agent?.id ?? 'claude'} />

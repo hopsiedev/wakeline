@@ -14,6 +14,24 @@ export type Release = {
 // Every release is required to carry both languages; tests enforce non-empty copy.
 export const RELEASES: Release[] = [
   {
+    version: '0.1.6',
+    features: [],
+    fixes: {
+      es: [
+        'Resumen diario con el diseño aprobado y estado Estás al día sin espacios vacíos.',
+        'Selectores del chat y atajos se cierran con Escape y clic fuera.',
+        'Comparativas porcentuales en semana y mes; Hoy sin porcentajes.',
+        'Aviso del sistema e indicador verde para actualizar cuando tú decidas.',
+      ],
+      en: [
+        'Daily summary with the approved layout and a compact up-to-date state.',
+        'Chat pickers and shortcuts dismiss with Escape or an outside click.',
+        'Percentage comparisons for week and month; no percentage for Today.',
+        'System notification and green sidebar indicator; install when you choose.',
+      ],
+    },
+  },
+  {
     version: '0.1.5',
     features: [
       {

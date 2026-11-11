@@ -5,7 +5,7 @@
 
 Wakeline es una aplicación de escritorio para Windows y Linux. Reúne hallazgos de los proyectos que eliges, sesiones de Claude Code, comentarios del código, resultados de comandos, documentos y GitHub. Tus proyectos y decisiones se guardan localmente.
 
-[Descargar la última versión](https://github.com/hopsiedev/wakeline/releases/latest) · [Instalación y actualizaciones](RELEASE.md) · [Novedades de 0.1.5](RELEASE-NOTES.md)
+[Descargar la última versión](https://github.com/hopsiedev/wakeline/releases/latest) · [Instalación y actualizaciones](RELEASE.md) · [Novedades de 0.1.6](RELEASE-NOTES.md)
 
 ![Resumen con proyectos ficticios de Orbit](assets/screenshots/summary-es.png)
 
@@ -137,3 +137,8 @@ npm run tauri dev
 Para regenerar las capturas, ejecuta `npm run dev` y, en otra terminal, `npx playwright install chromium` y `npm run docs:screenshots`. El script intercepta la API de desarrollo con datos ficticios y comprueba alineación del chat, crecimiento del texto y apertura/cierre. No lee sesiones reales ni invoca agentes. `WAKELINE_DOCS_URL` permite usar otra dirección de servidor local. Los datos de ejemplo y el puente de revisión de desarrollo no son fuentes de producción.
 
 El núcleo Rust es compartido por la app de escritorio, el CLI y MCP. Consulta [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) para los créditos de interfaz, bibliotecas, fuentes y logos. Licencia [MIT](LICENSE-MIT).
+Desde la 0.1.6, una versión nueva activa un aviso del sistema y un indicador verde en el sidebar. Ábrelo y pulsa **Actualizar ahora**. La instalación espera tu acción; portable y Linux abren la descarga manual. Semana/mes muestran comparaciones si existe una base previa; Hoy no muestra porcentajes.
+
+![Resumen sin pendientes](assets/screenshots/daily-summary-empty-es.png)
+
+![Actualización disponible](assets/screenshots/update-available-es.png)
