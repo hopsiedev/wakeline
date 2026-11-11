@@ -577,12 +577,12 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn set_card_status(input: StatusInput) -> Result<(), String> {
     set_cards_status(vec![input])
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn set_cards_status(inputs: Vec<StatusInput>) -> Result<(), String> {
     let _guard = STATE_ACCESS
         .lock()
@@ -599,7 +599,7 @@ fn set_cards_status(inputs: Vec<StatusInput>) -> Result<(), String> {
     state.save(&path).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn create_card(input: CreateCardInput) -> Result<String, String> {
     let _guard = STATE_ACCESS
         .lock()
@@ -837,7 +837,7 @@ async fn choose_watch_folder(app: tauri::AppHandle) -> Result<Option<String>, St
     .map_err(|error| error.to_string())?
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn remove_watch_folder(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let _guard = STATE_ACCESS
         .lock()
@@ -916,10 +916,19 @@ async fn get_account(app: tauri::AppHandle) -> Result<wakeline_core::account::Ac
 }
 
 #[tauri::command]
-async fn get_github_workspace(since: String) -> Result<serde_json::Value, String> {
-    tauri::async_runtime::spawn_blocking(move || wakeline_core::github_workspace::cached(&since))
-        .await
-        .map_err(|error| error.to_string())?
+async fn get_github_workspace(
+    since: String,
+    force: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if force.unwrap_or(false) {
+            wakeline_core::github_workspace::refreshed(&since)
+        } else {
+            wakeline_core::github_workspace::cached(&since)
+        }
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -1038,7 +1047,7 @@ fn project_base_dir(project: &str) -> Result<PathBuf, String> {
 }
 
 /// Lista una carpeta elegida para el explorador, sin seguir enlaces fuera del proyecto.
-#[tauri::command]
+#[tauri::command(async)]
 fn list_project_files(
     project: String,
     relative_path: Option<String>,
@@ -1185,7 +1194,7 @@ async fn open_in_editor(
     .map_err(|error| error.to_string())?
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn open_in_vscode(
     app: tauri::AppHandle,
     project: String,
@@ -1213,7 +1222,7 @@ fn open_in_vscode(
 }
 
 /// Abre una ventana de consola en la carpeta del proyecto con `claude --resume <id>`.
-#[tauri::command]
+#[tauri::command(async)]
 fn resume_session(project: String, session_id: Option<String>) -> Result<(), String> {
     let base_dir = project_base_dir(&project)?;
     let safe_id = session_id.and_then(|id| {
@@ -1261,7 +1270,7 @@ fn resume_session(project: String, session_id: Option<String>) -> Result<(), Str
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_mcp_executable(app: tauri::AppHandle) -> Option<String> {
     #[cfg(target_os = "linux")]
     {
@@ -1288,11 +1297,11 @@ fn get_mcp_executable(app: tauri::AppHandle) -> Option<String> {
     resource.is_file().then(|| resource.display().to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_startup_enabled() -> Result<bool, String> {
     startup::enabled()
 }
-#[tauri::command]
+#[tauri::command(async)]
 fn set_startup_enabled(enabled: bool) -> Result<bool, String> {
     startup::set_enabled(enabled)
 }

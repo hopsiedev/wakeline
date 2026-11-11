@@ -26,7 +26,7 @@ pub(crate) fn load_intelligence() -> Result<serde_json::Value, String> {
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_intelligence(
     config: Config,
     api_key: Option<String>,
