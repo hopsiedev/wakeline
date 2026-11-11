@@ -68,7 +68,7 @@ export const account = {
   codex_mcp: true,
   antigravity_mcp: true,
   ollama: false,
-  version: '0.1.6',
+  version: '0.1.7',
 };
 export const github = {
   user,
@@ -181,7 +181,7 @@ export function response(command) {
     case 'get_mcp_executable':
       return 'C:\\Program Files\\Wakeline\\wakeline.exe';
     case 'check_update':
-      return { state: 'up_to_date', current_version: '0.1.6', version: '0.1.6' };
+      return { state: 'up_to_date', current_version: '0.1.7', version: '0.1.7' };
     default:
       return null;
   }

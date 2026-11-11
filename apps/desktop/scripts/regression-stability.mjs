@@ -12,7 +12,7 @@ try {
   });
   await context.addInitScript(() => {
     localStorage.setItem('wakeline-lang', 'en');
-    localStorage.setItem('wakeline-release-shown', '0.1.6');
+    localStorage.setItem('wakeline-release-shown', '0.1.7');
     localStorage.setItem('wakeline-daily-summary-enabled', 'false');
   });
   const page = await context.newPage();
