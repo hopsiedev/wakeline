@@ -14,6 +14,8 @@ use serde_json::{Value, json};
 
 /// Seconds a successful sync is reused before asking GitHub again.
 const FRESH_SECS: u64 = 10 * 60;
+/// Seconds a sync is reused even when the user asks to refresh.
+const FORCED_FRESH_SECS: u64 = 30;
 /// Seconds a failed sync (without saved data) is reused before retrying.
 const ERROR_SECS: u64 = 5 * 60;
 /// Cool-down when GitHub limits the account and does not say until when.
@@ -59,17 +61,28 @@ fn is_rate_limit(message: &str) -> bool {
 
 /// Cache survives WebView reloads and restarts. See the module docs for the policy.
 pub fn cached(since: &str) -> Result<Value, String> {
+    cached_within(since, FRESH_SECS)
+}
+
+/// Same as [`cached`], but only reuses a sync from the last few seconds: the user
+/// asked to refresh. A rate-limit cool-down is still respected.
+pub fn refreshed(since: &str) -> Result<Value, String> {
+    cached_within(since, FORCED_FRESH_SECS)
+}
+
+fn cached_within(since: &str, fresh_secs: u64) -> Result<Value, String> {
     let _sync = SYNC.lock().unwrap_or_else(|error| error.into_inner());
     let path = crate::store::LocalState::default_path().with_file_name("github-workspace.json");
     let envelope = std::fs::read(&path)
         .ok()
         .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
         .unwrap_or(Value::Null);
-    let (value, write) = decide(
+    let (value, write) = decide_within(
         &crate::github::SystemGh,
         since,
         &envelope,
         crate::github::unix_now(),
+        fresh_secs,
     );
     if let Some(next) = write {
         save(&path, &next);
@@ -77,12 +90,23 @@ pub fn cached(since: &str) -> Result<Value, String> {
     value
 }
 
-/// Pure cache policy: what to answer and what to store, given the saved envelope.
+#[cfg(test)]
 fn decide(
     gh: &dyn GhClient,
     since: &str,
     envelope: &Value,
     now: u64,
+) -> (Result<Value, String>, Option<Value>) {
+    decide_within(gh, since, envelope, now, FRESH_SECS)
+}
+
+/// Pure cache policy: what to answer and what to store, given the saved envelope.
+fn decide_within(
+    gh: &dyn GhClient,
+    since: &str,
+    envelope: &Value,
+    now: u64,
+    fresh_secs: u64,
 ) -> (Result<Value, String>, Option<Value>) {
     let saved = envelope["data"].is_object().then(|| &envelope["data"]);
     let at = envelope["at"].as_u64().unwrap_or_default();
@@ -98,7 +122,7 @@ fn decide(
         );
     }
     if let Some(data) = saved
-        && now.saturating_sub(at) < FRESH_SECS
+        && now.saturating_sub(at) < fresh_secs
     {
         return (Ok(prune(data, since)), None);
     }
@@ -200,6 +224,36 @@ fn page(gh: &dyn GhClient, route: &str) -> Result<Vec<Value>, String> {
         .map_err(|e| crate::redact::redact(&e.to_string()))?;
     serde_json::from_str(&output).map_err(|e| e.to_string())
 }
+/// GitHub accounts that GitHub itself links to the agents' `Co-authored-by` emails.
+const AGENT_ACCOUNTS: &[(&str, &str)] = &[
+    ("noreply@anthropic.com", "claude"),
+    ("noreply@openai.com", "codex"),
+];
+
+/// The coding agent named in a `Co-authored-by:` trailer of the commit message.
+fn agent_co_author(message: &str) -> Option<&'static str> {
+    message.lines().find_map(|line| {
+        let (key, value) = line.trim().split_once(':')?;
+        if !key.trim().eq_ignore_ascii_case("co-authored-by") {
+            return None;
+        }
+        let email = value.split_once('<')?.1.split_once('>')?.0.trim();
+        AGENT_ACCOUNTS
+            .iter()
+            .find(|(known, _)| known.eq_ignore_ascii_case(email))
+            .map(|(_, login)| *login)
+    })
+}
+
+/// Profile picture of an agent account, read once per sync and cached by `gh` for a day.
+fn agent_avatar(gh: &dyn GhClient, login: &str) -> Option<String> {
+    let output = gh
+        .run(&["api", &format!("users/{login}"), "--cache", "24h"])
+        .ok()?;
+    let user: Value = serde_json::from_str(&output).ok()?;
+    user["avatar_url"].as_str().map(str::to_string)
+}
+
 fn text(value: &Value, key: &str) -> String {
     value[key].as_str().unwrap_or_default().to_string()
 }
@@ -320,6 +374,7 @@ fn sync(gh: &dyn GhClient, since: &str, saved: Option<&Value>, now: u64) -> Resu
     let mut prs = Vec::new();
     let mut commits = Vec::new();
     let mut warnings = Vec::new();
+    let mut agents: HashMap<&str, Option<String>> = HashMap::new();
     for repo in repositories {
         let name = text(&repo, "full_name");
         if !valid_repository(&name) {
@@ -382,7 +437,9 @@ fn sync(gh: &dyn GhClient, since: &str, saved: Option<&Value>, now: u64) -> Resu
         let previous = saved_commits.remove(&name).unwrap_or_default();
         if saved_pushed.get(&name) == Some(&pushed_at)
             && !pushed_at.is_empty()
-            && previous.iter().all(|commit| !commit["author"].is_null())
+            && previous
+                .iter()
+                .all(|commit| !commit["author"].is_null() && commit["agent"].is_string())
         {
             commits.extend(previous);
             continue;
@@ -393,12 +450,24 @@ fn sync(gh: &dyn GhClient, since: &str, saved: Option<&Value>, now: u64) -> Resu
         ) {
             Ok(items) => {
                 for commit in items {
-                    let author = commit["author"]["login"]
+                    let mut author = commit["author"]["login"]
                         .as_str()
                         .filter(|name| !name.trim().is_empty())
                         .or_else(|| commit["commit"]["author"]["name"].as_str())
-                        .or_else(|| commit["commit"]["committer"]["name"].as_str());
-                    commits.push(json!({"repository":name,"sha":commit["sha"],"at":commit["commit"]["author"]["date"],"author":author,"avatar_url":commit["author"]["avatar_url"]}));
+                        .or_else(|| commit["commit"]["committer"]["name"].as_str())
+                        .map(str::to_string);
+                    let mut avatar = commit["author"]["avatar_url"].clone();
+                    // Work co-authored by a coding agent is credited to the agent's account.
+                    let agent = agent_co_author(commit["commit"]["message"].as_str().unwrap_or(""));
+                    if let Some(login) = agent {
+                        author = Some(login.to_string());
+                        avatar = agents
+                            .entry(login)
+                            .or_insert_with(|| agent_avatar(gh, login))
+                            .clone()
+                            .map_or(Value::Null, Value::String);
+                    }
+                    commits.push(json!({"repository":name,"sha":commit["sha"],"at":commit["commit"]["author"]["date"],"author":author,"avatar_url":avatar,"agent":agent.unwrap_or("")}));
                 }
             }
             Err(_) if guarded.blocked.get() => commits.extend(previous),
@@ -548,6 +617,58 @@ mod tests {
         )
         .unwrap();
         assert_eq!(data["commits"][0]["author"], "A real Git author");
+    }
+    #[test]
+    fn agent_co_authored_commits_are_credited_to_the_agent_account() {
+        struct Agents(Fixture);
+        impl GhClient for Agents {
+            fn run(&self, args: &[&str]) -> Result<String, GhError> {
+                let route = args.get(1).copied().unwrap_or_default();
+                if route.contains("/commits?") {
+                    return Ok(r#"[[
+                        {"sha":"a","author":{"login":"owner","avatar_url":"https://avatars.githubusercontent.com/u/1"},"commit":{"message":"Fix\n\nCo-authored-by: Codex <noreply@openai.com>","author":{"date":"2026-11-11T10:00:00Z"}}},
+                        {"sha":"b","author":{"login":"owner","avatar_url":"https://avatars.githubusercontent.com/u/1"},"commit":{"message":"Add\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>","author":{"date":"2026-11-11T11:00:00Z"}}},
+                        {"sha":"c","author":{"login":"owner","avatar_url":"https://avatars.githubusercontent.com/u/1"},"commit":{"message":"Solo\n\nCo-authored-by: Friend <friend@example.com>","author":{"date":"2026-11-11T12:00:00Z"}}}
+                    ]]"#.into());
+                }
+                if route == "users/codex" {
+                    return Ok(r#"{"login":"codex","avatar_url":"https://avatars.githubusercontent.com/u/267193182?v=4"}"#.into());
+                }
+                if route == "users/claude" {
+                    return Ok(r#"{"login":"claude","avatar_url":"https://avatars.githubusercontent.com/u/81847?v=4"}"#.into());
+                }
+                self.0.run(args)
+            }
+        }
+        let data = load(
+            &Agents(Fixture {
+                calls: RefCell::new(Vec::new()),
+            }),
+            "2026-11-01T00:00:00Z",
+        )
+        .unwrap();
+        let commit = |sha: &str| {
+            data["commits"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|commit| commit["sha"] == sha)
+                .unwrap()
+                .clone()
+        };
+        assert_eq!(commit("a")["author"], "codex");
+        assert_eq!(
+            commit("a")["avatar_url"],
+            "https://avatars.githubusercontent.com/u/267193182?v=4"
+        );
+        assert_eq!(commit("b")["author"], "claude");
+        assert_eq!(
+            commit("b")["avatar_url"],
+            "https://avatars.githubusercontent.com/u/81847?v=4"
+        );
+        // Human co-authors do not move the credit away from the author.
+        assert_eq!(commit("c")["author"], "owner");
+        assert_eq!(commit("c")["agent"], "");
     }
     impl GhClient for Fixture {
         fn run(&self, args: &[&str]) -> Result<String, GhError> {

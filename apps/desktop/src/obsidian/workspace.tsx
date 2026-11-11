@@ -68,6 +68,8 @@ const NAV = [
   { path: '/cards', key: 'nav.cards', Icon: ListTodo },
 ];
 
+const GITHUB_POLL_MS = 2 * 60 * 1000;
+
 export function ObsidianLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const location = useLocation();
@@ -77,11 +79,12 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
   const [github, setGithub] = useState<GithubWorkspace | null>(getCachedGithubWorkspace);
   const [githubBusy, setGithubBusy] = useState(false);
   const [githubError, setGithubError] = useState<string | null>(null);
-  const reloadGithub = useCallback(async () => {
+  // Only the Refresh button skips the backend cache; the rest reads it.
+  const reloadGithub = useCallback(async (force = true) => {
     setGithubBusy(true);
     setGithubError(null);
     try {
-      setGithub(await fetchGithubWorkspace(true));
+      setGithub(await fetchGithubWorkspace(force));
     } catch (cause) {
       setGithubError(String(cause));
     } finally {
@@ -135,7 +138,11 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
     void fetchAccount()
       .then(setAccount)
       .catch((cause) => setGithubError(String(cause)));
-    void reloadGithub();
+    void reloadGithub(false);
+    // New pull requests show up once the backend cache renews, without a restart.
+    const githubTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') void reloadGithub(false);
+    }, GITHUB_POLL_MS);
     const refresh = () => {
       void reload();
     };
@@ -143,6 +150,7 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
     const frame = requestAnimationFrame(() => setBooted(true));
     return () => {
       stop();
+      clearInterval(githubTimer);
       cancelAnimationFrame(frame);
       window.removeEventListener('wakeline:rescan', refresh);
     };
