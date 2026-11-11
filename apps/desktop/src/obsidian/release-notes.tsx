@@ -229,14 +229,39 @@ export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
                     </div>
                   </section>
                 ))}
-              <section className="wk-release-fixes">
+              <section className="wk-release-fixes" data-patch={patchOnly}>
                 <h3>
                   <Kind kind="fix" />
                   {t('releasePresentation.ui.what_we_fixed')}
+                  <span className="wk-fix-count">{fixes.length}</span>
                 </h3>
-                {fixes.map((text) => (
-                  <p key={text}>{text}</p>
-                ))}
+                {/* Fixes enter one after another, like the update presentation. */}
+                <ul>
+                  {fixes.map((text, index) => (
+                    <motion.li
+                      key={text}
+                      initial={reduced ? false : { opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.12 + index * 0.08, duration: 0.32, ease: 'easeOut' }}
+                    >
+                      <motion.span
+                        className="wk-fix-check"
+                        aria-hidden="true"
+                        initial={reduced ? false : { scale: 0.4, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{
+                          delay: 0.24 + index * 0.08,
+                          type: 'spring',
+                          stiffness: 420,
+                          damping: 18,
+                        }}
+                      >
+                        <Check size={13} strokeWidth={3} />
+                      </motion.span>
+                      <span>{text}</span>
+                    </motion.li>
+                  ))}
+                </ul>
               </section>
             </div>
             <footer className="wk-release-footer">

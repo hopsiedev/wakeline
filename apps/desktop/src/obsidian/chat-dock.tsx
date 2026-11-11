@@ -1,10 +1,10 @@
-import { X } from 'lucide-react';
-import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
+import { useRef, useState, useEffect } from 'react';
+import { X, Check, ChevronDown } from 'lucide-react';
 
-import { PrChat } from './pr-chat';
 import { useWorkspace } from './workspace-context';
+import { PrChat, threadHasMessages } from './pr-chat';
 
 type Session = {
   id: string;
@@ -22,12 +22,28 @@ function savedSessions(): Session[] {
           general,
           ...saved.filter(
             (s: Session) =>
-              s.id !== general.id && typeof s.id === 'string' && typeof s.repository === 'string'
+              s.id !== general.id &&
+              typeof s.id === 'string' &&
+              typeof s.repository === 'string' &&
+              threadHasMessages(s.id)
           ),
         ].slice(0, 60)
       : [general];
   } catch {
     return [general];
+  }
+}
+// Only conversations where someone wrote are kept between visits.
+function persistSessions(sessions: Session[]) {
+  try {
+    localStorage.setItem(
+      'wakeline-review-sessions',
+      JSON.stringify(
+        sessions.filter((item) => item.id !== general.id && threadHasMessages(item.id))
+      )
+    );
+  } catch {
+    /* Optional cache. */
   }
 }
 
@@ -72,12 +88,14 @@ export function ChatDock() {
       overview: !match,
     };
     setSessions((previous) => {
-      const next = [...previous.filter((item) => item.id !== session.id), session].slice(-60);
-      try {
-        localStorage.setItem('wakeline-review-sessions', JSON.stringify(next));
-      } catch {
-        /* Optional cache. */
-      }
+      // Drop the empty sessions left behind; the one being opened stays visible.
+      const next = [
+        ...previous.filter(
+          (item) => item.id !== session.id && (item.id === general.id || threadHasMessages(item.id))
+        ),
+        session,
+      ].slice(-60);
+      persistSessions(next);
       return next;
     });
     setCurrent(session.id);
@@ -87,31 +105,68 @@ export function ChatDock() {
       /* Optional cache. */
     }
   }, [location.pathname, location.search]);
+  useEffect(() => {
+    const written = () => setSessions((previous) => (persistSessions(previous), previous));
+    window.addEventListener('wakeline:chat-thread', written);
+    return () => window.removeEventListener('wakeline:chat-thread', written);
+  }, []);
+  const picker = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const dismiss = (event: PointerEvent | KeyboardEvent) => {
+      const menu = picker.current;
+      if (!menu?.open) return;
+      if (event instanceof KeyboardEvent) {
+        if (event.key !== 'Escape') return;
+        event.stopPropagation();
+        menu.querySelector<HTMLElement>('summary')?.focus();
+      } else if (menu.contains(event.target as Node)) return;
+      menu.open = false;
+    };
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', dismiss, true);
+    return () => {
+      document.removeEventListener('pointerdown', dismiss);
+      document.removeEventListener('keydown', dismiss, true);
+    };
+  }, []);
   const active = sessions.find((session) => session.id === current) ?? general;
+  const label = (session: Session) =>
+    session.overview
+      ? `${t('nav.pullRequests')} · ${session.repository || t('reviewChat.allRepositories')}`
+      : `${session.repository} #${session.number} · ${github?.pull_requests.find((pr) => pr.repository === session.repository && pr.number === session.number)?.title ?? session.title ?? ''}`;
   if (!open) return null;
   return (
     <section className="wk-chat-dock" aria-label={t('reviewChat.sessions')}>
       <div className="wk-chat-sessions">
-        <select
-          aria-label={t('reviewChat.sessions')}
-          value={active.id}
-          onChange={(event) => {
-            setCurrent(event.target.value);
-            try {
-              localStorage.setItem('wakeline-review-session', event.target.value);
-            } catch {
-              /* Optional cache. */
-            }
-          }}
-        >
-          {sessions.map((session) => (
-            <option key={session.id} value={session.id}>
-              {session.overview
-                ? `${t('nav.pullRequests')} · ${session.repository || t('reviewChat.allRepositories')}`
-                : `${session.repository} #${session.number} · ${github?.pull_requests.find((pr) => pr.repository === session.repository && pr.number === session.number)?.title ?? session.title ?? ''}`}
-            </option>
-          ))}
-        </select>
+        <details ref={picker} className="wk-session-picker">
+          <summary aria-label={t('reviewChat.sessions')}>
+            <span>{label(active)}</span>
+            <ChevronDown size={14} />
+          </summary>
+          <div className="wk-chat-options" role="menu" aria-label={t('reviewChat.sessions')}>
+            {[...sessions].reverse().map((session) => (
+              <button
+                key={session.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={session.id === active.id}
+                aria-pressed={session.id === active.id}
+                onClick={() => {
+                  setCurrent(session.id);
+                  if (picker.current) picker.current.open = false;
+                  try {
+                    localStorage.setItem('wakeline-review-session', session.id);
+                  } catch {
+                    /* Optional cache. */
+                  }
+                }}
+              >
+                <span>{label(session)}</span>
+                {session.id === active.id && <Check size={14} />}
+              </button>
+            ))}
+          </div>
+        </details>
         <button
           className="icon-btn"
           aria-label={t('account.close')}
