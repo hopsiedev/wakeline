@@ -584,7 +584,7 @@
     "intelligenceStatus": "Disponibilidad del servicio local",
     "intelligencePending": "La detección funciona con reglas locales. El chat de agentes todavía no está disponible en esta candidata.",
     "protected": "Protegido",
-    "reviewCandidate": "Candidata para revisión; sin publicar.",
+    "installedVersion": "Versión instalada.",
     "viewChanges": "Ver cambios",
     "sessionsAvailable": "Sesiones locales de Claude Code",
     "mcpConfigured": "Configuración MCP de Wakeline detectada",
