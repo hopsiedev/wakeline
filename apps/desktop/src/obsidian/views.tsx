@@ -14,6 +14,7 @@ import {
   Folder,
   Lightbulb,
   RefreshCw,
+  FolderPlus,
   ArrowRight,
   CheckSquare,
   GitPullRequest,
@@ -45,6 +46,7 @@ import {
   updateCardsStatus,
   chooseWatchFolder,
   exportProjectTodo,
+  removeWatchFolder,
   type UiPullRequest,
   resumeClaudeSession,
   getPullRequestDetails,
@@ -541,12 +543,40 @@ export function TodoPage() {
               })}
             </p>
           </div>
-          <button className="btn" disabled={!data?.projects.length} onClick={() => setCreate(true)}>
-            <Plus size={14} />
-            {t('cards.newCard')}
-          </button>
+          <div className="page-actions">
+            <button className="btn" onClick={() => run(chooseWatchFolder)}>
+              <FolderPlus size={14} />
+              {t('nav.watchFolder')}
+            </button>
+            <button
+              className="btn"
+              disabled={!data?.projects.length}
+              onClick={() => setCreate(true)}
+            >
+              <Plus size={14} />
+              {t('cards.newCard')}
+            </button>
+          </div>
         </header>
         <ErrorNotice error={error} />
+        {!!data?.projects.length && (
+          // Errors come from these folders; add or drop one without leaving To do.
+          <ul className="wk-todo-folders enter" aria-label={t('nav.projects')} style={style(1)}>
+            {data.projects.map((folder) => (
+              <li key={folder.path} title={folder.path}>
+                <Folder size={13} />
+                <span>{folder.name}</span>
+                <button
+                  type="button"
+                  aria-label={`${t('nav.stopWatching')}: ${folder.name}`}
+                  onClick={() => run(() => removeWatchFolder(folder.path))}
+                >
+                  <X size={12} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <Priorities cards={cards} />
         <div className="wk-todo-subtoolbar enter" style={style(2)}>
           <label className="wk-todo-search">

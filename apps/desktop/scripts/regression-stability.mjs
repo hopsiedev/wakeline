@@ -42,6 +42,10 @@ try {
       };
     await route.fulfill({ json: data });
   });
+  const pickSession = async (name) => {
+    await page.locator('.wk-session-picker summary').click();
+    await page.getByRole('menuitemradio', { name }).first().click();
+  };
   const check = async (name, fn) => {
     try {
       await fn();
@@ -74,14 +78,10 @@ try {
     await expect(page.locator('.wk-pr-chat button[type="submit"]')).toBeEnabled();
     await page.locator('.wk-pr-chat textarea').press('Enter');
     await expect(page.getByText('Saved answer for this session', { exact: true })).toBeVisible();
-    await page
-      .getByRole('combobox', { name: 'Chat sessions and context' })
-      .selectOption('overview:');
+    await pickSession('All repositories');
     await expect(page.getByText('Remember this conversation', { exact: true })).toBeVisible();
     await expect(page.getByText('Question only about PR 42', { exact: true })).toHaveCount(0);
-    await page
-      .getByRole('combobox', { name: 'Chat sessions and context' })
-      .selectOption('orbit/checkout#42');
+    await pickSession('orbit/checkout #42');
     await expect(page.getByText('Question only about PR 42', { exact: true })).toBeVisible();
     await page.getByRole('radio', { name: 'Split', exact: true }).click();
     const diffOverflow = await page
@@ -89,6 +89,16 @@ try {
       .first()
       .evaluate((el) => el.scrollWidth - el.clientWidth);
     assert.ok(diffOverflow <= 1, 'split diff fits with wrapped lines');
+  });
+  await check('sessions without messages are not kept', async () => {
+    await page.goto('http://127.0.0.1:3039/pull-requests/orbit/checkout/41');
+    await expect(page.locator('.wk-pr-chat')).toHaveCount(1);
+    await page.goto('http://127.0.0.1:3039/pull-requests');
+    await page.locator('.wk-session-picker summary').click();
+    await expect(page.getByRole('menuitemradio', { name: 'orbit/checkout #42' })).toHaveCount(1);
+    await expect(page.getByRole('menuitemradio', { name: 'orbit/checkout #41' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menuitemradio').first()).toBeHidden();
   });
   await check('saved GitHub workspace is visible before background response', async () => {
     await page.goto('http://127.0.0.1:3039/');
@@ -99,19 +109,13 @@ try {
     slow = false;
   });
   await check('an answer arriving after a session switch updates the reopened thread', async () => {
-    await page
-      .getByRole('combobox', { name: 'Chat sessions and context' })
-      .selectOption('orbit/checkout#42');
+    await pickSession('orbit/checkout #42');
     await page.locator('.wk-pr-chat textarea').fill('Pending answer after session switch');
     await expect(page.locator('.wk-pr-chat button[type="submit"]')).toBeEnabled();
     slowChat = true;
     await page.locator('.wk-pr-chat textarea').press('Enter');
-    await page
-      .getByRole('combobox', { name: 'Chat sessions and context' })
-      .selectOption('overview:');
-    await page
-      .getByRole('combobox', { name: 'Chat sessions and context' })
-      .selectOption('orbit/checkout#42');
+    await pickSession('All repositories');
+    await pickSession('orbit/checkout #42');
     await expect(page.getByText('Saved answer for this session', { exact: true })).toHaveCount(2);
     slowChat = false;
   });

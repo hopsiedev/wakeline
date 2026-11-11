@@ -62,6 +62,11 @@ function readThread(key: string): Message[] {
   }
 }
 
+/** A session only belongs in the history once someone wrote in it. */
+export function threadHasMessages(key: string): boolean {
+  return readThread(key).length > 0;
+}
+
 function AgentLogo({ id }: { id: string }) {
   return (
     <img
@@ -189,6 +194,7 @@ export function PrChat({
         /* Keep the live conversation if storage is full. */
       }
       threadListeners.get(key)?.forEach((changed) => changed());
+      window.dispatchEvent(new CustomEvent('wakeline:chat-thread', { detail: key }));
     },
     [key]
   );
