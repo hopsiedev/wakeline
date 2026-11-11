@@ -784,6 +784,8 @@
     }
   },
   "reviewChat": {
+    "sessions": "Sesiones y contexto del chat",
+    "allRepositories": "Todos los repositorios",
     "open": "Chat de revisión",
     "privacy": "Contexto de las PR · Sin archivos locales",
     "placeholder": "Pregunta sobre las PR abiertas, en revisión o fusionadas…",

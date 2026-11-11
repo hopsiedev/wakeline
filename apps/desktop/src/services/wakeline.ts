@@ -7,6 +7,7 @@ import i18n from 'src/locales/i18n';
 import { CONFIG } from 'src/config-global';
 
 import { publishUpdate } from './update-status';
+import { preferredEditor } from './editor-preference';
 
 export async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) return nativeInvoke<T>(command, args);
@@ -391,7 +392,25 @@ export async function listProjectFiles(project: string, relativePath = ''): Prom
 
 export async function openProjectFile(project: string, relativePath: string): Promise<void> {
   if (!isTauri()) return;
-  await invoke('open_in_vscode', { project, location: relativePath, title: '' });
+  await invoke('open_in_editor', {
+    project,
+    location: relativePath,
+    title: '',
+    editor: preferredEditor().id,
+  });
+}
+
+export async function openCardInEditor(
+  card: Pick<UiCard, 'project' | 'location' | 'title'>,
+  editor = preferredEditor().id
+): Promise<void> {
+  if (!isTauri()) throw new Error(i18n.t('errors.desktopRuntime'));
+  await invoke('open_in_editor', {
+    project: card.project,
+    location: card.location,
+    title: card.title,
+    editor,
+  });
 }
 
 export async function resumeClaudeSession(card: UiCard): Promise<void> {

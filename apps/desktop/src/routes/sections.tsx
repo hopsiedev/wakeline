@@ -2,12 +2,9 @@ import type { RouteObject } from 'react-router';
 
 import { lazy, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
-import { varAlpha } from 'minimal-shared/utils';
-
-import Box from '@mui/material/Box';
-import LinearProgress, { linearProgressClasses } from '@mui/material/LinearProgress';
 
 import { ObsidianLayout } from 'src/obsidian/workspace';
+import { LoadingSkeleton } from 'src/obsidian/loading-skeleton';
 
 // ----------------------------------------------------------------------
 
@@ -37,25 +34,7 @@ export const ConnectionsPage = lazy(() =>
 );
 export const Page404 = lazy(() => import('src/pages/page-not-found'));
 
-const renderFallback = () => (
-  <Box
-    sx={{
-      display: 'flex',
-      flex: '1 1 auto',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}
-  >
-    <LinearProgress
-      sx={{
-        width: 1,
-        maxWidth: 320,
-        bgcolor: (theme) => varAlpha(theme.vars.palette.text.primaryChannel, 0.16),
-        [`& .${linearProgressClasses.bar}`]: { bgcolor: 'text.primary' },
-      }}
-    />
-  </Box>
-);
+const renderFallback = () => <LoadingSkeleton />;
 
 export const routesSection: RouteObject[] = [
   {

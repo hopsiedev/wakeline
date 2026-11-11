@@ -13,6 +13,7 @@ pub mod fingerprint;
 pub mod github;
 pub mod github_workspace;
 pub mod redact;
+pub mod scan_state;
 pub mod sessions;
 pub mod signals;
 pub mod store;

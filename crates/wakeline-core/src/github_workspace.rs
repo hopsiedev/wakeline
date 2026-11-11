@@ -380,7 +380,10 @@ fn sync(gh: &dyn GhClient, since: &str, saved: Option<&Value>, now: u64) -> Resu
 
         // Commits: only when the repository received a push since the last sync.
         let previous = saved_commits.remove(&name).unwrap_or_default();
-        if saved_pushed.get(&name) == Some(&pushed_at) && !pushed_at.is_empty() {
+        if saved_pushed.get(&name) == Some(&pushed_at)
+            && !pushed_at.is_empty()
+            && previous.iter().all(|commit| !commit["author"].is_null())
+        {
             commits.extend(previous);
             continue;
         }
@@ -390,7 +393,12 @@ fn sync(gh: &dyn GhClient, since: &str, saved: Option<&Value>, now: u64) -> Resu
         ) {
             Ok(items) => {
                 for commit in items {
-                    commits.push(json!({"repository":name,"sha":commit["sha"],"at":commit["commit"]["author"]["date"],"author":commit["author"]["login"],"avatar_url":commit["author"]["avatar_url"]}));
+                    let author = commit["author"]["login"]
+                        .as_str()
+                        .filter(|name| !name.trim().is_empty())
+                        .or_else(|| commit["commit"]["author"]["name"].as_str())
+                        .or_else(|| commit["commit"]["committer"]["name"].as_str());
+                    commits.push(json!({"repository":name,"sha":commit["sha"],"at":commit["commit"]["author"]["date"],"author":author,"avatar_url":commit["author"]["avatar_url"]}));
                 }
             }
             Err(_) if guarded.blocked.get() => commits.extend(previous),
@@ -520,6 +528,26 @@ mod tests {
 
     struct Fixture {
         calls: RefCell<Vec<String>>,
+    }
+    #[test]
+    fn commit_without_github_account_keeps_git_author_name() {
+        struct Unlinked(Fixture);
+        impl GhClient for Unlinked {
+            fn run(&self, args: &[&str]) -> Result<String, GhError> {
+                if args.get(1).is_some_and(|route| route.contains("/commits?")) {
+                    return Ok(r#"[[{"sha":"unlinked","author":null,"commit":{"author":{"name":"A real Git author","date":"2026-11-11T10:00:00Z"}}}]]"#.into());
+                }
+                self.0.run(args)
+            }
+        }
+        let data = load(
+            &Unlinked(Fixture {
+                calls: RefCell::new(Vec::new()),
+            }),
+            "2026-11-01T00:00:00Z",
+        )
+        .unwrap();
+        assert_eq!(data["commits"][0]["author"], "A real Git author");
     }
     impl GhClient for Fixture {
         fn run(&self, args: &[&str]) -> Result<String, GhError> {

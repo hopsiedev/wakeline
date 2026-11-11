@@ -784,6 +784,8 @@
     }
   },
   "reviewChat": {
+    "sessions": "Chat sessions and context",
+    "allRepositories": "All repositories",
     "open": "Review chat",
     "privacy": "PR overview · No local files",
     "placeholder": "Ask about open, in-review or merged PRs…",

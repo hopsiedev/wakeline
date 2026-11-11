@@ -39,6 +39,7 @@ use wakeline_core::watch::{is_within, normalized_path};
 use wakeline_core::{CardKind, CardStatus, Fingerprint, SourceKind};
 
 pub(crate) static STATE_ACCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+static SCAN_ACCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[derive(Debug, Clone, Serialize)]
 pub struct UiCard {
@@ -155,12 +156,18 @@ async fn get_dashboard_data() -> Result<DashboardPayload, String> {
 }
 
 fn scan_dashboard() -> Result<DashboardPayload, String> {
-    let _guard = STATE_ACCESS
+    let _scan = SCAN_ACCESS
         .lock()
         .unwrap_or_else(|error| error.into_inner());
     let started = Instant::now();
     let state_path = LocalState::default_path();
-    let mut state = LocalState::load(&state_path);
+    let mut state = {
+        let _guard = STATE_ACCESS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        LocalState::load(&state_path)
+    };
+    let snapshot = state.clone();
     let watched = watched_projects(&state.watched_folders);
 
     if watched.is_empty() {
@@ -469,6 +476,26 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
         }
     }
 
+    state = {
+        let _guard = STATE_ACCESS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let latest = LocalState::load(&state_path);
+        let merged = wakeline_core::scan_state::merge_scan(&snapshot, &state, latest);
+        merged
+            .save(&state_path)
+            .map_err(|error| error.to_string())?;
+        merged
+    };
+    let watched = if state.watched_folders == snapshot.watched_folders {
+        watched
+    } else {
+        watched_projects(&state.watched_folders)
+    };
+    cards.retain(|card| watched.iter().any(|project| project.name == card.project));
+    for card in &mut cards {
+        card.status = state.status_for(&card.fingerprint);
+    }
     for mc in state
         .manual_cards
         .iter()
@@ -526,7 +553,6 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             });
         }
     }
-    state.save(&state_path).map_err(|error| error.to_string())?;
     let mut cards = group_cards(cards, &state);
 
     cards.sort_by(|a, b| {
@@ -1141,7 +1167,24 @@ fn read_code_excerpt(path: &Path, line: Option<u32>) -> Option<String> {
     ))
 }
 
-/// Abre el archivo (y línea) o la carpeta del proyecto en VS Code (`vscode://file/...`).
+/// Opens a project or validated file target in the selected supported editor.
+#[tauri::command]
+async fn open_in_editor(
+    project: String,
+    location: String,
+    title: String,
+    editor: String,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let base_dir = project_base_dir(&project)?;
+        let target = extract_file_target(&base_dir, &location)
+            .or_else(|| extract_file_target(&base_dir, &title));
+        review_tools::open_local_editor(&editor, base_dir, target)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 #[tauri::command]
 fn open_in_vscode(
     app: tauri::AppHandle,
@@ -1342,6 +1385,7 @@ pub fn run() {
             intelligence::set_intelligence,
             get_mcp_executable,
             open_in_vscode,
+            open_in_editor,
             resume_session,
             project_commands::get_project_commands,
             project_commands::approve_project_commands,
