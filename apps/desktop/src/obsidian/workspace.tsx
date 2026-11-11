@@ -5,9 +5,10 @@ import './wakeline.css';
 import './app.css';
 
 import type { ReactNode, CSSProperties } from 'react';
-import type { AccountInfo, DashboardPayload } from 'src/services/wakeline';
+import type { UiUpdate, AccountInfo, DashboardPayload } from 'src/services/wakeline';
 
 import { useTranslation } from 'react-i18next';
+import { listen } from '@tauri-apps/api/event';
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -19,6 +20,7 @@ import {
   LogOut,
   Settings,
   Keyboard,
+  Download,
   PanelLeft,
   RefreshCw,
   CircleHelp,
@@ -28,10 +30,13 @@ import { useColorScheme } from '@mui/material/styles';
 
 import { CONFIG } from 'src/config-global';
 import { observeCards } from 'src/services/card-workflow';
+import { hasUpdate, publishUpdate, useUpdateStatus } from 'src/services/update-status';
 import { fetchGithubWorkspace, type GithubWorkspace } from 'src/services/github-workspace';
 import {
   quitApp,
+  isTauri,
   REPO_URL,
+  checkUpdate,
   fetchAccount,
   openExternal,
   savedGithubProfile,
@@ -41,6 +46,7 @@ import {
   invalidateDashboardCache,
 } from 'src/services/wakeline';
 
+import { Modal } from './views';
 import { Github } from './brand-icons';
 import { UpdateCheck } from './settings';
 import { ReleaseNotes } from './release-notes';
@@ -84,6 +90,7 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
   );
   const [accent, accentState] = useState(() => localStorage.getItem('wakeline-accent') ?? 'teal');
   const [menu, setMenu] = useState(false);
+  const update = useUpdateStatus();
   const [shortcuts, setShortcuts] = useState(false);
   const [booted, setBooted] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -173,6 +180,24 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
   }, [menu]);
+  useEffect(() => {
+    let active = true;
+    const unlisten = isTauri()
+      ? listen<UiUpdate>('wakeline://update-available', (event) => {
+          if (active) publishUpdate(event.payload);
+        })
+      : Promise.resolve(() => {});
+    const check = () => {
+      void checkUpdate().catch(() => {});
+    };
+    check();
+    window.addEventListener('focus', check);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', check);
+      void unlisten.then((stop) => stop());
+    };
+  }, []);
   const active = NAV.findIndex((item) =>
     item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)
   );
@@ -303,6 +328,17 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
                   </Link>
                 ))}
             </div>
+            {hasUpdate(update) && (
+              <button
+                className="rail-btn wk-sidebar-update press"
+                title={t('account.updateAvailable', { version: update?.version })}
+                aria-label={t('account.updateAvailable', { version: update?.version })}
+                onClick={() => setMenu(true)}
+              >
+                <Download className="rail-icon" size={19} />
+                <span className="rail-label">{t('account.updateNow')}</span>
+              </button>
+            )}
             <div className="wk-account-row">
               <button
                 ref={accountRef}
@@ -442,20 +478,18 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
           </div>
         )}
         {shortcuts && (
-          <div
-            className="wk-account-help"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('account.shortcuts')}
+          <Modal
+            className="wk-shortcuts"
+            title={t('account.shortcuts')}
+            onClose={() => setShortcuts(false)}
           >
-            <h2>{t('account.shortcuts')}</h2>
             <p>Ctrl+B / {t('account.shortcutToggle')}</p>
             <p>Ctrl+, / {t('account.shortcutSettings')}</p>
             <p>Alt+← / → / {t('board.cardLabel', { title: '' })}</p>
             <button autoFocus onClick={() => setShortcuts(false)}>
               {t('account.close')}
             </button>
-          </div>
+          </Modal>
         )}
         <ReleaseNotes />
         {message && (

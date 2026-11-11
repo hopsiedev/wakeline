@@ -53,3 +53,13 @@ export function analytics(data: GithubWorkspace, days: number, now = new Date())
   }));
   return { current, previous: prior, daily, labels, authors, start, end };
 }
+
+/** No comparison for Today or an absent/zero baseline. */
+export function periodDelta(
+  current: number | null,
+  previous: number | null,
+  range: string
+): number | null {
+  if (range === 'today' || current === null || previous === null || previous === 0) return null;
+  return Math.round(((current - previous) / previous) * 100);
+}

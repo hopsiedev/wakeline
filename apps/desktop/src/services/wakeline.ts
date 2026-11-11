@@ -6,6 +6,8 @@ import { invoke as nativeInvoke } from '@tauri-apps/api/core';
 import i18n from 'src/locales/i18n';
 import { CONFIG } from 'src/config-global';
 
+import { publishUpdate } from './update-status';
+
 export async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) return nativeInvoke<T>(command, args);
   if (!import.meta.env.DEV) throw new Error(i18n.t('errors.desktopRuntime'));
@@ -175,7 +177,7 @@ const EMPTY_PAYLOAD: DashboardPayload = {
   scan_ms: 0,
 };
 
-function isTauri(): boolean {
+export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
@@ -488,7 +490,9 @@ export async function getAppVersion(): Promise<string> {
 
 export async function checkUpdate(): Promise<UiUpdate | null> {
   if (!isTauri() && !import.meta.env.DEV) throw new Error(i18n.t('errors.desktopUpdates'));
-  return invoke<UiUpdate>('check_update');
+  const value = await invoke<UiUpdate>('check_update');
+  publishUpdate(value);
+  return value;
 }
 
 /** Descarga, instala y reinicia. En Windows la app se cierra al lanzar el instalador. */

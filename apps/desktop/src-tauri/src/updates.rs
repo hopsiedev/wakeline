@@ -5,7 +5,7 @@
 //! En Windows la app se cierra sola al empezar la instalación.
 
 use serde::Serialize;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::UpdaterExt;
 
 #[derive(Debug, Clone, Serialize)]
@@ -41,33 +41,13 @@ fn manual_updates(app: &AppHandle) -> bool {
 const FIRST_CHECK_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
 const CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(6 * 60 * 60);
 
-/// Busca e instala versiones firmadas en segundo plano.
+/// Checks in the background, announces availability, and waits for user installation.
 pub fn start(app: &AppHandle) {
-    if manual_updates(app) {
-        return;
-    }
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(FIRST_CHECK_AFTER);
         loop {
-            if let Ok(UiUpdate {
-                state: "available", ..
-            }) = tauri::async_runtime::block_on(check_update(app.clone()))
-                && let Err(error) = tauri::async_runtime::block_on(install_update(app.clone()))
-            {
-                let (title, body) = if crate::alerts::spanish(&app) {
-                    (
-                        "No se pudo actualizar Wakeline".to_string(),
-                        format!("Vuelve a intentarlo en Configuración > Actualizaciones. {error}"),
-                    )
-                } else {
-                    (
-                        "Wakeline could not update".to_string(),
-                        format!("Try again in Settings > Updates. {error}"),
-                    )
-                };
-                let _ = crate::alerts::deliver(&app, title, body);
-            }
+            let _ = tauri::async_runtime::block_on(check_update(app.clone()));
             std::thread::sleep(CHECK_EVERY);
         }
     });
@@ -78,9 +58,12 @@ pub async fn check_update(app: AppHandle) -> Result<UiUpdate, String> {
     let current_version = app.package_info().version.to_string();
     if manual_updates(&app) {
         // Portable/unsigned builds still check the real published release.
-        return tauri::async_runtime::spawn_blocking(move || check_manual_release(current_version))
-            .await
-            .map_err(|error| error.to_string())?;
+        let value =
+            tauri::async_runtime::spawn_blocking(move || check_manual_release(current_version))
+                .await
+                .map_err(|error| error.to_string())??;
+        announce(&app, &value);
+        return Ok(value);
     }
     let result = app
         .updater_builder()
@@ -111,12 +94,14 @@ pub async fn check_update(app: AppHandle) -> Result<UiUpdate, String> {
         (Some(_), false) => "unconfigured",
         (Some(_), true) => "available",
     };
-    Ok(UiUpdate {
+    let value = UiUpdate {
         current_version,
         version: update.as_ref().map(|u| u.version.clone()),
         notes: update.and_then(|u| u.body),
         state,
-    })
+    };
+    announce(&app, &value);
+    Ok(value)
 }
 
 /// Public release lookup must work without gh, authentication, or private-repo quota.
@@ -185,4 +170,65 @@ pub async fn install_update(app: AppHandle) -> Result<(), String> {
         .await
         .map_err(|error| error.to_string())?;
     app.restart()
+}
+
+fn announce(app: &AppHandle, value: &UiUpdate) {
+    if !matches!(value.state, "available" | "manual") {
+        return;
+    }
+    let _ = app.emit("wakeline://update-available", value);
+    let prefs = app.state::<std::sync::Mutex<crate::alerts::AlertPrefs>>();
+    if !prefs
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .enabled
+    {
+        return;
+    }
+    static TRACKER: std::sync::OnceLock<std::sync::Mutex<crate::update_notice::UpdateNotice>> =
+        std::sync::OnceLock::new();
+    let mut tracker = TRACKER
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    if !tracker.pending(value.state, value.version.as_deref()) {
+        return;
+    }
+    let Some(version) = value.version.as_deref() else {
+        return;
+    };
+    let notice_path = app
+        .path()
+        .app_data_dir()
+        .ok()
+        .map(|path| path.join("update-notified-version"));
+    if notice_path
+        .as_ref()
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .as_deref()
+        == Some(version)
+    {
+        tracker.delivered(version);
+        return;
+    }
+    let (title, body) = if crate::alerts::spanish(app) {
+        (
+            format!("Wakeline {version} está disponible"),
+            "Abre Wakeline y pulsa Actualizar ahora en el sidebar.".to_string(),
+        )
+    } else {
+        (
+            format!("Wakeline {version} is available"),
+            "Open Wakeline and choose Update now in the sidebar.".to_string(),
+        )
+    };
+    if crate::alerts::deliver(app, title, body).is_ok() {
+        tracker.delivered(version);
+        if let Some(path) = notice_path {
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::write(path, version);
+        }
+    }
 }

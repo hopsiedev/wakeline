@@ -332,7 +332,9 @@
     "close": "Cerrar",
     "reportTemplate": "## Qué ocurrió\n\n## Qué esperabas\n\n## Pasos para reproducir\n\nRevisa el reporte y elimina datos privados antes de enviarlo.",
     "checkingUpdates": "Buscando actualizaciones…",
-    "upToDate": "Estás al día"
+    "upToDate": "Estás al día",
+    "updateNow": "Actualizar ahora",
+    "updateAvailable": "Actualización disponible: {{version}}"
   },
   "tray": {
     "open": "Abrir Wakeline",
@@ -422,7 +424,13 @@
       "ideas": "Ideas guardadas"
     },
     "viewTasks": "Ver mis pendientes",
-    "needsAttention": "Necesitan tu atención"
+    "needsAttention": "Necesitan tu atención",
+    "upToDate": "Estás al día",
+    "upToDateBody": "No tienes hallazgos ni revisiones pendientes. Puedes retomar cuando haya algo nuevo.",
+    "reviewCount_one": "{{count}} PR espera tu revisión",
+    "reviewCount_other": "{{count}} PR esperan tu revisión",
+    "resolvedCount_one": "{{count}} hallazgo resuelto. Un pendiente menos.",
+    "resolvedCount_other": "{{count}} hallazgos resueltos. Menos pendientes."
   },
   "watch": {
     "active": "Vigilando {{count}} proyectos",

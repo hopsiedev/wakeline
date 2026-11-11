@@ -18,6 +18,7 @@ pub mod review;
 mod review_tools;
 mod shell;
 mod startup;
+mod update_notice;
 mod updates;
 
 use std::path::{Path, PathBuf};

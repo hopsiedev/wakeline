@@ -1,5 +1,5 @@
 import type { ReactNode, CSSProperties } from 'react';
-import type { UiUpdate, UiProjectSummary, UiProjectCommands } from 'src/services/wakeline';
+import type { UiProjectSummary, UiProjectCommands } from 'src/services/wakeline';
 
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +25,7 @@ import {
 import { useColorScheme } from '@mui/material/styles';
 
 import { CONFIG } from 'src/config-global';
+import { hasUpdate, useUpdateStatus } from 'src/services/update-status';
 import { dailySummaryEnabled, setDailySummaryEnabled } from 'src/services/daily-summary-state';
 import {
   alertsEnabled,
@@ -207,7 +208,7 @@ export function UpdateCheck({
   const { notice } = useWorkspace();
   const { t } = useTranslation();
   const [, setParams] = useSearchParams();
-  const [result, setResult] = useState<UiUpdate | null>(null);
+  const result = useUpdateStatus();
   const [busy, setBusy] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -226,11 +227,10 @@ export function UpdateCheck({
     setError(null);
     try {
       const value = await checkUpdate();
-      setResult(value);
       // No newer release published means the user already has the latest version.
       if (menu && value && (value.state === 'up_to_date' || value.state === 'unpublished'))
         setFlash(true);
-      else if (menu && value)
+      else if (menu && value && !hasUpdate(value))
         notice(
           t(
             value.state === 'up_to_date'
@@ -244,7 +244,6 @@ export function UpdateCheck({
           )
         );
     } catch (cause) {
-      setResult(null);
       setError(String(cause));
     } finally {
       lock.current = false;
@@ -274,31 +273,52 @@ export function UpdateCheck({
             : result?.state === 'unconfigured'
               ? t('settings.updateSigningMissing')
               : t('settings.updatesHint');
+  const update = async () => {
+    if (result?.state === 'manual') {
+      await openExternal('https://github.com/hopsiedev/wakeline/releases/latest');
+      return;
+    }
+    if (installing || busy) return;
+    setInstalling(true);
+    setError(null);
+    try {
+      await installUpdate();
+    } catch (cause) {
+      setError(String(cause));
+      setInstalling(false);
+    }
+  };
   if (menu)
     return (
       <>
         <button
           role="menuitem"
           className="wk-update-menu"
-          data-state={busy ? 'busy' : flash ? 'done' : 'idle'}
+          data-state={busy ? 'busy' : hasUpdate(result) ? 'available' : flash ? 'done' : 'idle'}
           disabled={busy || installing}
           onClick={(event) => {
             // Keep the menu open so the result is visible.
             event.stopPropagation();
-            void check();
+            void (hasUpdate(result) ? update() : check());
           }}
         >
-          {flash ? (
+          {hasUpdate(result) ? (
+            <Download size={16} className="wk-update-ok" />
+          ) : flash ? (
             <Check size={16} className="wk-update-ok" />
           ) : (
             <RefreshCw size={16} className={busy ? 'wk-update-spin' : ''} />
           )}
           <span key={busy ? 'busy' : flash ? 'done' : 'idle'} className="swap-in">
-            {busy
-              ? t('account.checkingUpdates')
-              : flash
-                ? t('account.upToDate')
-                : t('account.checkUpdates')}
+            {installing
+              ? t('settings.installingUpdate')
+              : hasUpdate(result)
+                ? t('account.updateNow')
+                : busy
+                  ? t('account.checkingUpdates')
+                  : flash
+                    ? t('account.upToDate')
+                    : t('account.checkUpdates')}
           </span>
         </button>
         <ErrorNotice error={error} />
@@ -318,30 +338,21 @@ export function UpdateCheck({
         <button
           className="btn wk-update-check"
           disabled={busy || installing}
-          onClick={() => check()}
+          onClick={() => (hasUpdate(result) ? update() : check())}
         >
           <RefreshCw size={14} className={busy ? 'wk-update-spin' : ''} />
-          {t(busy ? 'settings.checkingUpdates' : 'account.checkUpdates')}
+          {t(
+            installing
+              ? 'settings.installingUpdate'
+              : hasUpdate(result)
+                ? 'account.updateNow'
+                : busy
+                  ? 'settings.checkingUpdates'
+                  : 'account.checkUpdates'
+          )}
         </button>
       </Row>
       <ErrorNotice error={error} />
-      {result?.state === 'available' && (
-        <button
-          className="btn btn-primary"
-          disabled={installing}
-          onClick={async () => {
-            setInstalling(true);
-            try {
-              await installUpdate();
-            } catch (cause) {
-              setError(String(cause));
-              setInstalling(false);
-            }
-          }}
-        >
-          {t(installing ? 'settings.installingUpdate' : 'shell.installUpdate')}
-        </button>
-      )}
       {result?.state === 'manual' && (
         <button
           className="btn"
