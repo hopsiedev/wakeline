@@ -16,7 +16,12 @@ import {
 } from 'lucide-react';
 
 import { CONFIG } from 'src/config-global';
-import { RELEASE_SHOWN, shouldShowRelease, RELEASE_PRESENTATION } from 'src/services/release-notes';
+import {
+  RELEASES,
+  RELEASE_SHOWN,
+  shouldShowRelease,
+  RELEASE_PRESENTATION,
+} from 'src/services/release-notes';
 
 import { Github } from './brand-icons';
 
@@ -148,9 +153,12 @@ function UpdateArt({ id }: { id: (typeof RELEASE_PRESENTATION)[number]['id'] }) 
   );
 }
 export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const release = RELEASES.find((item) => item.version === CONFIG.appVersion);
+  const patchOnly = release?.features.length === 0;
+  const fixes = release?.fixes[i18n.language.startsWith('es') ? 'es' : 'en'] ?? [];
   const ref = useRef<HTMLDialogElement>(null);
-  const [view, setView] = useState<'all' | 'story'>('story');
+  const [view, setView] = useState<'all' | 'story'>(patchOnly ? 'all' : 'story');
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [busy, setBusy] = useState(false);
@@ -207,35 +215,36 @@ export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
               <p>{t('releasePresentation.ui.changes_in_this_wakeline_release')}</p>
             </div>
             <div className="wk-release-scroll">
-              {changes.map((change, i) => (
-                <section className="wk-unified-change" data-change={i} key={change.id}>
-                  <UpdateArt id={change.id} />
-                  <div>
-                    <div className="wk-change-label">
-                      <Kind kind={change.kind} />
-                      <span>{t(`releasePresentation.features.${change.id}.label`)}</span>
+              {!patchOnly &&
+                changes.map((change, i) => (
+                  <section className="wk-unified-change" data-change={i} key={change.id}>
+                    <UpdateArt id={change.id} />
+                    <div>
+                      <div className="wk-change-label">
+                        <Kind kind={change.kind} />
+                        <span>{t(`releasePresentation.features.${change.id}.label`)}</span>
+                      </div>
+                      <h3>{t(`releasePresentation.features.${change.id}.title`)}</h3>
+                      <p>{t(`releasePresentation.features.${change.id}.text`)}</p>
                     </div>
-                    <h3>{t(`releasePresentation.features.${change.id}.title`)}</h3>
-                    <p>{t(`releasePresentation.features.${change.id}.text`)}</p>
-                  </div>
-                </section>
-              ))}
+                  </section>
+                ))}
               <section className="wk-release-fixes">
                 <h3>
                   <Kind kind="fix" />
                   {t('releasePresentation.ui.what_we_fixed')}
                 </h3>
-                <p>
-                  {t(
-                    'releasePresentation.ui.more_compact_navigation_dockable_details_and_a_consistent_accent_color'
-                  )}
-                </p>
+                {fixes.map((text) => (
+                  <p key={text}>{text}</p>
+                ))}
               </section>
             </div>
             <footer className="wk-release-footer">
-              <button type="button" className="btn" onClick={() => setView('story')}>
-                {t('releasePresentation.ui.view_presentation')}
-              </button>
+              {!patchOnly && (
+                <button type="button" className="btn" onClick={() => setView('story')}>
+                  {t('releasePresentation.ui.view_presentation')}
+                </button>
+              )}
               <button type="button" className="btn btn-primary" onClick={onClose}>
                 {t('releasePresentation.ui.got_it')}
                 <Check size={15} />

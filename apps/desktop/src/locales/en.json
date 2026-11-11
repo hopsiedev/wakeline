@@ -332,7 +332,9 @@
     "close": "Close",
     "reportTemplate": "## What happened\n\n## What you expected\n\n## Steps to reproduce\n\nReview the report and remove private data before submitting.",
     "checkingUpdates": "Checking for updates…",
-    "upToDate": "You’re up to date"
+    "upToDate": "You’re up to date",
+    "updateNow": "Update now",
+    "updateAvailable": "Update available: {{version}}"
   },
   "tray": {
     "open": "Open Wakeline",
@@ -422,7 +424,13 @@
       "ideas": "Saved ideas"
     },
     "viewTasks": "View my tasks",
-    "needsAttention": "Needs your attention"
+    "needsAttention": "Needs your attention",
+    "upToDate": "You’re up to date",
+    "upToDateBody": "No findings or reviews need your attention. Come back when there’s something new.",
+    "reviewCount_one": "{{count}} PR awaits your review",
+    "reviewCount_other": "{{count}} PRs await your review",
+    "resolvedCount_one": "{{count}} finding resolved. One less loose end.",
+    "resolvedCount_other": "{{count}} findings resolved. Fewer loose ends."
   },
   "watch": {
     "active": "Watching {{count}} projects",

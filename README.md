@@ -5,7 +5,7 @@
 
 Wakeline is a local-first desktop app for Windows and Linux. It turns findings from selected projects, Claude Code sessions, source comments, command results, project documents, and GitHub into an actionable inbox. Your projects and decisions stay on your computer.
 
-[Download the latest release](https://github.com/hopsiedev/wakeline/releases/latest) · [Installation and updates](RELEASE.md) · [What's new in 0.1.5](RELEASE-NOTES.md)
+[Download the latest release](https://github.com/hopsiedev/wakeline/releases/latest) · [Installation and updates](RELEASE.md) · [What's new in 0.1.6](RELEASE-NOTES.md)
 
 ![Summary with fictional Orbit projects](assets/screenshots/summary-en.png)
 
@@ -137,3 +137,8 @@ npm run tauri dev
 To regenerate documentation images: run `npm run dev`, then `npx playwright install chromium` and `npm run docs:screenshots` in another terminal. The capture script intercepts the development API with synthetic fixtures and checks chat alignment, resizing, and open/close controls. It never reads real sessions or invokes agents. Set `WAKELINE_DOCS_URL` to use another local dev-server URL. Fixtures and the debug review bridge are not production data sources.
 
 The Rust core is shared by the desktop app, CLI, and MCP server. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for interface, library, font, and logo credits. Licensed under [MIT](LICENSE-MIT).
+From 0.1.6, a new version triggers a system notification and a green sidebar indicator. Open it and choose **Update now**. The app waits for your action before installing; portable and Linux builds open the manual download. Weekly/monthly metrics show comparisons when a prior baseline exists; Today has no percentage.
+
+![Up-to-date summary](assets/screenshots/daily-summary-empty-en.png)
+
+![Update available](assets/screenshots/update-available-en.png)
