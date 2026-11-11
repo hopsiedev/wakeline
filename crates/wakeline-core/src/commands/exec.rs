@@ -100,7 +100,7 @@ fn run_spec(project_root: &Path, spec: &CommandSpec) -> io::Result<RunOutput> {
     })
 }
 
-fn read_in_background<R: Read + Send + 'static>(
+pub(crate) fn read_in_background<R: Read + Send + 'static>(
     pipe: Option<R>,
 ) -> std::thread::JoinHandle<String> {
     std::thread::spawn(move || {
@@ -156,7 +156,7 @@ fn candidates(base: &Path) -> Vec<PathBuf> {
 }
 
 #[cfg(windows)]
-mod job {
+pub(crate) mod job {
     use std::os::windows::io::AsRawHandle;
     use std::process::Child;
 
@@ -200,7 +200,7 @@ mod job {
 }
 
 #[cfg(unix)]
-mod job {
+pub(crate) mod job {
     use std::process::Child;
 
     pub struct Job(libc::pid_t);

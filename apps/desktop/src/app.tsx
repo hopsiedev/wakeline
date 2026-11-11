@@ -7,8 +7,6 @@ import { usePathname } from 'src/routes/hooks';
 
 import { ThemeProvider } from 'src/theme/theme-provider';
 
-import { DailySummary } from 'src/components/daily-summary';
-
 // ----------------------------------------------------------------------
 
 type AppProps = {
@@ -18,12 +16,7 @@ type AppProps = {
 export default function App({ children }: AppProps) {
   useScrollToTop();
 
-  return (
-    <ThemeProvider>
-      {children}
-      <DailySummary />
-    </ThemeProvider>
-  );
+  return <ThemeProvider>{children}</ThemeProvider>;
 }
 
 // ----------------------------------------------------------------------

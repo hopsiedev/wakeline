@@ -14,6 +14,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import { RouterLink } from 'src/routes/components';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import { observeCards } from 'src/services/card-workflow';
 import {
   chooseWatchFolder,
   exportProjectTodo,
@@ -24,15 +25,11 @@ import {
 } from 'src/services/wakeline';
 
 import { Label } from 'src/components/label';
+import { WatchStatus } from 'src/components/watch-status';
+import { CardPriorities } from 'src/components/card-workflow';
 import { AppIcon, type AppIconName } from 'src/components/nav-icon';
 
 // ----------------------------------------------------------------------
-
-const PROJECT_STYLES: Record<string, { letter: string; iconBg: string; iconColor: string }> = {
-  contastack: { letter: 'C', iconBg: 'rgba(0, 167, 111, 0.16)', iconColor: 'primary.main' },
-  'app-expo': { letter: 'A', iconBg: 'rgba(0, 184, 217, 0.16)', iconColor: 'info.main' },
-  wakeline: { letter: 'W', iconBg: 'rgba(255, 171, 0, 0.16)', iconColor: 'warning.main' },
-};
 
 function shortHomePath(raw: string): string {
   return raw.replace(/^[A-Za-z]:\\Users\\[^\\]+/i, '~').replace(/\\/g, '/');
@@ -110,6 +107,9 @@ export function SummaryView() {
     }
   };
 
+  useEffect(() => {
+    if (data && !data.scan_error) observeCards(data.cards);
+  }, [data]);
   const cards = data?.cards ?? [];
   const projects = data?.projects ?? [];
   const open = (status: string) => status === 'new' || status === 'accepted';
@@ -138,6 +138,8 @@ export function SummaryView() {
 
   return (
     <DashboardContent maxWidth={false}>
+      <WatchStatus />
+      <CardPriorities cards={cards} />
       <Box
         sx={{
           mb: 4,
@@ -157,6 +159,13 @@ export function SummaryView() {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={() => window.dispatchEvent(new CustomEvent('wakeline:open-summary'))}
+          >
+            {t('dailySummary.title')}
+          </Button>
           <Button
             variant="outlined"
             color="inherit"
@@ -466,7 +475,7 @@ export function SummaryView() {
 
               <Box sx={{ pt: 1.5, pb: 3, px: 3 }}>
                 {projects.map((proj, idx) => {
-                  const style = PROJECT_STYLES[proj.name.toLowerCase()] ?? {
+                  const style = {
                     letter: proj.name.slice(0, 1).toUpperCase(),
                     iconBg: 'rgba(0, 167, 111, 0.16)',
                     iconColor: 'primary.main',
