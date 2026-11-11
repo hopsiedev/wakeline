@@ -239,6 +239,16 @@
   background: #0008;
   backdrop-filter: blur(5px);
 }
+.obsidian-analytics-dashboard .real-card-detail .wk-todo-side-body {
+  grid-template-columns: minmax(0, 1fr);
+  overflow-wrap: anywhere;
+}
+.obsidian-analytics-dashboard .real-card-detail .wk-todo-side-body > * {
+  min-width: 0;
+}
+.obsidian-analytics-dashboard .real-card-detail dl > div {
+  grid-template-columns: 70px minmax(0, 1fr);
+}
 .obsidian-analytics-dashboard .real-modal pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1376,3 +1386,16 @@
 .obsidian-analytics-dashboard .wk-pr-layout[data-chat='false'] {
   grid-template-columns: minmax(0, 1fr);
 }
+
+.obsidian-analytics-dashboard .wk-shortcuts { width: min(460px, calc(100vw - 32px)); margin:auto; padding:0; }
+.wk-shortcuts > p, .wk-shortcuts > button { margin:20px 28px; }
+.wk-shortcuts > button { margin-top:0; }
+.wk-daily-kind {flex:0 0 16px!important; color:#c68b80;}
+.wk-daily-kind[data-kind='task'] {color:#79b9a4;}
+.wk-daily-kind[data-kind='idea'] {color:#c5aa67;}
+.wk-daily-caught-up {color:#20bf91; margin:12px 0 20px;}
+
+.obsidian-analytics-dashboard .wk-sidebar-update, .wk-update-menu[data-state='available'] {color:#31c98e!important;}
+.obsidian-analytics-dashboard .wk-sidebar-update .rail-label {color:inherit;}
+
+.wk-daily-stats strong span { font: inherit; color: inherit; }

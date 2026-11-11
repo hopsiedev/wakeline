@@ -12,7 +12,9 @@ import {
   Search,
   GitMerge,
   RefreshCw,
+  TrendingUp,
   ArrowRight,
+  TrendingDown,
   MessageSquare,
   GitPullRequest,
   GitCommitHorizontal,
@@ -20,7 +22,7 @@ import {
   GitPullRequestClosed,
 } from 'lucide-react';
 
-import { analytics } from 'src/services/github-analytics';
+import { analytics, periodDelta } from 'src/services/github-analytics';
 
 import { PrChat } from './pr-chat';
 import { ErrorNotice } from './views';
@@ -499,7 +501,8 @@ export function SummaryPage() {
       <ul className="stats" aria-label={t('shell.metrics')}>
         {metrics.map(({ id, Icon }, index) => {
           const value = report?.current[id] ?? null;
-          const good = true;
+          const delta = report ? periodDelta(value, report.previous[id], range) : null;
+          const good = delta === null || (id === 'review_hours' ? delta <= 0 : delta >= 0);
           const spark = (report?.daily ?? []).map((day) => day[id] ?? 0);
           return (
             <li className="stat enter" style={enter(2 + index * 0.4)} key={id}>
@@ -515,6 +518,13 @@ export function SummaryPage() {
                   delay={420 + index * 70}
                   className="stat-value"
                 />
+                {delta !== null && (
+                  <span className="delta" data-good={good}>
+                    {delta < 0 ? <TrendingDown size={13} /> : <TrendingUp size={13} />}
+                    {delta > 0 ? '+' : ''}
+                    {delta}%
+                  </span>
+                )}
               </div>
               <Sparkline key={range} data={spark} tone={good ? 'good' : 'bad'} />
             </li>

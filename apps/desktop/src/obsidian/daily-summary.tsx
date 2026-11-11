@@ -4,7 +4,15 @@ import type { DailyCounts, SummarySnapshot } from 'src/services/daily-summary-st
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { Check, ArrowRight, GitPullRequest } from 'lucide-react';
+import {
+  Bug,
+  Check,
+  Lightbulb,
+  ArrowRight,
+  CheckSquare,
+  CircleCheck,
+  GitPullRequest,
+} from 'lucide-react';
 
 import { CONFIG } from 'src/config-global';
 import { remoteDetail } from 'src/services/github-pr';
@@ -20,7 +28,7 @@ import {
   dailySummaryEnabled,
 } from 'src/services/daily-summary-state';
 
-import { Modal, PrDetail } from './views';
+import { Modal } from './views';
 import { useWorkspace } from './workspace-context';
 import { NumberAnimation } from './number-animation';
 
@@ -32,7 +40,6 @@ export function DailySummary() {
   const [counts, setCounts] = useState<DailyCounts | null>(null);
   const [cards, setCards] = useState<{ card: UiCard; reason: string; age: number }[]>([]);
   const [prs, setPrs] = useState<UiPullRequest[]>([]);
-  const [selected, setSelected] = useState<UiPullRequest | null>(null);
   const [failed, setFailed] = useState(false);
   const checking = useRef(false);
   const check = useCallback(
@@ -89,7 +96,7 @@ export function DailySummary() {
             tasks: active.filter((card) => card.kind === 'task').length,
             ideas: active.filter((card) => card.kind === 'idea').length,
           });
-          setCards(priorities);
+          setCards(priorities.slice(0, 2));
           setPrs(pending);
           if (!manual) localStorage.setItem(DAILY_SHOWN, today);
           localStorage.setItem(DAILY_SNAPSHOT, JSON.stringify(snapshotCards(data.cards)));
@@ -120,6 +127,8 @@ export function DailySummary() {
       document.removeEventListener('visibilitychange', auto);
     };
   }, [check]);
+  const total = pendingCounts.errors + pendingCounts.tasks + pendingCounts.ideas;
+  const caughtUp = !failed && total === 0 && prs.length === 0;
   return (
     <>
       {counts && (
@@ -137,15 +146,18 @@ export function DailySummary() {
                 month: 'long',
               }).format(new Date())}
             </p>
-            <h1>{t('dailySummary.title')}</h1>
+            {caughtUp && <CircleCheck className="wk-daily-caught-up" size={38} />}
+            <h1>{t(caughtUp ? 'dailySummary.upToDate' : 'dailySummary.title')}</h1>
             <p className="wk-daily-intro">
               {failed
                 ? t('dailySummary.failed')
-                : t('dailySummary.pendingIntro', {
-                    count: pendingCounts.errors + pendingCounts.tasks + pendingCounts.ideas,
-                  })}
+                : caughtUp
+                  ? t('dailySummary.upToDateBody')
+                  : t('dailySummary.pendingIntro', {
+                      count: pendingCounts.errors + pendingCounts.tasks + pendingCounts.ideas,
+                    })}
             </p>
-            {!failed && (
+            {!failed && !caughtUp && (
               <>
                 <div className="wk-daily-stats">
                   {(['errors', 'tasks', 'ideas'] as const).map((kind) => (
@@ -167,11 +179,23 @@ export function DailySummary() {
                         navigate(`/cards/${encodeURIComponent(card.fingerprint)}`);
                       }}
                     >
-                      <span className="wk-daily-kind" data-kind={card.kind} />
+                      <span className="wk-daily-kind" data-kind={card.kind}>
+                        {card.kind === 'error' ? (
+                          <Bug size={16} />
+                        ) : card.kind === 'task' ? (
+                          <CheckSquare size={16} />
+                        ) : (
+                          <Lightbulb size={16} />
+                        )}
+                      </span>
                       <span>
                         <strong>{card.title}</strong>
                         <small>
-                          {card.project} /{' '}
+                          {card.project} ·{' '}
+                          {t(`connectors.${card.source_label}`, {
+                            defaultValue: card.source_label,
+                          })}{' '}
+                          ·{' '}
                           {t(`workflow.reason.${reason}`, {
                             count: reason === 'aging' ? age : card.occurrences,
                           })}
@@ -181,26 +205,23 @@ export function DailySummary() {
                     </button>
                   ))}
                 </section>
-                {prs.map((pr) => (
+                {prs.length > 0 && (
                   <button
                     className="wk-daily-reviews"
-                    key={pr.url}
                     onClick={() => {
                       setCounts(null);
-                      setSelected(pr);
+                      navigate('/pull-requests');
                     }}
                   >
                     <GitPullRequest size={17} />
-                    <span>
-                      #{pr.number} {pr.title}
-                    </span>
+                    <span>{t('dailySummary.reviewCount', { count: prs.length })}</span>
                     <ArrowRight size={15} />
                   </button>
-                ))}
+                )}
                 {counts.completed > 0 && (
                   <p className="wk-daily-done">
                     <Check size={14} />
-                    {t('dailySummary.completed')}: {counts.completed}
+                    {t('dailySummary.resolvedCount', { count: counts.completed })}
                   </p>
                 )}
                 {!cards.length && !prs.length && !Object.values(counts).some(Boolean) && (
@@ -215,16 +236,15 @@ export function DailySummary() {
               className="btn btn-primary"
               onClick={() => {
                 setCounts(null);
-                navigate('/cards');
+                if (!caughtUp) navigate('/cards');
               }}
             >
-              {t('dailySummary.viewTasks')}
+              {t(caughtUp ? 'account.close' : 'dailySummary.viewTasks')}
               <ArrowRight size={14} />
             </button>
           </footer>
         </Modal>
       )}
-      {selected && <PrDetail pr={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }
