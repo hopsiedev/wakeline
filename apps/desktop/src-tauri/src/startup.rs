@@ -1,5 +1,5 @@
 //! Windows startup registration, owned by the installed executable.
-#[cfg(any(windows, test))]
+#[cfg(windows)]
 use std::path::Path;
 pub fn background<I, S>(args: I) -> bool
 where
@@ -8,7 +8,7 @@ where
 {
     args.into_iter().any(|arg| arg.as_ref() == "--background")
 }
-#[cfg(any(windows, test))]
+#[cfg(windows)]
 pub fn launch_command(executable: &Path) -> Result<String, String> {
     let path = executable.to_str().ok_or("Invalid executable path")?;
     if path.contains('"') {
