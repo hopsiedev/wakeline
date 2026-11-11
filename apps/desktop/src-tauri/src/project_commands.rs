@@ -117,7 +117,7 @@ fn load_project_commands(path: String) -> Result<UiProjectCommands, String> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn approve_project_commands(path: String, hash: String) -> Result<(), String> {
     let _guard = crate::STATE_ACCESS
         .lock()

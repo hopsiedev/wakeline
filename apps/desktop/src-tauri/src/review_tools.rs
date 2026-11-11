@@ -62,7 +62,7 @@ pub async fn ask_review_agent(
     .await
     .map_err(|e| e.to_string())?
 }
-#[tauri::command]
+#[tauri::command(async)]
 pub fn open_pr_editor(repository: String, editor: String) -> Result<(), String> {
     if !github_workspace_valid(&repository) {
         return Err("INVALID_REPOSITORY".into());
