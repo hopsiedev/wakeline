@@ -22,6 +22,8 @@ const CHECK_EVERY: Duration = Duration::from_secs(3 * 60);
 /// Preferencias que manda la interfaz: si avisar y en qué idioma.
 pub struct AlertPrefs {
     pub enabled: bool,
+    pub errors: bool,
+    pub pull_requests: bool,
     pub spanish: bool,
 }
 
@@ -29,6 +31,8 @@ impl Default for AlertPrefs {
     fn default() -> Self {
         Self {
             enabled: true,
+            errors: true,
+            pull_requests: true,
             spanish: true,
         }
     }
@@ -70,7 +74,7 @@ fn send(app: &AppHandle, alert: &Alert) {
     let (enabled, spanish) = {
         let prefs = app.state::<Mutex<AlertPrefs>>();
         let prefs = prefs.lock().unwrap_or_else(|e| e.into_inner());
-        (prefs.enabled, prefs.spanish)
+        (prefs.enabled && prefs.errors, prefs.spanish)
     };
     if enabled {
         let (title, body) = texts(alert, spanish);
@@ -96,20 +100,6 @@ pub fn deliver(app: &AppHandle, title: String, body: String) -> Result<(), Strin
         .body(body)
         .show()
         .map_err(|e| e.to_string())
-}
-
-/// Notificación de prueba desde la configuración.
-pub fn send_test(app: &AppHandle) -> Result<(), String> {
-    let spanish = {
-        let prefs = app.state::<Mutex<AlertPrefs>>();
-        prefs.lock().map(|p| p.spanish).unwrap_or(true)
-    };
-    let (title, body) = if spanish {
-        ("Error nuevo en Wakeline", "Este es un aviso de prueba.")
-    } else {
-        ("New error in Wakeline", "This is a test alert.")
-    };
-    deliver(app, title.into(), body.into())
 }
 
 fn texts(alert: &Alert, spanish: bool) -> (String, String) {

@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 import { varAlpha } from 'minimal-shared/utils';
@@ -9,9 +10,7 @@ import Grid from '@mui/material/Grid';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
-import Tooltip from '@mui/material/Tooltip';
 import Snackbar from '@mui/material/Snackbar';
-import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import { useColorScheme } from '@mui/material/styles';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -37,6 +36,7 @@ import {
 
 import { Label } from 'src/components/label';
 import { AppIcon } from 'src/components/nav-icon';
+import { CopyButton } from 'src/components/copy-button';
 
 import { GithubStatusCard } from './github-status-card';
 import { ProjectCommandsCard } from './project-commands-card';
@@ -44,21 +44,17 @@ import { ProjectCommandsCard } from './project-commands-card';
 // ----------------------------------------------------------------------
 
 type Mode = 'dark' | 'light' | 'system';
-type LlmMode = 'off' | 'ollama' | 'api';
 
 export function SettingsView() {
   const { t, i18n } = useTranslation();
   const { mode, setMode } = useColorScheme();
-  const [llmMode, setLlmMode] = useState<LlmMode>('off');
-  const [startWithWin, setStartWithWin] = useState(true);
-  const [claudeEnabled, setClaudeEnabled] = useState(true);
-  const [githubEnabled, setGithubEnabled] = useState(true);
+  const [startWithWin, setStartWithWin] = useState(false);
+  const [startupBusy, setStartupBusy] = useState(true);
+  const [startupError, setStartupError] = useState<string | null>(null);
   const [winToast, setWinToast] = useState(alertsEnabled);
   const [mcpExecutable, setMcpExecutable] = useState<string | null>(null);
   const [copiedMcp, setCopiedMcp] = useState<string | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const copyAttempt = useRef(0);
-  const [trayBadge, setTrayBadge] = useState(true);
   const [dailySummary, setDailySummary] = useState(dailySummaryEnabled);
   const [historyProgress, setHistoryProgress] = useState(getHistoryProgress);
   const [allHistory, setAllHistory] = useState(false);
@@ -69,6 +65,25 @@ export function SettingsView() {
   const currentLang: Language = i18n.language.startsWith('en') ? 'en' : 'es';
   const currentMode: Mode = (mode as Mode) ?? 'dark';
   const windowsPlatform = navigator.userAgent.includes('Windows');
+
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window) || !windowsPlatform) return;
+    invoke<boolean>('get_startup_enabled')
+      .then(setStartWithWin)
+      .catch((e) => setStartupError(String(e)))
+      .finally(() => setStartupBusy(false));
+  }, [windowsPlatform]);
+  const changeStartup = async (enabled: boolean) => {
+    setStartupBusy(true);
+    setStartupError(null);
+    try {
+      setStartWithWin(await invoke<boolean>('set_startup_enabled', { enabled }));
+    } catch (e) {
+      setStartupError(String(e));
+    } finally {
+      setStartupBusy(false);
+    }
+  };
 
   useEffect(() => {
     getMcpExecutable().then(setMcpExecutable);
@@ -128,24 +143,15 @@ export function SettingsView() {
 
   useEffect(
     () => () => {
-      copyAttempt.current += 1;
       if (copyTimer.current !== null) clearTimeout(copyTimer.current);
     },
     []
   );
 
-  const handleCopyMcp = async (label: string, text: string) => {
-    const attempt = ++copyAttempt.current;
+  const handleCopied = (label: string) => {
     if (copyTimer.current !== null) clearTimeout(copyTimer.current);
-    setCopiedMcp(null);
-    try {
-      await navigator.clipboard.writeText(text);
-      if (attempt !== copyAttempt.current) return;
-      setCopiedMcp(label);
-      copyTimer.current = setTimeout(() => setCopiedMcp(null), 2400);
-    } catch {
-      // Clipboard unavailable or denied: keep the success indicator cleared.
-    }
+    setCopiedMcp(label);
+    copyTimer.current = setTimeout(() => setCopiedMcp(null), 2400);
   };
 
   const mcpCommand = mcpExecutable ?? 'wakeline';
@@ -227,11 +233,14 @@ export function SettingsView() {
               {windowsPlatform && (
                 <SettingRow
                   label={t('settings.startWithWindows')}
-                  hint={t('settings.startWithWindowsHint')}
+                  hint={startupError || t('settings.startWithWindowsHint')}
                 >
                   <Switch
                     checked={startWithWin}
-                    onChange={(e) => setStartWithWin(e.target.checked)}
+                    disabled={startupBusy}
+                    onChange={(e) => {
+                      void changeStartup(e.target.checked);
+                    }}
                   />
                 </SettingRow>
               )}
@@ -243,117 +252,15 @@ export function SettingsView() {
               </SettingRow>
 
               <UpdateRow />
-            </Card>
-
-            {/* Inteligencia (opcional) */}
-            <Card sx={{ p: 3 }}>
-              <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
-                {t('settings.llmTitle')}
-              </Typography>
-              <Typography sx={{ mt: 0.25, mb: 2.5, color: 'text.secondary', fontSize: 14 }}>
-                {t('settings.llmSub')}
-              </Typography>
-
-              <Box sx={{ gap: 1.5, display: 'flex', flexDirection: 'column' }}>
-                {(
-                  [
-                    ['off', t('settings.llmOff'), t('settings.llmOffHint')],
-                    ['ollama', t('settings.llmOllama'), t('settings.llmOllamaHint')],
-                    ['api', t('settings.llmApi'), t('settings.llmApiHint')],
-                  ] as const
-                ).map(([key, title, hint]) => {
-                  const selected = llmMode === key;
-                  return (
-                    <Box
-                      key={key}
-                      onClick={() => setLlmMode(key)}
-                      sx={(theme) => ({
-                        p: 2,
-                        gap: 1.75,
-                        display: 'flex',
-                        cursor: 'pointer',
-                        borderRadius: 1.5,
-                        alignItems: 'flex-start',
-                        border: '1px solid',
-                        borderColor: selected ? 'primary.main' : 'divider',
-                        boxShadow: selected
-                          ? `inset 0 0 0 1px ${theme.vars.palette.primary.main}`
-                          : 'none',
-                        bgcolor: selected
-                          ? varAlpha(theme.vars.palette.primary.mainChannel, 0.06)
-                          : 'transparent',
-                      })}
-                    >
-                      <Box
-                        sx={{
-                          mt: 0.25,
-                          width: 20,
-                          height: 20,
-                          flexShrink: 0,
-                          borderRadius: '50%',
-                          display: 'grid',
-                          placeItems: 'center',
-                          border: '2px solid',
-                          borderColor: selected ? 'primary.main' : 'text.disabled',
-                        }}
-                      >
-                        {selected && (
-                          <Box
-                            sx={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: '50%',
-                              bgcolor: 'primary.main',
-                            }}
-                          />
-                        )}
-                      </Box>
-
-                      <Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: 14 }}>{title}</Typography>
-                        <Typography sx={{ color: 'text.secondary', fontSize: 13 }}>
-                          {hint}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  );
-                })}
-
-                <Box
-                  sx={(theme) => ({
-                    mt: 1,
-                    px: 1.75,
-                    height: 54,
-                    display: 'flex',
-                    position: 'relative',
-                    alignItems: 'center',
-                    borderRadius: 1,
-                    opacity: llmMode === 'ollama' ? 1 : 0.5,
-                    color: 'text.secondary',
-                    border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.32)}`,
-                  })}
+              <SettingRow label={t('releaseUi.history')} hint={t('releaseUi.historyHint')}>
+                <Button
+                  color="inherit"
+                  variant="outlined"
+                  onClick={() => window.dispatchEvent(new CustomEvent('wakeline:release-history'))}
                 >
-                  <Box
-                    component="span"
-                    sx={{
-                      top: -9,
-                      left: 10,
-                      px: 0.5,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      position: 'absolute',
-                      color: 'text.secondary',
-                      bgcolor: 'background.paper',
-                    }}
-                  >
-                    {t('settings.ollamaModelLegend')}
-                  </Box>
-                  <span>{t('settings.ollamaModelHint')}</span>
-                  <Box component="span" sx={{ ml: 'auto' }}>
-                    ▾
-                  </Box>
-                </Box>
-              </Box>
+                  {t('releaseUi.history')}
+                </Button>
+              </SettingRow>
             </Card>
 
             {/* Fuentes */}
@@ -373,10 +280,7 @@ export function SettingsView() {
                     : t('settings.claudeSourceHint', { count: sessionCount })
                 }
               >
-                <Switch
-                  checked={claudeEnabled}
-                  onChange={(e) => setClaudeEnabled(e.target.checked)}
-                />
+                <Label>{t('repositories.localSource')}</Label>
               </SettingRow>
 
               <SettingRow
@@ -388,10 +292,7 @@ export function SettingsView() {
               </SettingRow>
 
               <SettingRow label={t('settings.githubSource')} hint={t('settings.githubSourceHint')}>
-                <Switch
-                  checked={githubEnabled}
-                  onChange={(e) => setGithubEnabled(e.target.checked)}
-                />
+                <Label>{t('repositories.readOnly')}</Label>
               </SettingRow>
 
               <SettingRow
@@ -485,10 +386,6 @@ export function SettingsView() {
                     setAlertsEnabled(e.target.checked);
                   }}
                 />
-              </SettingRow>
-
-              <SettingRow label={t('settings.alertsTray')} hint={t('settings.alertsTrayHint')}>
-                <Switch checked={trayBadge} onChange={(e) => setTrayBadge(e.target.checked)} />
               </SettingRow>
 
               <SettingRow
@@ -588,60 +485,45 @@ export function SettingsView() {
                 </Typography>
               )}
 
-              {mcpConfigs.map((config) => {
-                const isCopied = copiedMcp === config.label;
-                return (
-                  <Box key={config.label} sx={{ mb: 2 }}>
-                    <Typography sx={{ mb: 0.75, fontSize: 13, fontWeight: 600 }}>
-                      {config.label}
-                    </Typography>
+              {mcpConfigs.map((config) => (
+                <Box key={config.label} sx={{ mb: 2 }}>
+                  <Typography sx={{ mb: 0.75, fontSize: 13, fontWeight: 600 }}>
+                    {config.label}
+                  </Typography>
+                  <Box
+                    sx={(theme) => ({
+                      position: 'relative',
+                      borderRadius: 1.5,
+                      bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
+                      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
+                    })}
+                  >
+                    <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
+                      <CopyButton
+                        text={config.text}
+                        disabled={!mcpExecutable}
+                        onCopied={() => handleCopied(config.label)}
+                      />
+                    </Box>
                     <Box
-                      sx={(theme) => ({
-                        position: 'relative',
-                        borderRadius: 1.5,
-                        bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
-                        border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
-                      })}
+                      component="pre"
+                      sx={{
+                        m: 0,
+                        py: 1.75,
+                        pl: 2,
+                        pr: 6,
+                        overflowX: 'auto',
+                        fontFamily: 'monospace',
+                        fontSize: 12.5,
+                        lineHeight: 1.6,
+                        color: 'text.primary',
+                      }}
                     >
-                      <Tooltip title={t('settings.copyConfig')}>
-                        <IconButton
-                          size="small"
-                          aria-label={t('settings.copyConfig')}
-                          color={isCopied ? 'success' : 'default'}
-                          onClick={() => handleCopyMcp(config.label, config.text)}
-                          sx={{
-                            position: 'absolute',
-                            top: 8,
-                            right: 8,
-                            width: 28,
-                            height: 28,
-                            zIndex: 1,
-                            bgcolor: 'background.paper',
-                          }}
-                        >
-                          <AppIcon name="copy" size={16} />
-                        </IconButton>
-                      </Tooltip>
-                      <Box
-                        component="pre"
-                        sx={{
-                          m: 0,
-                          py: 1.75,
-                          pl: 2,
-                          pr: 6,
-                          overflowX: 'auto',
-                          fontFamily: 'monospace',
-                          fontSize: 12.5,
-                          lineHeight: 1.6,
-                          color: 'text.primary',
-                        }}
-                      >
-                        {config.text}
-                      </Box>
+                      {config.text}
                     </Box>
                   </Box>
-                );
-              })}
+                </Box>
+              ))}
 
               <Box sx={{ gap: 1, display: 'flex', flexWrap: 'wrap' }}>
                 {['list_cards', 'get_card', 'create_card', 'complete_card'].map((tool) => (

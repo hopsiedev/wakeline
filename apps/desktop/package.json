@@ -1,7 +1,7 @@
 {
   "name": "wakeline-desktop",
   "author": "The Wakeline contributors",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,7 +15,8 @@
     "fix:all": "npm run lint:fix && npm run fm:fix",
     "tsc:watch": "tsc --noEmit --watch",
     "tsc:print": "npx tsc --showConfig",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "docs:screenshots": "node scripts/capture-docs.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -25,6 +26,8 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@fontsource-variable/dm-sans": "^5.2.5",
+    "@fontsource-variable/inter": "^5.2.0",
+    "@fontsource-variable/jetbrains-mono": "^5.2.0",
     "@fontsource/barlow": "^5.2.5",
     "@mui/lab": "^7.0.0-beta.10",
     "@mui/material": "^7.0.1",
@@ -35,6 +38,7 @@
     "i18next": "^27.0.1",
     "lucide-react": "^1.70.0",
     "minimal-shared": "^1.0.7",
+    "motion": "^12.43.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^18.0.0",
@@ -45,6 +49,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.23.0",
+    "@playwright/test": "^1.65.0",
     "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^22.14.0",
     "@types/react": "^19.1.0",

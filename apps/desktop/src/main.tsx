@@ -52,6 +52,8 @@ if (!import.meta.env.DEV) {
 if ('__TAURI_INTERNALS__' in window) {
   requestAnimationFrame(() =>
     requestAnimationFrame(async () => {
+      const { invoke } = await import('@tauri-apps/api/core');
+      if (await invoke<boolean>('is_background_start')) return;
       const { getCurrentWindow } = await import('@tauri-apps/api/window');
       await getCurrentWindow().show();
     })

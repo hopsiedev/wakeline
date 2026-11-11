@@ -7,12 +7,17 @@ import { useBoolean } from 'minimal-shared/hooks';
 import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import { useTheme } from '@mui/material/styles';
 
 import { useRouter } from 'src/routes/hooks';
 
-import { subscribeToChanges, invalidateDashboardCache } from 'src/services/wakeline';
+import {
+  subscribeToChanges,
+  fetchDashboardData,
+  invalidateDashboardCache,
+} from 'src/services/wakeline';
 
 import { AppIcon } from 'src/components/nav-icon';
 
@@ -58,6 +63,7 @@ export function DashboardLayout({
   const router = useRouter();
   const { value: open, onFalse: onClose, onTrue: onOpen } = useBoolean();
   const [rescanning, setRescanning] = useState(false);
+  const [rescanError, setRescanError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === 'true');
 
   const toggleCollapsed = useCallback(() => {
@@ -85,11 +91,20 @@ export function DashboardLayout({
     return () => window.removeEventListener('keydown', onKey);
   }, [router, toggleCollapsed]);
 
-  const handleRescan = () => {
+  const handleRescan = async () => {
+    if (rescanning) return;
     setRescanning(true);
-    invalidateDashboardCache();
-    window.dispatchEvent(new CustomEvent('wakeline:rescan'));
-    setTimeout(() => setRescanning(false), 1200);
+    setRescanError(null);
+    try {
+      invalidateDashboardCache();
+      window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+      const data = await fetchDashboardData({ force: true });
+      if (data.scan_error) setRescanError(data.scan_error);
+    } catch (error) {
+      setRescanError(String(error));
+    } finally {
+      setRescanning(false);
+    }
   };
 
   const renderHeader = () => {
@@ -116,10 +131,17 @@ export function DashboardLayout({
       ),
       rightArea: (
         <Box sx={{ gap: 1.5, display: 'flex', alignItems: 'center' }}>
+          {rescanError && (
+            <Alert severity="error" onClose={() => setRescanError(null)}>
+              {rescanError}
+            </Alert>
+          )}
           <Button
             size="small"
             color="inherit"
             onClick={handleRescan}
+            disabled={rescanning}
+            title={rescanError ?? undefined}
             startIcon={<AppIcon name="term" size={18} />}
             sx={{
               height: 30,

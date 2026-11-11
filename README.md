@@ -1,180 +1,139 @@
-<p align="center">
-  <img src="assets/brand/wakeline-icon.png" width="96" alt="Wakeline">
-</p>
-
+<p align="center"><img src="assets/brand/wakeline-icon.png" width="80" alt="Wakeline"></p>
 <h1 align="center">Wakeline</h1>
-
-<p align="center"><b>A pending-work inbox for the projects you build with AI agents.</b></p>
-
+<p align="center">Keep the errors, tasks, and ideas your AI coding sessions leave behind.</p>
 <p align="center">English · <a href="README.es.md">Español</a></p>
 
----
+Wakeline is a local-first desktop app for Windows and Linux. It turns findings from selected projects, Claude Code sessions, source comments, command results, project documents, and GitHub into an actionable inbox. Your projects and decisions stay on your computer.
 
-Wakeline is a desktop app for Windows and Linux that watches the project folders you choose and gathers the errors, tasks, and ideas left behind in your AI coding sessions and repository docs into cards.
+[Download the latest release](https://github.com/hopsiedev/wakeline/releases/latest) · [Installation and updates](RELEASE.md) · [What's new in 0.1.5](RELEASE-NOTES.md)
 
-## Download and install
+![Summary with fictional Orbit projects](assets/screenshots/summary-en.png)
 
-Windows x64: extract the ZIP and run `wakeline-app.exe` (WebView2 Runtime required).
-Linux x64: AppImage or DEB, built on Ubuntu 22.04 for Ubuntu 22.04+ / Debian 12+.
-These initial packages use manual updates and no commercial signing certificate.
-See [installation, MCP setup and update instructions](RELEASE.md). Review builds are
-available as CI artifacts; public releases appear only after validation.
+_All screenshots use fictional projects, accounts, code, and activity. They are captured from the real interface; example data is not loaded by the shipped app._
 
-Each card keeps its origin (the session, the command that failed, or the file where it was found) and follows a simple workflow: accept it, mark it as done, or dismiss it. Wakeline organizes what needs your attention; it does not edit your code on its own, and it only scans the folders you select.
+## Install and get started
 
-<p align="center">
-  <img src="assets/screenshots/summary.png" width="100%" alt="Wakeline Summary view">
-</p>
+1. **Windows:** install `Wakeline_*_x64-setup.exe`, or extract the portable ZIP and run `wakeline-app.exe`. WebView2 is required. Keep `wakeline.exe` beside the portable app for MCP.
+2. **Linux:** use the AppImage or DEB. AppImage users may need FUSE 2; use `--appimage-extract-and-run` where needed. See [platform instructions](RELEASE.md).
+3. Open **Settings → General** using the gear beside your profile. Add the project folders you want Wakeline to watch. No selected folders means no local project scans.
+4. Install [GitHub CLI](https://cli.github.com/) and run `gh auth login` to see your repositories, pull requests, and GitHub profile. Wakeline uses that existing session.
+5. Open **To do** for findings and **Code review** for pull requests. Settings contains language, appearance, notifications, intelligence, MCP, commands, and version history.
 
-## Why use Wakeline
+## To do: from a finding to a next step
 
-When you work across several projects or run multiple AI sessions a day, unfinished work gets buried fast:
+![To do board with fictional findings](assets/screenshots/cards-en.png)
 
-- A command fails three times in the middle of a long terminal session, you move on to something else, and an hour later you cannot remember which file broke.
-- An agent finishes a feature and notes at the end of its reply that edge-case validation is still pending. Once you close that terminal tab, the note is gone.
-- Follow-up tasks end up split between `README.md`, roadmap notes, and chat histories across different repositories.
+- Filter with **All, Errors, Tasks, Ideas**, search the text, and narrow down by project.
+- Drag cards between **Pending, In progress, In review, Done**, or use the available keyboard actions. In review preserves the accepted backend status while tracking the board stage.
+- Open a card to read its origin, evidence, occurrence count, and history. Copy its context as a prompt, open the related file, or resume its Claude session when available.
+- Use priorities to see which pending items need attention and why: repeated errors, failing project commands, or aging tasks.
+- **Snooze** until tomorrow or another occurrence, then resume the item without losing its history. Snoozed items are kept, not deleted.
+- Create a manual finding, select several cards for a bulk action, or export open items to the project's `docs/TODO.md`. Export is explicit, not an automatic rewrite of your documents.
 
-Wakeline reads those traces in the background and puts them in one inbox, grouping repeated failures into a single card so the same error does not clutter your list ten times.
+![Finding evidence and history](assets/screenshots/card-detail-en.png)
 
-## App views
+## Repositories and Code review
 
-### Card inbox and context detail
+![Repository activity](assets/screenshots/repositories-en.png)
 
-In **Cards**, you can filter by project, type (`Error`, `Task`, `Idea`), or search query, and switch between the table view and a Kanban board. Opening a card shows the code excerpt where the issue happened, the failing command output, and direct actions to open the file in VS Code, resume the Claude session, or copy the context as a prompt.
+Browse the repositories your GitHub account can access. Sort by recent activity, name, or stars, mark favorites, and open their pull requests. Synchronization uses a local cache and incremental refreshes; GitHub access and rate limits still apply.
 
-<p align="center">
-  <img src="assets/screenshots/cards.png" width="49%" alt="Wakeline Cards table view">
-  <img src="assets/screenshots/card-detail.png" width="49%" alt="Wakeline Card detail view">
-</p>
+Filter PRs by **Open, In review, Merged, Closed**. Open **Details** for the description, file list, and syntax-highlighted **Unified / Split** diff. Open the PR on GitHub when you need to review or merge it there: Wakeline does not merge PRs for you.
 
-### Settings, notifications, and hard exclusions
+![Pull request diff, editor choice, and AI chat](assets/screenshots/pr-review-en.png)
 
-In **Settings**, you control Windows tray notifications, language, theme, the `docs/TODO.md` export path, MCP server connections, and the built-in secret exclusion rules.
+### Ask AI about a PR
 
-<p align="center">
-  <img src="assets/screenshots/settings.png" width="100%" alt="Wakeline Settings view">
-</p>
+1. Install and authenticate **Claude Code** on the same machine.
+2. Open **Review chat** from Code review to ask about the listed PRs. That conversation uses cached PR metadata, not the contents of every repository.
+3. Open a specific PR to ask about its title, description, and filtered diff. That PR has a separate conversation; it is not mixed with the overview chat.
+4. Choose a CLI alias or a specific model version, then an effort level. Choices are remembered. Model and effort access depend on your Claude account and CLI; selecting a model does not grant access to it.
+5. Type your question. **Enter** sends; **Shift+Enter** inserts a line. The input grows with the text. Add an image with the image button or paste it with **Ctrl+V**; preview or remove it before sending. Up to 3 PNG/JPEG/WebP/GIF images, 5 MB each and 10 MB total.
+6. Use **Review chat** to close or reopen the panel. Its placement is consistent between the review list and PR detail.
 
-## Use cases
+Claude runs with tools disabled in a temporary empty directory. The PR context is filtered and redacted before sending. Attachments are explicitly selected by you and sent to the model. Codex and Antigravity can connect through MCP; they are not yet enabled as isolated review-chat providers. Chat conversations and attachments currently remain in memory during the app session, not as a permanent chat archive.
 
-### 1. Pick up a failing file without digging through terminal history
+### Open your local copy in an editor
 
-Say a type check fails in `app/layout.tsx` while running `npm run typecheck` during an AI session. Instead of scrolling through hundreds of lines of terminal output to find which session hit the error, you open the card in Wakeline, review the context and how many times it happened, and jump straight to the file in VS Code or resume that Claude session.
+Below the PR summary, choose **VS Code, Cursor, or Antigravity**. Wakeline remembers your choice until you change it. The matching local repository must be in your watched projects and the editor must be installed. Opening it does not clone the repository, check out the PR branch, or run project code.
 
-### 2. Catch follow-ups the agent left for later
+## Daily summary and notifications
 
-You often ask an agent to solve one part of a problem and leave the rest for later. When the agent mentions pending work or suggests a follow-up idea in its reply, Wakeline turns it into a task or idea card tied to that project folder and branch.
+![Daily summary with sample activity](assets/screenshots/daily-summary-en.png)
 
-### 3. Switch between projects without losing track
+Enable **Settings → Notifications → Summary on open** to see an actionable summary once per local calendar day when there are relevant changes or pending items. It shows errors, tasks, ideas, priorities, completed findings, and PRs needing attention. You can reopen it from Settings. Empty activity does not produce a negative productivity badge.
 
-If you bounce between a web app, an Expo mobile project, and a Rust workspace, you can add just those folders in the sidebar. Wakeline ignores the rest of your disk, groups cards by project, and sends a Windows tray notification only when a new error card appears.
+Errors and new PRs can also produce system notifications on Windows and Linux. Enable the relevant channels and allow the OS to show notifications. Delivery follows system settings, rate limits, deduplication, and whether Wakeline is running. Connection indicators stay green regardless of the accent color.
 
-### 4. Work through cards from chat with MCP
+On Windows, the installed app can start in the background and use the system tray. On Linux, tray behavior depends on your desktop environment; closing the window exits the app.
 
-Wakeline includes an MCP server (`wakeline mcp`) over `stdio`. Once connected to Claude Code, Codex, or Antigravity, you can ask your agent in chat:
+## Connect your agents with MCP
 
-> "Check the open cards for this project and help me fix the error in `app/layout.tsx`."
+![Detected connections](assets/screenshots/connections-en.png)
 
-The agent can query your inbox (`list_cards`, `get_card`), log a new item (`create_card`), or mark a card done (`complete_card`) once you finish. By design, there is no delete tool: an agent can never wipe your card history.
+Open your profile menu → **Connections**, then **MCP Server**. Settings shows copyable commands using the installed CLI path. With `wakeline` in PATH, the equivalents are:
 
-## Architecture
-
-Wakeline separates its Rust core from three entry points (Desktop UI, MCP server, and CLI) that share the exact same scanning, deduplication, and local state logic.
-
-```mermaid
-flowchart LR
-  subgraph Sources["Local sources (read-only)"]
-    S["Claude Code sessions<br/>~/.claude/projects/*.jsonl"]
-    D["Project docs<br/>README · ROADMAP · TODO · docs/*.md"]
-  end
-
-  subgraph Core["wakeline-core (Rust)"]
-    W["Watched folder filter<br/>watch::is_within"]
-    X["Exclusions & redaction<br/>exclusions + redact"]
-    P["Detector & FNV-1a fingerprint<br/>sessions + docs + fingerprint"]
-    ST[("Local state<br/>%APPDATA%\\wakeline\\state.json")]
-  end
-
-  subgraph Clients["Clients & outputs"]
-    UI["Desktop app<br/>Tauri v2 + React + MUI"]
-    MCP["MCP server (stdio)<br/>wakeline-mcp"]
-    CLI["CLI<br/>wakeline scan / watch / export"]
-    TODO["Manual export<br/>docs/TODO.md"]
-  end
-
-  S --> W
-  D --> W
-  W --> X
-  X --> P
-  P <--> ST
-  ST --> UI
-  ST --> MCP
-  ST --> CLI
-  UI --> TODO
-  CLI --> TODO
+```sh
+claude mcp add wakeline -- wakeline mcp
+codex mcp add wakeline -- wakeline mcp
 ```
 
-### How cards are fingerprinted and persisted
+For Antigravity, merge this entry into its MCP configuration, using an absolute executable path if needed:
 
-Every finding is normalized (stripping timestamps, temporary paths, and shifting line numbers) and hashed into a stable `FNV-1a` `Fingerprint`:
-
-- If a command fails three times with the same error during a session, Wakeline collapses those occurrences into **one card** with a `×3` counter.
-- When you accept, complete, or dismiss a card, that decision is stored by fingerprint in `%APPDATA%\wakeline\state.json`, so rescanning the project never resets your decisions.
-
-```mermaid
-stateDiagram-v2
-  direction LR
-  [*] --> New: Detected in session, doc, or created manually
-  New --> Accepted: Accept in app
-  New --> Done: Mark done / complete_card (MCP)
-  New --> Dismissed: Dismiss
-  Accepted --> Done: Mark done / complete_card (MCP)
-  Accepted --> Dismissed: Dismiss
-  Done --> Accepted: Reopen from card detail
+```json
+{
+  "mcpServers": {
+    "wakeline": {
+      "command": "wakeline",
+      "args": ["mcp"]
+    }
+  }
+}
 ```
 
-### Workspace components
+Ask your agent: “List this project's pending cards and show the evidence for the repeated payment error.” Tools include `list_cards`, `get_card`, `create_card`, and `complete_card`; there is no delete tool. Refresh Connections after configuring a client. Disconnect displays the appropriate client command for you to run; it does not silently rewrite another application's configuration.
 
-| Component | Responsibility |
-| --- | --- |
-| `crates/wakeline-core` | Incremental reader for Claude Code JSONL sessions, Markdown pending-section parser, `FNV-1a` fingerprinting, hard secret exclusions (`.env`, credentials, private keys), token redaction, alert cooldowns, and local state persistence in `%APPDATA%\wakeline\state.json`. |
-| `crates/wakeline-mcp` | JSON-RPC 2.0 server over `stdio` supporting MCP protocol versions `2024-11-05`, `2025-11-25`, and `2026-07-28`. Exposes `list_cards`, `get_card`, `create_card`, and `complete_card` over the same watched folders and sources as the desktop app. |
-| `crates/wakeline-cli` | Command-line binary (`wakeline scan`, `wakeline watch`, `wakeline export`, `wakeline mcp`). |
-| `apps/desktop` | Native Windows desktop app built with Tauri v2 (`src-tauri`) and React 19 + MUI v7 (`src`). Includes system tray integration, native Windows toast notifications for new errors, folder picker, and direct VS Code deep links. |
+MCP access to cards and the in-app isolated PR chat are separate capabilities.
 
-## What it reads today (and what it doesn't)
+## Commands, intelligence, and privacy
 
-| Source | What Wakeline collects |
-| --- | --- |
-| Claude Code sessions | Repeated tool/command errors and pending work or ideas mentioned in `~/.claude/projects` sessions whose working directory belongs to your watched folders |
-| Project docs | Pending items, known gaps, and roadmap sections in Markdown files (`README`, `ROADMAP`, `TODO`, `docs/*.md`) inside your selected folders |
-| Manual and MCP | Cards created directly in the desktop app or through the MCP server |
+- Define allowed project commands in `wakeline.toml`, review their executable/arguments, and explicitly approve them before running them in Wakeline. A changed command definition requires approval again. See `cargo run -p wakeline-cli -- --help` for `trust` and `run`.
+- Optional local Ollama or external-provider settings are in **Settings → Intelligence**. Saving a provider configuration does not run a model or make every provider a PR-chat backend. API keys use the supported OS secure store; unsupported secure storage is reported.
+- Watched folders, card decisions, and session offsets are persisted locally. Fixed credential/private-file exclusions and text redaction remain active. The app does not scan arbitrary folders or automatically edit your source code.
+- Keep backups of the app's state and WebView preferences. A normal upgrade retains the app identifier, state location, projects, card fingerprints, and preferences; do not delete the old profile when updating.
 
-**Clear boundaries:**
+## Update and revisit the announcement
 
-- **Only scans folders you select.** Until you pick a folder, Wakeline stays empty.
-- **Never touches secrets.** A fixed exclusion list (`.env`, credential stores, private keys, session tokens) and a redaction filter strip sensitive tokens before any card is created.
-- **Stays on your machine.** Watched folders and card statuses are saved locally in `%APPDATA%\wakeline\state.json`, and you can export open cards to `docs/TODO.md` anytime.
+Open the profile menu → **Check for updates**, or **Settings → Versions**. The control shows checking, up to date, a new version, or an error based on the real result. Windows installed builds use the signed updater; portable ZIP and Linux packages follow the [manual update instructions](RELEASE.md).
 
-## Development
+**Settings → Versions → View changes** reopens the illustrated announcement at any time.
 
-Requirements on Windows 11: Rust (stable), Node.js 20+, and WebView2.
+![Update announcement](assets/screenshots/updates-en.png)
 
-```bash
-# Run core, CLI, and MCP tests
-cargo test -p wakeline-core -p wakeline-cli -p wakeline-mcp
+## CLI and development
 
-# Run the CLI or start the MCP server
-cargo run -p wakeline-cli -- --help
+```sh
+wakeline scan /path/to/project
+wakeline watch
+wakeline export /path/to/project
+wakeline mcp
+```
 
-# Start the desktop app in development mode
+Development needs Rust stable, Node.js 22+, and Tauri's platform dependencies (WebView2 on Windows; WebKitGTK and packaging libraries on Linux).
+
+```sh
+cargo test --workspace
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
 cd apps/desktop
-npm install
+npm ci
+npm run lint
+npm run fm:check
+node --test tests/*.test.mjs
+npm run build
 npm run tauri dev
 ```
 
-## License
+To regenerate documentation images: run `npm run dev`, then `npx playwright install chromium` and `npm run docs:screenshots` in another terminal. The capture script intercepts the development API with synthetic fixtures and checks chat alignment, resizing, and open/close controls. It never reads real sessions or invokes agents. Set `WAKELINE_DOCS_URL` to use another local dev-server URL. Fixtures and the debug review bridge are not production data sources.
 
-Licensed under the [MIT License](LICENSE-MIT).
-
-The desktop interface is based on [Minimal UI Kit](https://github.com/minimal-ui-kit/material-kit-react) (free edition, MIT). See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+The Rust core is shared by the desktop app, CLI, and MCP server. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for interface, library, font, and logo credits. Licensed under [MIT](LICENSE-MIT).

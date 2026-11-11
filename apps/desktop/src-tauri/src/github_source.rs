@@ -6,7 +6,6 @@ use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
-use wakeline_core::alerts::PullRequestTracker;
 use wakeline_core::github::{self, GhStatus, GithubPoller, SystemGh};
 use wakeline_core::store::LocalState;
 use wakeline_core::watch::normalized_path;
@@ -23,7 +22,6 @@ pub struct UiGithubStatus {
 }
 
 pub fn start(app: &AppHandle) {
-    app.manage(Mutex::new(PullRequestTracker::default()));
     let emitter = app.clone();
     let poller = GithubPoller::spawn(
         LocalState::default_path(),
@@ -32,39 +30,98 @@ pub fn start(app: &AppHandle) {
         move |project| updated(&emitter, project),
     );
     app.manage(poller);
+    start_account_notifications(app);
 }
 
-fn updated(app: &AppHandle, project: &std::path::Path) {
+fn updated(app: &AppHandle, _project: &std::path::Path) {
     let _ = app.emit(CHANGED_EVENT, ());
-    let cache = github::GithubCache::load(&github::cache_path());
-    // A failed read preserves the cache but must not announce stale data.
-    if cache.error(project).is_some() {
-        return;
-    }
-    let Some(snapshot) = cache.get(project) else {
-        return;
-    };
-    let prefs = app.state::<Mutex<crate::alerts::AlertPrefs>>();
-    let prefs = prefs.lock().unwrap_or_else(|e| e.into_inner());
-    let (enabled, spanish) = (prefs.enabled, prefs.spanish);
-    drop(prefs);
-    if !enabled {
-        return;
-    }
-    let tracker = app.state::<Mutex<PullRequestTracker>>();
-    let mut tracker = tracker.lock().unwrap_or_else(|e| e.into_inner());
-    for pr in &snapshot.pull_requests {
-        if tracker.should_notify(&snapshot.repo, pr.number) {
-            let title = if spanish {
-                format!("PR abierta en {}", snapshot.repo)
-            } else {
-                format!("Open PR in {}", snapshot.repo)
-            };
-            if crate::alerts::deliver(app, title, format!("#{} {}", pr.number, pr.title)).is_ok() {
-                tracker.delivered(&snapshot.repo, pr.number);
+}
+
+// Account-wide PR notifications share the dashboard cache and survive restarts.
+// Learn the initial set silently; retain delivered IDs without writing PR content.
+fn start_account_notifications(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        use std::collections::HashSet;
+        let path = LocalState::default_path().with_file_name("github-notified.json");
+        let initial = std::fs::read(&path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<HashSet<String>>(&bytes).ok());
+        let mut initialized = initial.is_some();
+        let mut seen = initial.unwrap_or_default();
+        std::thread::sleep(Duration::from_secs(30));
+        loop {
+            let since = format!(
+                "{}T00:00:00.000Z",
+                (time::OffsetDateTime::now_utc() - time::Duration::days(60)).date()
+            );
+            if let Ok(data) = wakeline_core::github_workspace::cached(&since)
+                && data["warnings"]
+                    .as_array()
+                    .is_some_and(|warnings| warnings.is_empty())
+                && let Some(prs) = data["pull_requests"].as_array()
+            {
+                let prefs = app.state::<Mutex<crate::alerts::AlertPrefs>>();
+                let prefs = prefs.lock().unwrap_or_else(|error| error.into_inner());
+                let (enabled, spanish) = (prefs.enabled && prefs.pull_requests, prefs.spanish);
+                drop(prefs);
+                let current: Vec<_> = prs
+                    .iter()
+                    .filter(|pr| pr["state"] == "open" || pr["state"] == "review")
+                    .collect();
+                let new: Vec<_> = current
+                    .iter()
+                    .filter(|pr| pr["id"].as_str().is_some_and(|id| !seen.contains(id)))
+                    .collect();
+                let delivered = if initialized && enabled && !new.is_empty() {
+                    let title = if spanish {
+                        format!("{} PR nuevas", new.len())
+                    } else {
+                        format!("{} new pull requests", new.len())
+                    };
+                    let pr = new[0];
+                    crate::alerts::deliver(
+                        &app,
+                        title,
+                        format!(
+                            "{} #{}: {}",
+                            pr["repository"].as_str().unwrap_or_default(),
+                            pr["number"],
+                            pr["title"].as_str().unwrap_or_default()
+                        ),
+                    )
+                    .is_ok()
+                } else {
+                    true
+                };
+                if delivered {
+                    seen.extend(
+                        current
+                            .iter()
+                            .filter_map(|pr| pr["id"].as_str().map(str::to_string)),
+                    );
+                    initialized = true;
+                    if let Some(parent) = path.parent()
+                        && let Ok(file) = tempfile_for_notifications(parent, &seen)
+                    {
+                        let _ = file.persist(&path);
+                    }
+                }
             }
+            std::thread::sleep(Duration::from_secs(5 * 60));
         }
-    }
+    });
+}
+
+fn tempfile_for_notifications(
+    parent: &std::path::Path,
+    seen: &std::collections::HashSet<String>,
+) -> std::io::Result<tempfile::NamedTempFile> {
+    use std::io::Write;
+    let mut file = tempfile::NamedTempFile::new_in(parent)?;
+    serde_json::to_writer(&mut file, seen)?;
+    file.flush()?;
+    Ok(file)
 }
 
 #[tauri::command]
