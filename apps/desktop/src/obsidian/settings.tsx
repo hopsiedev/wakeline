@@ -394,13 +394,23 @@ export function SettingsPage() {
     void getMcpExecutable()
       .then(setExecutable)
       .catch((cause) => setError(String(cause)));
-    void historyImportStatus().then(setHistory);
+    void historyImportStatus()
+      .then(setHistory)
+      .catch((cause) => setError(String(cause)));
     if (desktop && navigator.userAgent.includes('Windows'))
       void invoke<boolean>('get_startup_enabled')
         .then(setStartup)
         .catch((cause) => setError(String(cause)))
         .finally(() => setStartupBusy(false));
-    const onProgress = () => setProgress(getHistoryProgress());
+    // The import outlives this page: its state comes from the shared progress.
+    const onProgress = () => {
+      const next = getHistoryProgress();
+      setProgress(next);
+      if (!next)
+        void historyImportStatus()
+          .then(setHistory)
+          .catch(() => {});
+    };
     window.addEventListener('wakeline:history-progress', onProgress);
     return () => window.removeEventListener('wakeline:history-progress', onProgress);
   }, [desktop]);
@@ -408,6 +418,7 @@ export function SettingsPage() {
     if (params.get('checkUpdates')) setTab('versions');
   }, [params]);
   const clients = mcpClients(executable);
+  const importing = historyBusy || !!progress;
   const select = (next: string) => {
     setTab(next);
     setError(null);
@@ -510,7 +521,7 @@ export function SettingsPage() {
                 >
                   <button
                     className="btn"
-                    disabled={historyBusy}
+                    disabled={importing}
                     onClick={async () => {
                       setHistoryBusy(true);
                       try {
@@ -531,7 +542,7 @@ export function SettingsPage() {
                       }
                     }}
                   >
-                    {t(historyBusy ? 'settings.historyImporting' : 'settings.importAll')}
+                    {t(importing ? 'settings.historyImporting' : 'settings.importAll')}
                   </button>
                 </Row>
                 {progress && <p className="wk-help">{t('settings.historyProgress', progress)}</p>}

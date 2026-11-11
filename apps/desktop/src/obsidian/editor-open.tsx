@@ -1,23 +1,35 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRef, useState, useEffect } from 'react';
 import { ChevronDown, ExternalLink } from 'lucide-react';
 
-import { invoke } from 'src/services/wakeline';
+import { EDITORS, preferredEditor } from 'src/services/editor-preference';
+import { invoke, type UiCard, openCardInEditor } from 'src/services/wakeline';
 
-const editors = [
-  { id: 'vscode', name: 'VS Code' },
-  { id: 'cursor', name: 'Cursor' },
-  { id: 'antigravity', name: 'Antigravity' },
-];
-export function EditorOpen({ repository }: { repository: string }) {
+export function EditorOpen({
+  repository,
+  card,
+}:
+  | { repository: string; card?: never }
+  | { card: Pick<UiCard, 'project' | 'location' | 'title'>; repository?: never }) {
   const { t } = useTranslation();
-  const [editor, setEditor] = useState(() => {
-    const saved = localStorage.getItem('wakeline-preferred-editor');
-    return editors.find((e) => e.id === saved) ?? editors[0];
-  });
+  const [editor, setEditor] = useState(preferredEditor);
   const [error, setError] = useState('');
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const dismiss = (event: PointerEvent | KeyboardEvent) => {
+      if (event.type === 'keydown' && (event as KeyboardEvent).key !== 'Escape') return;
+      if (event.type === 'pointerdown' && root.current?.contains(event.target as Node)) return;
+      root.current?.querySelector('details')?.removeAttribute('open');
+    };
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', dismiss);
+    return () => {
+      document.removeEventListener('pointerdown', dismiss);
+      document.removeEventListener('keydown', dismiss);
+    };
+  }, []);
   return (
-    <div className="wk-editor-open">
+    <div className="wk-editor-open" ref={root}>
       <div>
         <button
           type="button"
@@ -25,7 +37,8 @@ export function EditorOpen({ repository }: { repository: string }) {
           onClick={async () => {
             setError('');
             try {
-              await invoke('open_pr_editor', { repository, editor: editor.id });
+              if (card) await openCardInEditor(card, editor.id);
+              else await invoke('open_pr_editor', { repository, editor: editor.id });
             } catch (cause) {
               const message = String(cause);
               setError(
@@ -49,7 +62,7 @@ export function EditorOpen({ repository }: { repository: string }) {
             <ChevronDown size={15} />
           </summary>
           <div className="wk-editor-options">
-            {editors.map((item) => (
+            {EDITORS.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -72,7 +85,7 @@ export function EditorOpen({ repository }: { repository: string }) {
           </div>
         </details>
       </div>
-      <small>{t('prEditor.localOnly')}</small>
+      {!card && <small>{t('prEditor.localOnly')}</small>}
       {error && <p role="alert">{error}</p>}
     </div>
   );

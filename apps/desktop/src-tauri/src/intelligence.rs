@@ -3,7 +3,13 @@ use wakeline_core::intelligence::{Config, validate};
 use wakeline_core::store::LocalState;
 
 #[tauri::command]
-pub fn get_intelligence() -> Result<serde_json::Value, String> {
+pub async fn get_intelligence() -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(load_intelligence)
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+pub(crate) fn load_intelligence() -> Result<serde_json::Value, String> {
     let state = LocalState::load(&LocalState::default_path());
     let config = state
         .extra
@@ -20,7 +26,7 @@ pub fn get_intelligence() -> Result<serde_json::Value, String> {
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_intelligence(
     config: Config,
     api_key: Option<String>,

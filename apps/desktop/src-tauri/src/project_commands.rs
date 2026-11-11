@@ -59,7 +59,13 @@ pub fn pending_approval(state: &LocalState, root: &Path) -> bool {
 }
 
 #[tauri::command]
-pub fn get_project_commands(path: String) -> Result<UiProjectCommands, String> {
+pub async fn get_project_commands(path: String) -> Result<UiProjectCommands, String> {
+    tauri::async_runtime::spawn_blocking(move || load_project_commands(path))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn load_project_commands(path: String) -> Result<UiProjectCommands, String> {
     let root = watched_root(&path)?;
     let loaded = match commands::load(&root) {
         Ok(Some(loaded)) => loaded,
@@ -111,7 +117,7 @@ pub fn get_project_commands(path: String) -> Result<UiProjectCommands, String> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn approve_project_commands(path: String, hash: String) -> Result<(), String> {
     let _guard = crate::STATE_ACCESS
         .lock()

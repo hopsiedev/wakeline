@@ -19,7 +19,7 @@ pub fn query(command: &str, input: Value) -> Result<Value, String> {
             )
             .map(Value::String)
         }
-        "get_intelligence" => crate::intelligence::get_intelligence(),
+        "get_intelligence" => crate::intelligence::load_intelligence(),
         "get_account" => serde_json::to_value(wakeline_core::account::read_account(
             &crate::user_home(),
             env!("CARGO_PKG_VERSION").into(),

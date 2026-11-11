@@ -14,6 +14,28 @@ export type Release = {
 // Every release is required to carry both languages; tests enforce non-empty copy.
 export const RELEASES: Release[] = [
   {
+    version: '0.1.7',
+    features: [],
+    fixes: {
+      es: [
+        'Configuración ya no se congela mientras se importa el historial.',
+        'Actualizar en Code review trae al momento las PR nuevas.',
+        'Los commits hechos con Claude o Codex muestran su cuenta y foto de GitHub.',
+        'Selector de sesiones del chat con el estilo de la app; las sesiones vacías no se guardan.',
+        'Barras de actividad separadas por día y filtros de Code review compactos.',
+        'To do permite vigilar y dejar de vigilar carpetas.',
+      ],
+      en: [
+        'Settings no longer freezes while the history imports.',
+        'Refresh in Code review brings in new pull requests right away.',
+        'Commits made with Claude or Codex show their GitHub account and picture.',
+        'Chat session picker matches the app; empty sessions are not saved.',
+        'Activity bars stay apart per day and Code review filters are compact again.',
+        'To do lets you watch and stop watching folders.',
+      ],
+    },
+  },
+  {
     version: '0.1.6',
     features: [],
     fixes: {

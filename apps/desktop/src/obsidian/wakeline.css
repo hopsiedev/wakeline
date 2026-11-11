@@ -589,7 +589,51 @@
   display: flex;
   gap: 9px;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
+}
+.wk-release-fixes[data-patch='true'] h3 {
+  font-size: 16px;
+}
+.wk-fix-count {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #14b8a626;
+  color: #2dd4bf;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+.wk-release-fixes ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wk-release-fixes li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-left: 2px solid #14b8a6;
+  border-radius: 10px;
+  background: #14b8a60d;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+}
+.wk-fix-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: #14b8a6;
+  color: #050505;
 }
 .wk-release-footer {
   display: flex;

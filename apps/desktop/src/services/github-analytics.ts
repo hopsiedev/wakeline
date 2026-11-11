@@ -44,6 +44,14 @@ export function analytics(data: GithubWorkspace, days: number, now = new Date())
     ...new Set(data.commits.filter((c) => within(c.at, start, end)).map((c) => c.author)),
   ].map((author) => ({
     name: author,
+    repositories: [
+      ...new Set(
+        data.commits
+          .filter((c) => c.author === author && within(c.at, start, end))
+          .map((c) => c.repository)
+          .filter(Boolean)
+      ),
+    ].sort(),
     avatar: data.commits.find((c) => c.author === author)?.avatar_url ?? null,
     series: labels.map((date) => {
       const finish = new Date(date);
