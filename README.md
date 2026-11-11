@@ -5,7 +5,7 @@
 
 Wakeline is a local-first desktop app for Windows and Linux. It turns findings from selected projects, Claude Code sessions, source comments, command results, project documents, and GitHub into an actionable inbox. Your projects and decisions stay on your computer.
 
-[Download the latest release](https://github.com/hopsiedev/wakeline/releases/latest) · [Installation and updates](RELEASE.md) · [What's new in 0.1.6](RELEASE-NOTES.md)
+[Download the latest release](https://github.com/hopsiedev/wakeline/releases/latest) · [Installation and updates](RELEASE.md) · [What's new in 0.1.7](RELEASE-NOTES.md)
 
 ![Summary with fictional Orbit projects](assets/screenshots/summary-en.png)
 

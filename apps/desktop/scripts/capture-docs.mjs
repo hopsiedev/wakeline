@@ -18,7 +18,7 @@ try {
     await context.addInitScript(
       ({ language }) => {
         localStorage.setItem('wakeline-lang', language);
-        localStorage.setItem('wakeline-release-shown', '0.1.6');
+        localStorage.setItem('wakeline-release-shown', '0.1.7');
         localStorage.setItem('wakeline-daily-summary-enabled', 'false');
         localStorage.setItem('wakeline-accent', 'teal');
         localStorage.setItem('wakeline-nav-collapsed', 'false');

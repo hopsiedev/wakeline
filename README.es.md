@@ -5,7 +5,7 @@
 
 Wakeline es una aplicación de escritorio para Windows y Linux. Reúne hallazgos de los proyectos que eliges, sesiones de Claude Code, comentarios del código, resultados de comandos, documentos y GitHub. Tus proyectos y decisiones se guardan localmente.
 
-[Descargar la última versión](https://github.com/hopsiedev/wakeline/releases/latest) · [Instalación y actualizaciones](RELEASE.md) · [Novedades de 0.1.6](RELEASE-NOTES.md)
+[Descargar la última versión](https://github.com/hopsiedev/wakeline/releases/latest) · [Instalación y actualizaciones](RELEASE.md) · [Novedades de 0.1.7](RELEASE-NOTES.md)
 
 ![Resumen con proyectos ficticios de Orbit](assets/screenshots/summary-es.png)
 

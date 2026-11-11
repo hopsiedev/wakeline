@@ -10,7 +10,7 @@ try {
   });
   await context.addInitScript(() => {
     localStorage.setItem('wakeline-lang', 'en');
-    localStorage.setItem('wakeline-release-shown', '0.1.6');
+    localStorage.setItem('wakeline-release-shown', '0.1.7');
     localStorage.setItem('wakeline-daily-summary-enabled', 'false');
     window.__TAURI_INTERNALS__ = {
       metadata: { currentWindow: { label: 'main' }, currentWebview: { label: 'main' } },
@@ -65,7 +65,7 @@ try {
     if (command === 'open_in_editor') opened.push(args);
     if (command === 'list_project_files')
       data = [{ name: 'webhook.ts', relative_path: 'src/payments/webhook.ts', is_dir: false }];
-    if (command === 'plugin:app|version') data = '0.1.6';
+    if (command === 'plugin:app|version') data = '0.1.7';
     await route.fulfill({ json: data });
   });
   await page.goto('http://127.0.0.1:3039/cards');
