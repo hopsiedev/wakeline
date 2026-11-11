@@ -2,6 +2,7 @@
 #[path = "../src/startup.rs"]
 mod startup;
 #[test]
+#[cfg(windows)]
 fn quotes_executable_and_starts_background() {
     assert_eq!(
         startup::launch_command(std::path::Path::new(
