@@ -35,7 +35,6 @@ import {
 import {
   type UiCard,
   originLabel,
-  openInVscode,
   openExternal,
   refreshGithub,
   openProjectFile,
@@ -56,6 +55,7 @@ import { EvidenceMarkdown } from 'src/components/evidence-markdown';
 
 import { toggleCardSelection, selectedStatusInputs } from 'src/sections/cards/card-selection';
 
+import { EditorOpen } from './editor-open';
 import { ProjectCommands } from './settings';
 import { useWorkspace } from './workspace-context';
 import { NumberAnimation } from './number-animation';
@@ -819,9 +819,7 @@ export function TodoPage() {
                   .join('\n\n')}
                 label={t('cards.copyPrompt')}
               />
-              <button className="btn" onClick={() => run(() => openInVscode(selected))}>
-                {t('cards.openVscode')}
-              </button>
+              <EditorOpen card={selected} />
               {selected.session_id && (
                 <button className="btn" onClick={() => run(() => resumeClaudeSession(selected))}>
                   {t('cards.resumeSession')}
@@ -1226,6 +1224,7 @@ function FileTree({ project, path = '' }: { project: string; path?: string }) {
   }, [project, path]);
   return (
     <div className="real-file-tree">
+      {!path && <EditorOpen card={{ project, location: '', title: '' }} />}
       <ErrorNotice error={error} />
       {!entries && !error && <p className="wk-help">{t('common.loading')}</p>}
       {entries?.map((entry) => (

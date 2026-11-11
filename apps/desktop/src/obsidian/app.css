@@ -14,6 +14,170 @@
 .obsidian-analytics-dashboard .main {
   min-width: 0;
 }
+.obsidian-analytics-dashboard .wk-workspace-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.obsidian-analytics-dashboard .wk-workspace-body > .main-scroll {
+  min-width: 0;
+  container: workspace-area / inline-size;
+}
+.obsidian-analytics-dashboard .wk-chat-dock {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 clamp(300px, 30%, 420px);
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+}
+.obsidian-analytics-dashboard .wk-chat-dock > .wk-pr-chat {
+  position: static;
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  border-radius: 0;
+}
+.wk-chat-sessions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.wk-chat-sessions select {
+  min-width: 0;
+  width: 100%;
+  padding: 8px;
+  color: var(--text);
+  background: var(--ad-surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  text-overflow: ellipsis;
+}
+.obsidian-analytics-dashboard .wk-chat-dock .wk-chat-options {
+  right: 0;
+  left: auto;
+  min-width: min(190px, 100%);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.obsidian-analytics-dashboard .wk-chat-dock .wk-chat-selectors {
+  position: relative;
+}
+.obsidian-analytics-dashboard .wk-chat-dock .wk-chat-picker {
+  position: static;
+}
+.obsidian-analytics-dashboard .wk-chat-dock .wk-chat-options button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.obsidian-analytics-dashboard .wk-chat-dock .wk-pr-chat-head small {
+  flex-wrap: wrap;
+}
+.obsidian-analytics-dashboard .page,
+.obsidian-analytics-dashboard .page-content,
+.obsidian-analytics-dashboard .card,
+.obsidian-analytics-dashboard .wk-kanban-column,
+.obsidian-analytics-dashboard .wk-kanban-card {
+  min-width: 0;
+}
+.obsidian-analytics-dashboard .wk-kanban-card {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.obsidian-analytics-dashboard .wk-kanban-card h3,
+.obsidian-analytics-dashboard .wk-kanban-project {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.obsidian-analytics-dashboard .wk-kanban {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.obsidian-analytics-dashboard .toolbar,
+.obsidian-analytics-dashboard .page-head,
+.obsidian-analytics-dashboard .card-head,
+.obsidian-analytics-dashboard .wk-pr-head {
+  flex-wrap: wrap;
+}
+.obsidian-analytics-dashboard .wk-diff-file,
+.obsidian-analytics-dashboard .wk-diff-scroll {
+  min-width: 0;
+  max-width: 100%;
+}
+.obsidian-analytics-dashboard .wk-diff-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.obsidian-analytics-dashboard .wk-diff[data-layout='split'] {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+.wk-loading-skeleton {
+  padding: 40px 28px;
+}
+.wk-loading-skeleton > div,
+.wk-skeleton-stats > div {
+  background: rgb(var(--ad-ink) / 0.06);
+  border-radius: 10px;
+}
+.wk-skeleton-heading {
+  height: 34px;
+  width: 40%;
+}
+.wk-skeleton-subtitle {
+  height: 14px;
+  width: 24%;
+  margin: 16px 0 32px;
+}
+.wk-loading-skeleton .wk-skeleton-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  background: none;
+}
+.wk-skeleton-stats > div {
+  height: 130px;
+}
+.wk-skeleton-content {
+  height: 260px;
+  margin-top: 16px;
+}
+@container workspace-area (max-width: 900px) {
+  .obsidian-analytics-dashboard .page-content {
+    padding: 24px 18px;
+  }
+  .obsidian-analytics-dashboard .overview-grid,
+  .obsidian-analytics-dashboard .repo-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .obsidian-analytics-dashboard .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .obsidian-analytics-dashboard .setting-row {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .obsidian-analytics-dashboard .wk-row-control {
+    max-width: 100%;
+    min-width: 0;
+  }
+  .obsidian-analytics-dashboard .wk-kanban {
+    grid-template-columns: repeat(4, minmax(190px, 1fr));
+    overflow-x: auto;
+  }
+}
+@media (max-width: 760px) {
+  .obsidian-analytics-dashboard .wk-chat-dock {
+    position: absolute;
+    inset: 44px 0 0 auto;
+    width: min(360px, 100%);
+    background: var(--ad-window);
+    z-index: 10;
+  }
+}
 .obsidian-analytics-dashboard .rail .wk-account-row {
   margin-top: auto;
   padding-top: 20px;
@@ -1387,15 +1551,91 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-.obsidian-analytics-dashboard .wk-shortcuts { width: min(460px, calc(100vw - 32px)); margin:auto; padding:0; }
-.wk-shortcuts > p, .wk-shortcuts > button { margin:20px 28px; }
-.wk-shortcuts > button { margin-top:0; }
-.wk-daily-kind {flex:0 0 16px!important; color:#c68b80;}
-.wk-daily-kind[data-kind='task'] {color:#79b9a4;}
-.wk-daily-kind[data-kind='idea'] {color:#c5aa67;}
-.wk-daily-caught-up {color:#20bf91; margin:12px 0 20px;}
+.obsidian-analytics-dashboard .wk-shortcuts {
+  width: min(460px, calc(100vw - 32px));
+  margin: auto;
+  padding: 0;
+}
+.wk-shortcuts > p,
+.wk-shortcuts > button {
+  margin: 20px 28px;
+}
+.wk-shortcuts > button {
+  margin-top: 0;
+}
+.wk-daily-kind {
+  flex: 0 0 16px !important;
+  color: #c68b80;
+}
+.wk-daily-kind[data-kind='task'] {
+  color: #79b9a4;
+}
+.wk-daily-kind[data-kind='idea'] {
+  color: #c5aa67;
+}
+.wk-daily-caught-up {
+  color: #20bf91;
+  margin: 12px 0 20px;
+}
 
-.obsidian-analytics-dashboard .wk-sidebar-update, .wk-update-menu[data-state='available'] {color:#31c98e!important;}
-.obsidian-analytics-dashboard .wk-sidebar-update .rail-label {color:inherit;}
+.obsidian-analytics-dashboard .wk-sidebar-update,
+.wk-update-menu[data-state='available'] {
+  color: #31c98e !important;
+}
+.obsidian-analytics-dashboard .wk-sidebar-update .rail-label {
+  color: inherit;
+}
 
-.wk-daily-stats strong span { font: inherit; color: inherit; }
+.wk-daily-stats strong span {
+  font: inherit;
+  color: inherit;
+}
+
+.obsidian-analytics-dashboard .wk-workspace-body .wk-pr-layout,
+.obsidian-analytics-dashboard .wk-workspace-body .wk-reviews-layout {
+  display: block;
+}
+.obsidian-analytics-dashboard .wk-workspace-body .wk-diff[data-layout='split'] {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+.obsidian-analytics-dashboard .wk-workspace-body .wk-diff-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.obsidian-analytics-dashboard .wk-workspace-body .seg-wide {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  flex: 1 1 100%;
+}
+.obsidian-analytics-dashboard .wk-workspace-body .seg-wide .seg-btn {
+  min-width: 0;
+  white-space: normal;
+  padding: 6px;
+  font-size: 11px;
+  gap: 4px;
+}
+.leader-repositories {
+  display: block;
+  color: var(--text-3);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.obsidian-analytics-dashboard .leader-meta {
+  flex-wrap: wrap;
+}
+.obsidian-analytics-dashboard .wk-chat-dock .wk-pr-chat {
+  height: auto;
+  min-height: 0;
+  position: static;
+}
+.real-card-detail .wk-editor-open {
+  margin: 0;
+}
+.real-card-detail .wk-editor-options,
+.real-file-tree .wk-editor-options {
+  left: auto;
+  right: 0;
+}

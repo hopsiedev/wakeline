@@ -20,11 +20,15 @@ pub struct ImportResult {
 }
 
 #[tauri::command]
-pub fn history_import_status() -> bool {
-    let _guard = crate::STATE_ACCESS
-        .lock()
-        .unwrap_or_else(|error| error.into_inner());
-    LocalState::load(&LocalState::default_path()).full_session_history
+pub async fn history_import_status() -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let _guard = crate::STATE_ACCESS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        LocalState::load(&LocalState::default_path()).full_session_history
+    })
+    .await
+    .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

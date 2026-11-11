@@ -394,7 +394,9 @@ export function SettingsPage() {
     void getMcpExecutable()
       .then(setExecutable)
       .catch((cause) => setError(String(cause)));
-    void historyImportStatus().then(setHistory);
+    void historyImportStatus()
+      .then(setHistory)
+      .catch((cause) => setError(String(cause)));
     if (desktop && navigator.userAgent.includes('Windows'))
       void invoke<boolean>('get_startup_enabled')
         .then(setStartup)

@@ -38,7 +38,29 @@ type Agent = {
 
 // Conversations survive navigating away and back while the app is open.
 const threads = new Map<string, Message[]>();
-let nextId = 1;
+const threadListeners = new Map<string, Set<() => void>>();
+let nextId = Date.now();
+function readThread(key: string): Message[] {
+  if (threads.has(key)) return threads.get(key)!;
+  try {
+    const saved = JSON.parse(localStorage.getItem(`wakeline-chat:${key}`) ?? '[]');
+    const messages = Array.isArray(saved)
+      ? saved
+          .filter(
+            (message: Message) =>
+              typeof message.id === 'number' &&
+              typeof message.text === 'string' &&
+              (message.role === 'user' || message.role === 'assistant') &&
+              !message.pending
+          )
+          .slice(-80)
+      : [];
+    threads.set(key, messages);
+    return messages;
+  } catch {
+    return [];
+  }
+}
 
 function AgentLogo({ id }: { id: string }) {
   return (
@@ -65,7 +87,6 @@ export function PrChat({
 }) {
   const { t, i18n } = useTranslation();
   const key = overview ? `overview:${repository}` : `${repository}#${number}`;
-  const activeKey = useRef(key);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const readingImages = useRef(false);
@@ -98,7 +119,7 @@ export function PrChat({
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentsError, setAgentsError] = useState(false);
   const uid = useId();
-  const [messages, setMessagesState] = useState<Message[]>(() => threads.get(key) ?? []);
+  const [messages, setMessagesState] = useState<Message[]>(() => readThread(key));
   const [model, setModel] = useState(
     () => localStorage.getItem('wakeline-pr-chat-model') ?? 'sonnet'
   );
@@ -109,7 +130,6 @@ export function PrChat({
     () => localStorage.getItem('wakeline-pr-chat-effort') ?? 'default'
   );
   const scrollRef = useRef<HTMLDivElement>(null);
-  const mounted = useRef(true);
   const agent = agents.find((item) => item.available);
   const selectedModel = agent?.models.includes(model) ? model : agent?.models[0];
   const efforts = agent?.efforts?.[selectedModel ?? ''] ?? ['default'];
@@ -145,11 +165,14 @@ export function PrChat({
   const busy = messages.some((message) => message.pending);
 
   useEffect(() => {
-    mounted.current = true;
-    activeKey.current = key;
-    setMessagesState(threads.get(key) ?? []);
+    setMessagesState(readThread(key));
+    const changed = () => setMessagesState(threads.get(key) ?? []);
+    const listeners = threadListeners.get(key) ?? new Set<() => void>();
+    listeners.add(changed);
+    threadListeners.set(key, listeners);
     return () => {
-      mounted.current = false;
+      listeners.delete(changed);
+      if (!listeners.size) threadListeners.delete(key);
     };
   }, [key]);
 
@@ -157,7 +180,15 @@ export function PrChat({
     (update: (previous: Message[]) => Message[]) => {
       const next = update(threads.get(key) ?? []);
       threads.set(key, next);
-      if (mounted.current && activeKey.current === key) setMessagesState(next);
+      try {
+        localStorage.setItem(
+          `wakeline-chat:${key}`,
+          JSON.stringify(next.slice(-80).map(({ images: attachments, ...message }) => message))
+        );
+      } catch {
+        /* Keep the live conversation if storage is full. */
+      }
+      threadListeners.get(key)?.forEach((changed) => changed());
     },
     [key]
   );

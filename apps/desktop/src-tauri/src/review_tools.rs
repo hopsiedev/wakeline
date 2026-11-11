@@ -67,12 +67,9 @@ pub fn open_pr_editor(repository: String, editor: String) -> Result<(), String> 
     if !github_workspace_valid(&repository) {
         return Err("INVALID_REPOSITORY".into());
     }
-    let (cli, folder, exe) = match editor.as_str() {
-        "vscode" => ("code", "Microsoft VS Code", "Code.exe"),
-        "cursor" => ("cursor", "cursor", "Cursor.exe"),
-        "antigravity" => ("antigravity", "Antigravity", "Antigravity.exe"),
-        _ => return Err("UNKNOWN_EDITOR".into()),
-    };
+    if !matches!(editor.as_str(), "vscode" | "cursor" | "antigravity") {
+        return Err("UNKNOWN_EDITOR".into());
+    }
     let state = LocalState::load(&LocalState::default_path());
     let project = state
         .watched_folders
@@ -82,6 +79,20 @@ pub fn open_pr_editor(repository: String, editor: String) -> Result<(), String> 
             github::github_repo(path).is_some_and(|repo| repo.eq_ignore_ascii_case(&repository))
         })
         .ok_or("LOCAL_REPOSITORY_NOT_WATCHED")?;
+    open_local_editor(&editor, project, None)
+}
+
+pub(crate) fn open_local_editor(
+    editor: &str,
+    project: std::path::PathBuf,
+    target: Option<(std::path::PathBuf, Option<u32>)>,
+) -> Result<(), String> {
+    let (cli, folder, exe) = match editor {
+        "vscode" => ("code", "Microsoft VS Code", "Code.exe"),
+        "cursor" => ("cursor", "cursor", "Cursor.exe"),
+        "antigravity" => ("antigravity", "Antigravity", "Antigravity.exe"),
+        _ => return Err("UNKNOWN_EDITOR".into()),
+    };
     let mut program = agents::find_editor_launcher(cli).filter(|path| {
         !cfg!(windows)
             || path
@@ -105,6 +116,12 @@ pub fn open_pr_editor(repository: String, editor: String) -> Result<(), String> 
     }
     let mut command = std::process::Command::new(program.ok_or("EDITOR_NOT_INSTALLED")?);
     command.arg(project);
+    if let Some((file, line)) = target {
+        command.arg("--goto").arg(match line {
+            Some(line) => format!("{}:{line}", file.display()),
+            None => file.display().to_string(),
+        });
+    }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
