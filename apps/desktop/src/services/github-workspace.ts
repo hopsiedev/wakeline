@@ -1,4 +1,4 @@
-import { invoke, type GithubUser, rememberGithubProfile } from './wakeline';
+import { invoke, type GithubUser, savedGithubProfile, rememberGithubProfile } from './wakeline';
 
 export type RemoteRepository = {
   name: string;
@@ -48,16 +48,40 @@ export type GithubWorkspace = {
 };
 let request: Promise<GithubWorkspace> | null = null;
 let cached: GithubWorkspace | null = null;
+export function getCachedGithubWorkspace(): GithubWorkspace | null {
+  if (cached) return cached;
+  try {
+    const data = JSON.parse(localStorage.getItem('wakeline-github-workspace') ?? 'null');
+    if (
+      data?.user?.login === savedGithubProfile()?.login &&
+      Array.isArray(data?.repositories) &&
+      Array.isArray(data?.pull_requests) &&
+      Array.isArray(data?.commits)
+    )
+      cached = data;
+  } catch {
+    /* A damaged cache never prevents a fresh request. */
+  }
+  return cached;
+}
 export function fetchGithubWorkspace(force = false): Promise<GithubWorkspace> {
   if (request) return request;
   if (cached && !force) return Promise.resolve(cached);
   const since = new Date();
   since.setUTCHours(0, 0, 0, 0);
   since.setUTCDate(since.getUTCDate() - 60);
-  request = invoke<GithubWorkspace>('get_github_workspace', { since: since.toISOString() }).then(
+  request = invoke<GithubWorkspace>('get_github_workspace', {
+    since: since.toISOString(),
+    force,
+  }).then(
     (data) => {
       cached = data;
       rememberGithubProfile(data.user);
+      try {
+        localStorage.setItem('wakeline-github-workspace', JSON.stringify(data));
+      } catch {
+        /* Storage may be full. */
+      }
       request = null;
       return data;
     },

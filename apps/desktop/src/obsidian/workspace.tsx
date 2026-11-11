@@ -25,6 +25,7 @@ import {
   PanelLeft,
   RefreshCw,
   CircleHelp,
+  MessageSquare,
 } from 'lucide-react';
 
 import { useColorScheme } from '@mui/material/styles';
@@ -32,7 +33,11 @@ import { useColorScheme } from '@mui/material/styles';
 import { CONFIG } from 'src/config-global';
 import { observeCards } from 'src/services/card-workflow';
 import { hasUpdate, publishUpdate, useUpdateStatus } from 'src/services/update-status';
-import { fetchGithubWorkspace, type GithubWorkspace } from 'src/services/github-workspace';
+import {
+  fetchGithubWorkspace,
+  type GithubWorkspace,
+  getCachedGithubWorkspace,
+} from 'src/services/github-workspace';
 import {
   quitApp,
   isTauri,
@@ -48,10 +53,12 @@ import {
 } from 'src/services/wakeline';
 
 import { Modal } from './views';
+import { ChatDock } from './chat-dock';
 import { Github } from './brand-icons';
 import { UpdateCheck } from './settings';
 import { ReleaseNotes } from './release-notes';
 import { DailySummary } from './daily-summary';
+import { LoadingSkeleton } from './loading-skeleton';
 import { Context, ACCENTS } from './workspace-context';
 
 const NAV = [
@@ -61,20 +68,23 @@ const NAV = [
   { path: '/cards', key: 'nav.cards', Icon: ListTodo },
 ];
 
+const GITHUB_POLL_MS = 2 * 60 * 1000;
+
 export function ObsidianLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { mode, systemMode } = useColorScheme();
   const dark = (mode === 'system' ? systemMode : mode) !== 'light';
-  const [github, setGithub] = useState<GithubWorkspace | null>(null);
+  const [github, setGithub] = useState<GithubWorkspace | null>(getCachedGithubWorkspace);
   const [githubBusy, setGithubBusy] = useState(false);
   const [githubError, setGithubError] = useState<string | null>(null);
-  const reloadGithub = useCallback(async () => {
+  // Only the Refresh button skips the backend cache; the rest reads it.
+  const reloadGithub = useCallback(async (force = true) => {
     setGithubBusy(true);
     setGithubError(null);
     try {
-      setGithub(await fetchGithubWorkspace(true));
+      setGithub(await fetchGithubWorkspace(force));
     } catch (cause) {
       setGithubError(String(cause));
     } finally {
@@ -128,7 +138,11 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
     void fetchAccount()
       .then(setAccount)
       .catch((cause) => setGithubError(String(cause)));
-    void reloadGithub();
+    void reloadGithub(false);
+    // New pull requests show up once the backend cache renews, without a restart.
+    const githubTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') void reloadGithub(false);
+    }, GITHUB_POLL_MS);
     const refresh = () => {
       void reload();
     };
@@ -136,6 +150,7 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
     const frame = requestAnimationFrame(() => setBooted(true));
     return () => {
       stop();
+      clearInterval(githubTimer);
       cancelAnimationFrame(frame);
       window.removeEventListener('wakeline:rescan', refresh);
     };
@@ -375,6 +390,14 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
           <main className="main">
             <header className="main-bar enter" style={{ '--i': 0 } as CSSProperties}>
               <button
+                className="icon-btn"
+                aria-label={t('reviewChat.open')}
+                title={t('reviewChat.open')}
+                onClick={() => window.dispatchEvent(new Event('wakeline:chat-toggle'))}
+              >
+                <MessageSquare size={16} />
+              </button>
+              <button
                 className="icon-btn press shell-refresh"
                 disabled={busy}
                 aria-label={t('nav.rescan')}
@@ -386,18 +409,29 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
                 <RefreshCw size={15} className={busy ? 'wk-update-spin' : ''} />
               </button>
             </header>
-            <div className="main-scroll">
-              {error && (
-                <div className="real-error" role="alert">
-                  {error}
-                  <button className="btn" onClick={() => reload()}>
-                    {t('repositories.refresh')}
-                  </button>
+            <div className="wk-workspace-body">
+              <div className="main-scroll">
+                {error && (
+                  <div className="real-error" role="alert">
+                    {error}
+                    <button className="btn" onClick={() => reload()}>
+                      {t('repositories.refresh')}
+                    </button>
+                  </div>
+                )}
+                <div key={location.pathname.split('/')[1]} className="page">
+                  {!github &&
+                  githubBusy &&
+                  (location.pathname === '/' ||
+                    location.pathname.startsWith('/repositories') ||
+                    location.pathname.startsWith('/pull-requests')) ? (
+                    <LoadingSkeleton />
+                  ) : (
+                    children
+                  )}
                 </div>
-              )}
-              <div key={location.pathname.split('/')[1]} className="page">
-                {children}
               </div>
+              <ChatDock />
             </div>
           </main>
         </div>

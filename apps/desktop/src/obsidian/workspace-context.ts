@@ -7,7 +7,7 @@ type WorkspaceState = {
   github: GithubWorkspace | null;
   githubBusy: boolean;
   githubError: string | null;
-  reloadGithub: () => Promise<void>;
+  reloadGithub: (force?: boolean) => Promise<void>;
   data: DashboardPayload | null;
   account: AccountInfo | null;
   busy: boolean;

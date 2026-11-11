@@ -2138,6 +2138,8 @@
 .obsidian-analytics-dashboard .chart-col {
   display: grid;
   grid-template-rows: minmax(0, 1fr) 24px;
+  /* A wide date label must not widen its bar into the next day. */
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
 
@@ -2173,6 +2175,10 @@
   text-align: center;
   color: rgb(var(--ad-ink) / 0.4);
   white-space: nowrap;
+  justify-self: center;
+  width: 0;
+  display: flex;
+  justify-content: center;
 }
 
 @media (prefers-reduced-motion: no-preference) {

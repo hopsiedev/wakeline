@@ -39,6 +39,7 @@ use wakeline_core::watch::{is_within, normalized_path};
 use wakeline_core::{CardKind, CardStatus, Fingerprint, SourceKind};
 
 pub(crate) static STATE_ACCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+static SCAN_ACCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[derive(Debug, Clone, Serialize)]
 pub struct UiCard {
@@ -155,12 +156,18 @@ async fn get_dashboard_data() -> Result<DashboardPayload, String> {
 }
 
 fn scan_dashboard() -> Result<DashboardPayload, String> {
-    let _guard = STATE_ACCESS
+    let _scan = SCAN_ACCESS
         .lock()
         .unwrap_or_else(|error| error.into_inner());
     let started = Instant::now();
     let state_path = LocalState::default_path();
-    let mut state = LocalState::load(&state_path);
+    let mut state = {
+        let _guard = STATE_ACCESS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        LocalState::load(&state_path)
+    };
+    let snapshot = state.clone();
     let watched = watched_projects(&state.watched_folders);
 
     if watched.is_empty() {
@@ -469,6 +476,26 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
         }
     }
 
+    state = {
+        let _guard = STATE_ACCESS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let latest = LocalState::load(&state_path);
+        let merged = wakeline_core::scan_state::merge_scan(&snapshot, &state, latest);
+        merged
+            .save(&state_path)
+            .map_err(|error| error.to_string())?;
+        merged
+    };
+    let watched = if state.watched_folders == snapshot.watched_folders {
+        watched
+    } else {
+        watched_projects(&state.watched_folders)
+    };
+    cards.retain(|card| watched.iter().any(|project| project.name == card.project));
+    for card in &mut cards {
+        card.status = state.status_for(&card.fingerprint);
+    }
     for mc in state
         .manual_cards
         .iter()
@@ -526,7 +553,6 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             });
         }
     }
-    state.save(&state_path).map_err(|error| error.to_string())?;
     let mut cards = group_cards(cards, &state);
 
     cards.sort_by(|a, b| {
@@ -551,12 +577,12 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn set_card_status(input: StatusInput) -> Result<(), String> {
     set_cards_status(vec![input])
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn set_cards_status(inputs: Vec<StatusInput>) -> Result<(), String> {
     let _guard = STATE_ACCESS
         .lock()
@@ -573,7 +599,7 @@ fn set_cards_status(inputs: Vec<StatusInput>) -> Result<(), String> {
     state.save(&path).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn create_card(input: CreateCardInput) -> Result<String, String> {
     let _guard = STATE_ACCESS
         .lock()
@@ -811,7 +837,7 @@ async fn choose_watch_folder(app: tauri::AppHandle) -> Result<Option<String>, St
     .map_err(|error| error.to_string())?
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn remove_watch_folder(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let _guard = STATE_ACCESS
         .lock()
@@ -890,10 +916,19 @@ async fn get_account(app: tauri::AppHandle) -> Result<wakeline_core::account::Ac
 }
 
 #[tauri::command]
-async fn get_github_workspace(since: String) -> Result<serde_json::Value, String> {
-    tauri::async_runtime::spawn_blocking(move || wakeline_core::github_workspace::cached(&since))
-        .await
-        .map_err(|error| error.to_string())?
+async fn get_github_workspace(
+    since: String,
+    force: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if force.unwrap_or(false) {
+            wakeline_core::github_workspace::refreshed(&since)
+        } else {
+            wakeline_core::github_workspace::cached(&since)
+        }
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -1012,7 +1047,7 @@ fn project_base_dir(project: &str) -> Result<PathBuf, String> {
 }
 
 /// Lista una carpeta elegida para el explorador, sin seguir enlaces fuera del proyecto.
-#[tauri::command]
+#[tauri::command(async)]
 fn list_project_files(
     project: String,
     relative_path: Option<String>,
@@ -1141,8 +1176,25 @@ fn read_code_excerpt(path: &Path, line: Option<u32>) -> Option<String> {
     ))
 }
 
-/// Abre el archivo (y línea) o la carpeta del proyecto en VS Code (`vscode://file/...`).
+/// Opens a project or validated file target in the selected supported editor.
 #[tauri::command]
+async fn open_in_editor(
+    project: String,
+    location: String,
+    title: String,
+    editor: String,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let base_dir = project_base_dir(&project)?;
+        let target = extract_file_target(&base_dir, &location)
+            .or_else(|| extract_file_target(&base_dir, &title));
+        review_tools::open_local_editor(&editor, base_dir, target)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command(async)]
 fn open_in_vscode(
     app: tauri::AppHandle,
     project: String,
@@ -1170,7 +1222,7 @@ fn open_in_vscode(
 }
 
 /// Abre una ventana de consola en la carpeta del proyecto con `claude --resume <id>`.
-#[tauri::command]
+#[tauri::command(async)]
 fn resume_session(project: String, session_id: Option<String>) -> Result<(), String> {
     let base_dir = project_base_dir(&project)?;
     let safe_id = session_id.and_then(|id| {
@@ -1218,7 +1270,7 @@ fn resume_session(project: String, session_id: Option<String>) -> Result<(), Str
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_mcp_executable(app: tauri::AppHandle) -> Option<String> {
     #[cfg(target_os = "linux")]
     {
@@ -1245,11 +1297,11 @@ fn get_mcp_executable(app: tauri::AppHandle) -> Option<String> {
     resource.is_file().then(|| resource.display().to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_startup_enabled() -> Result<bool, String> {
     startup::enabled()
 }
-#[tauri::command]
+#[tauri::command(async)]
 fn set_startup_enabled(enabled: bool) -> Result<bool, String> {
     startup::set_enabled(enabled)
 }
@@ -1342,6 +1394,7 @@ pub fn run() {
             intelligence::set_intelligence,
             get_mcp_executable,
             open_in_vscode,
+            open_in_editor,
             resume_session,
             project_commands::get_project_commands,
             project_commands::approve_project_commands,

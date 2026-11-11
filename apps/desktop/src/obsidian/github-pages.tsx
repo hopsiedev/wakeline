@@ -24,7 +24,6 @@ import {
 
 import { analytics, periodDelta } from 'src/services/github-analytics';
 
-import { PrChat } from './pr-chat';
 import { ErrorNotice } from './views';
 import { useWorkspace } from './workspace-context';
 import { NumberAnimation } from './number-animation';
@@ -352,7 +351,13 @@ function niceCeil(n: number) {
   return Math.max(step, Math.ceil(n / step) * step);
 }
 
-type Person = { name: string | null; avatar: string | null; color: string; total: number };
+type Person = {
+  name: string | null;
+  avatar: string | null;
+  color: string;
+  total: number;
+  repositories: string[];
+};
 
 function ActivityChart({ columns, people }: { columns: Bucket[]; people: Person[] }) {
   const { t } = useTranslation();
@@ -450,6 +455,7 @@ export function SummaryPage() {
     report?.authors
       .map((person) => ({
         name: person.name,
+        repositories: person.repositories,
         avatar: person.avatar,
         color: '',
         total: person.series.reduce((sum, count) => sum + count, 0),
@@ -574,6 +580,7 @@ export function SummaryPage() {
                     />
                   </div>
                   <div className="leader-meta">
+                    <span className="leader-repositories">{p.repositories.join(' · ')}</span>
                     <span className="leader-pct">
                       <Digits value={Math.round((p.total / total) * 100)} delay={700 + i * 80} />%{' '}
                       {t('githubDashboard.ofCommits')}
@@ -865,6 +872,11 @@ export function ReviewsPage() {
   const [chatOpen, setChatOpen] = useState(
     () => sessionStorage.getItem('wakeline-review-chat-open') !== 'false'
   );
+  useEffect(() => {
+    const change = (event: Event) => setChatOpen((event as CustomEvent<boolean>).detail);
+    window.addEventListener('wakeline:chat-state', change);
+    return () => window.removeEventListener('wakeline:chat-state', change);
+  }, []);
   const [filter, setFilter] = useState<FilterId>('all');
   const [query, setQuery] = useState('');
   const [shown, setShown] = useState(PAGE);
@@ -920,8 +932,7 @@ export function ReviewsPage() {
               className="btn press"
               aria-expanded={chatOpen}
               onClick={() => {
-                sessionStorage.setItem('wakeline-review-chat-open', String(!chatOpen));
-                setChatOpen(!chatOpen);
+                window.dispatchEvent(new Event('wakeline:chat-toggle'));
               }}
             >
               <MessageSquare size={16} />
@@ -932,7 +943,7 @@ export function ReviewsPage() {
         </header>
       </div>
       <GithubStatus />
-      <div className="wk-reviews-layout" data-chat={chatOpen}>
+      <div className="wk-reviews-layout" data-chat="false">
         <div>
           <div className="toolbar enter" style={enter(2)}>
             <Segmented
@@ -980,7 +991,6 @@ export function ReviewsPage() {
             </button>
           )}
         </div>
-        {chatOpen && <PrChat key={repository ?? 'all'} repository={repository ?? ''} overview />}
       </div>
     </div>
   );

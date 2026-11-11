@@ -1,23 +1,33 @@
-# Wakeline 0.1.6 — Summary and update fixes
+# Wakeline 0.1.7 — Stability and GitHub fixes
 
-- Daily summary matches the approved prototype, groups PR reviews, and shows a compact “You’re up to date” state when nothing needs attention.
-- Chat agent/model/effort menus and keyboard shortcuts close on Escape or an outside click.
-- Weekly and monthly metrics show percentage gains and losses; Today has no percentage. No invented percentage when the previous period is zero.
-- New versions trigger a system notification and a green sidebar indicator. “Check for updates” becomes “Update now”. Installation starts only when you choose it.
-- Existing projects, cards, sessions and preferences keep their current storage and identity. No migration or reset is required.
+This release also includes every 0.1.6 change (daily summary, dismissible menus and update notifications), which was not published separately.
 
-![Daily summary with fictional data](https://raw.githubusercontent.com/hopsiedev/wakeline/v0.1.6/assets/screenshots/daily-summary-en.png)
+- Settings no longer freezes while the session history imports: every command that reads local state runs off the window thread, and the import keeps its progress when you leave Settings and come back.
+- **Refresh** in Code review asks GitHub again instead of reusing the 10-minute cache, and the app rereads GitHub every 2 minutes, so a new pull request shows up without restarting.
+- Commits co-authored by Claude or Codex are credited to their GitHub accounts (`claude`, `codex`) with their profile pictures.
+- The review chat session picker uses the app's own menu style. Only sessions where you wrote something are kept.
+- Release notes animate and highlight the fixes.
+- Code review filters are compact again with the search beside them; commit activity bars no longer overlap.
+- To do can add and remove watched folders directly.
+- Existing projects, cards, sessions and preferences keep their storage. No migration or reset is required.
 
-Installed Windows builds can use the signed updater. Portable ZIP and Linux packages open the release download for manual installation. OS notification permissions and desktop support apply. These notification changes take effect after installing 0.1.6; earlier versions retain their previous updater behavior.
+![Daily summary with fictional data](https://raw.githubusercontent.com/hopsiedev/wakeline/v0.1.7/assets/screenshots/daily-summary-en.png)
 
-# Wakeline 0.1.6 — Correcciones del resumen y actualizaciones
+Installed Windows builds can use the signed updater. Portable ZIP and Linux packages open the release download for manual installation.
 
-- Resumen diario con el diseño aprobado, PR agrupadas y estado compacto “Estás al día” cuando no hay pendientes.
-- Selectores de agente/modelo/esfuerzo y atajos se cierran con Escape y clic fuera.
-- Porcentajes positivos y negativos en semana/mes. Hoy no muestra porcentajes; tampoco se inventan cuando la base anterior es cero.
-- Aviso del sistema e indicador verde en el sidebar cuando sale una versión. “Buscar actualizaciones” cambia a “Actualizar ahora”. La instalación espera tu acción.
-- Se conservan proyectos, tarjetas, sesiones y preferencias existentes, sin migración ni reinicio de datos.
+# Wakeline 0.1.7 — Correcciones de estabilidad y GitHub
 
-![Resumen diario con datos ficticios](https://raw.githubusercontent.com/hopsiedev/wakeline/v0.1.6/assets/screenshots/daily-summary-es.png)
+Esta versión incluye también todos los cambios de la 0.1.6 (resumen diario, menús que se cierran y avisos de actualización), que no se publicó por separado.
 
-Windows instalado usa el actualizador firmado. ZIP portable y Linux abren la descarga para actualizar manualmente. Los avisos dependen de los permisos del sistema. Este nuevo comportamiento comienza en la 0.1.6; las versiones anteriores conservan el actualizador que ya tenían.
+- Configuración ya no se congela mientras se importa el historial de sesiones: los comandos que leen el estado local corren fuera del hilo de la ventana y la importación conserva su progreso si sales y vuelves.
+- **Actualizar** en Code review vuelve a preguntar a GitHub en lugar de usar la caché de 10 minutos, y la app relee GitHub cada 2 minutos: una PR nueva aparece sin reiniciar.
+- Los commits con co-autoría de Claude o Codex se acreditan a sus cuentas de GitHub (`claude`, `codex`) con su foto de perfil.
+- El selector de sesiones del chat de revisión usa el menú propio de la app. Solo se guardan las sesiones donde escribiste algo.
+- Las notas de la versión animan y destacan las correcciones.
+- Los filtros de Code review vuelven a ser compactos con el buscador al lado; las barras de actividad ya no se montan.
+- To do permite añadir y quitar carpetas vigiladas.
+- Se conservan proyectos, tarjetas, sesiones y preferencias, sin migración ni reinicio de datos.
+
+![Resumen diario con datos ficticios](https://raw.githubusercontent.com/hopsiedev/wakeline/v0.1.7/assets/screenshots/daily-summary-es.png)
+
+Windows instalado usa el actualizador firmado. ZIP portable y Linux abren la descarga para actualizar manualmente.

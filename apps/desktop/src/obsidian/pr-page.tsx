@@ -13,7 +13,6 @@ import { EvidenceMarkdown } from 'src/components/evidence-markdown';
 
 import { parseDiff, splitDiff, highlightCode } from 'src/sections/pull-requests/pr-diff';
 
-import { PrChat } from './pr-chat';
 import { ErrorNotice } from './views';
 import { EditorOpen } from './editor-open';
 import { useWorkspace } from './workspace-context';
@@ -27,6 +26,11 @@ export function PullRequestPage() {
   const [chatOpen, setChatOpen] = useState(
     () => sessionStorage.getItem('wakeline-review-chat-open') !== 'false'
   );
+  useEffect(() => {
+    const change = (event: Event) => setChatOpen((event as CustomEvent<boolean>).detail);
+    window.addEventListener('wakeline:chat-state', change);
+    return () => window.removeEventListener('wakeline:chat-state', change);
+  }, []);
   const navigate = useNavigate();
   const { owner = '', repo = '', number = '' } = useParams();
   const repository = `${owner}/${repo}`;
@@ -111,8 +115,7 @@ export function PullRequestPage() {
               className="btn press"
               aria-expanded={chatOpen}
               onClick={() => {
-                sessionStorage.setItem('wakeline-review-chat-open', String(!chatOpen));
-                setChatOpen(!chatOpen);
+                window.dispatchEvent(new Event('wakeline:chat-toggle'));
               }}
             >
               <MessageSquare size={16} />
@@ -125,7 +128,7 @@ export function PullRequestPage() {
           </div>
         </header>
       </div>
-      <div className="wk-pr-layout" data-chat={chatOpen}>
+      <div className="wk-pr-layout" data-chat="false">
         <div className="wk-pr-main">
           <ErrorNotice error={error} />
           {!detail && !error && <p className="wk-help">{t('common.loading')}</p>}
@@ -163,14 +166,6 @@ export function PullRequestPage() {
             </>
           )}
         </div>
-        {chatOpen && (
-          <PrChat
-            key={`${repository}#${number}`}
-            repository={repository}
-            number={Number(number)}
-            title={pr?.title ?? ''}
-          />
-        )}
       </div>
     </div>
   );
