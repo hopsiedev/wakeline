@@ -70,7 +70,10 @@ export function fetchGithubWorkspace(force = false): Promise<GithubWorkspace> {
   const since = new Date();
   since.setUTCHours(0, 0, 0, 0);
   since.setUTCDate(since.getUTCDate() - 60);
-  request = invoke<GithubWorkspace>('get_github_workspace', { since: since.toISOString() }).then(
+  request = invoke<GithubWorkspace>('get_github_workspace', {
+    since: since.toISOString(),
+    force,
+  }).then(
     (data) => {
       cached = data;
       rememberGithubProfile(data.user);
