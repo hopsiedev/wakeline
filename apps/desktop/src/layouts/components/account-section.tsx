@@ -61,8 +61,6 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
   const github = account?.github ?? null;
   const displayName = github?.name || github?.login || localName || t('account.you');
   const initials = displayName.slice(0, 1).toUpperCase();
-  const connectionsOk =
-    !!account && (account.claude_code || account.codex_mcp || account.antigravity_mcp);
 
   const renameLocal = () => {
     const value = window.prompt(t('account.renamePrompt'), localName);
@@ -75,7 +73,7 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
 
   const reportProblem = () => {
     const body = encodeURIComponent(
-      `\n\n---\nWakeline ${account?.version ?? ''} · ${navigator.userAgent}`
+      `${t('account.reportTemplate')}\n\n---\nWakeline ${account?.version ?? ''} / ${navigator.userAgent}`
     );
     openExternal(`${REPO_URL}/issues/new?body=${body}`);
   };
@@ -90,43 +88,6 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
     >
       {initials}
     </Avatar>
-  );
-
-  const connectionsButton = (
-    <Tooltip title={t('account.connections')} placement={collapsed ? 'right' : 'top'}>
-      <IconButton
-        size="small"
-        aria-label={t('account.connections')}
-        onClick={(e) => {
-          setConnAnchor(e.currentTarget);
-          fetchAccount(true).then(setAccount);
-        }}
-        sx={{
-          width: 30,
-          height: 30,
-          borderRadius: 1,
-          color: 'text.secondary',
-          position: 'relative',
-        }}
-      >
-        <AppIcon name="plug" size={17} />
-        {account && (
-          <Box
-            component="span"
-            sx={(theme) => ({
-              top: 5,
-              right: 5,
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              position: 'absolute',
-              bgcolor: connectionsOk ? 'success.main' : 'error.main',
-              boxShadow: `0 0 0 2px ${theme.vars.palette.background.default}`,
-            })}
-          />
-        )}
-      </IconButton>
-    </Tooltip>
   );
 
   const settingsButton = (
@@ -180,6 +141,7 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
           {!collapsed && (
             <Typography
               noWrap
+              title={displayName}
               component="span"
               sx={{ fontSize: 14, fontWeight: 600, textAlign: 'left' }}
             >
@@ -188,7 +150,6 @@ export function AccountSection({ collapsed = false }: AccountSectionProps) {
           )}
         </Box>
 
-        {connectionsButton}
         {settingsButton}
       </Box>
 
@@ -363,7 +324,7 @@ function ConnectionRow({
   optional?: boolean;
   t: (key: string) => string;
 }) {
-  const color = ok ? 'success.main' : optional ? 'text.disabled' : 'error.main';
+  const color = ok ? '#22c55e' : optional ? 'text.disabled' : 'error.main';
   return (
     <Box sx={{ px: 1.5, py: 0.75, gap: 1.25, display: 'flex', alignItems: 'center' }}>
       <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />

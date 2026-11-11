@@ -1,10 +1,23 @@
 import type { TFunction } from 'i18next';
 
-import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { invoke as nativeInvoke } from '@tauri-apps/api/core';
 
 import i18n from 'src/locales/i18n';
 import { CONFIG } from 'src/config-global';
+
+export async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  if (isTauri()) return nativeInvoke<T>(command, args);
+  if (!import.meta.env.DEV) throw new Error(i18n.t('errors.desktopRuntime'));
+  const response = await fetch('/__wakeline/read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, args }),
+  });
+  const value = await response.json();
+  if (!response.ok) throw new Error(value.error ?? 'DESKTOP_SERVICE_UNAVAILABLE');
+  return value as T;
+}
 
 // ----------------------------------------------------------------------
 
@@ -47,6 +60,7 @@ export type CiState = 'passing' | 'failing' | 'pending' | 'none';
 export type ReviewState = 'approved' | 'changes_requested' | 'none';
 
 export type UiPullRequest = {
+  repository?: string;
   project: string;
   number: number;
   title: string;
@@ -213,9 +227,7 @@ export async function importAllHistory(): Promise<{ files: number; bad_lines: nu
 }
 
 async function loadDashboardData(): Promise<DashboardPayload> {
-  if (!isTauri()) {
-    return EMPTY_PAYLOAD;
-  }
+  if (!isTauri() && !import.meta.env.DEV) throw new Error(i18n.t('errors.desktopRuntime'));
   try {
     return await invoke<DashboardPayload>('get_dashboard_data');
   } catch (error) {
@@ -325,6 +337,7 @@ export async function updateCardStatus(
   status: CardStatus,
   fingerprints: string[] = []
 ): Promise<void> {
+  if (!isTauri()) throw new Error(i18n.t('errors.desktopCardChanges'));
   if (isTauri()) {
     await invoke('set_card_status', { input: { fingerprint, fingerprints, status } });
   }
@@ -339,6 +352,7 @@ export async function createManualCard(
   kind: CardKind,
   project: string
 ): Promise<void> {
+  if (!isTauri()) throw new Error(i18n.t('errors.desktopCardChanges'));
   if (isTauri()) {
     await invoke('create_card', { input: { title, kind, project } });
   }
@@ -406,22 +420,39 @@ export type AccountInfo = {
   version: string;
 };
 
-const FALLBACK_ACCOUNT: AccountInfo = {
-  github: null,
-  claude_code: false,
-  codex_mcp: false,
-  antigravity_mcp: false,
-  ollama: false,
-  version: '0.1.0',
-};
-
+export function savedGithubProfile(): GithubUser | null {
+  try {
+    const value = JSON.parse(localStorage.getItem('wakeline-github-profile') ?? 'null');
+    return value &&
+      typeof value.login === 'string' &&
+      typeof value.avatar_url === 'string' &&
+      value.avatar_url.startsWith('https://avatars.githubusercontent.com/')
+      ? value
+      : null;
+  } catch {
+    return null;
+  }
+}
+export function rememberGithubProfile(user: GithubUser) {
+  try {
+    localStorage.setItem('wakeline-github-profile', JSON.stringify(user));
+  } catch {
+    /* Profile caching is optional. */
+  }
+}
 let accountRequest: Promise<AccountInfo> | null = null;
 
 export function fetchAccount(force = false): Promise<AccountInfo> {
   if (force || !accountRequest) {
-    accountRequest = isTauri()
-      ? invoke<AccountInfo>('get_account').catch(() => FALLBACK_ACCOUNT)
-      : Promise.resolve(FALLBACK_ACCOUNT);
+    accountRequest = invoke<AccountInfo>('get_account')
+      .then((account) => {
+        if (account.github) rememberGithubProfile(account.github);
+        return account;
+      })
+      .catch((error) => {
+        accountRequest = null;
+        throw error;
+      });
   }
   return accountRequest;
 }
@@ -456,7 +487,7 @@ export async function getAppVersion(): Promise<string> {
 }
 
 export async function checkUpdate(): Promise<UiUpdate | null> {
-  if (!isTauri()) throw new Error(i18n.t('errors.desktopUpdates'));
+  if (!isTauri() && !import.meta.env.DEV) throw new Error(i18n.t('errors.desktopUpdates'));
   return invoke<UiUpdate>('check_update');
 }
 
@@ -475,15 +506,8 @@ export async function openExternal(url: string): Promise<void> {
   }
 }
 
-/** Notificación de prueba, para ver cómo se verán los avisos. */
-export async function sendTestNotification(): Promise<void> {
-  if (isTauri()) {
-    await invoke('test_notification');
-  }
-}
-
 export async function getMcpExecutable(): Promise<string | null> {
-  if (!isTauri()) return null;
+  if (!isTauri() && !import.meta.env.DEV) throw new Error(i18n.t('errors.desktopRuntime'));
   return invoke<string | null>('get_mcp_executable');
 }
 

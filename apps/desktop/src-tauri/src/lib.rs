@@ -10,9 +10,14 @@ mod distribution;
 mod folder_picker;
 mod github_source;
 mod history;
+mod intelligence;
 mod live;
 mod project_commands;
+#[cfg(debug_assertions)]
+pub mod review;
+mod review_tools;
 mod shell;
+mod startup;
 mod updates;
 
 use std::path::{Path, PathBuf};
@@ -139,9 +144,13 @@ pub struct CreateCardInput {
 
 #[tauri::command]
 async fn get_dashboard_data() -> Result<DashboardPayload, String> {
-    tauri::async_runtime::spawn_blocking(scan_dashboard)
+    let result = tauri::async_runtime::spawn_blocking(scan_dashboard)
         .await
-        .map_err(|error| error.to_string())?
+        .map_err(|error| error.to_string())?;
+    if result.is_ok() {
+        live::scanned();
+    }
+    result
 }
 
 fn scan_dashboard() -> Result<DashboardPayload, String> {
@@ -879,6 +888,86 @@ async fn get_account(app: tauri::AppHandle) -> Result<wakeline_core::account::Ac
     .map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+async fn get_github_workspace(since: String) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || wakeline_core::github_workspace::cached(&since))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn get_remote_pr_details(
+    repository: String,
+    number: u64,
+) -> Result<github::PullRequestDetails, String> {
+    if !wakeline_core::github_workspace::valid_repository(&repository) {
+        return Err("INVALID_REPOSITORY".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        github::fetch_pr_details(&github::SystemGh, &repository, number)
+            .map_err(|error| redact(&error.to_string()))
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+/// Pregunta a Claude sobre una PR. El agente no tiene herramientas: solo ve el
+/// título, la descripción y el diff (sin archivos excluidos y con secretos tapados).
+pub(crate) fn answer_pr_question(
+    repository: &str,
+    number: u64,
+    title: &str,
+    options: &wakeline_core::agents::ReviewOptions,
+    question: &str,
+    history: &[wakeline_core::agents::ChatTurn],
+    lang: &str,
+) -> Result<String, String> {
+    if !wakeline_core::github_workspace::valid_repository(repository) {
+        return Err("INVALID_REPOSITORY".into());
+    }
+    if question.trim().is_empty() || question.len() > 8_000 {
+        return Err("INVALID_QUESTION".into());
+    }
+    let details = github::fetch_pr_details(&github::SystemGh, repository, number)
+        .map_err(|error| redact(&error.to_string()))?;
+    let prompt = wakeline_core::agents::pr_chat_prompt(
+        repository,
+        number,
+        title,
+        &details,
+        history,
+        question,
+        lang.starts_with("es"),
+    );
+    wakeline_core::agents::ask_review(options, &prompt, &std::sync::atomic::AtomicBool::new(false))
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn ask_pr_agent(
+    repository: String,
+    number: u64,
+    title: String,
+    options: wakeline_core::agents::ReviewOptions,
+    question: String,
+    history: Vec<wakeline_core::agents::ChatTurn>,
+    lang: String,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        answer_pr_question(
+            &repository,
+            number,
+            &title,
+            &options,
+            &question,
+            &history,
+            &lang,
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 /// «Salir de Wakeline» desde el menú de la cuenta.
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
@@ -901,9 +990,13 @@ fn set_alert_prefs(
     prefs: tauri::State<'_, std::sync::Mutex<alerts::AlertPrefs>>,
     enabled: bool,
     lang: String,
+    errors: Option<bool>,
+    pull_requests: Option<bool>,
 ) {
     if let Ok(mut prefs) = prefs.lock() {
         prefs.enabled = enabled;
+        prefs.errors = errors.unwrap_or(true);
+        prefs.pull_requests = pull_requests.unwrap_or(true);
         prefs.spanish = lang.starts_with("es");
     }
 }
@@ -1124,12 +1217,6 @@ fn resume_session(project: String, session_id: Option<String>) -> Result<(), Str
     }
 }
 
-/// Botón «Probar aviso» de la configuración.
-#[tauri::command]
-fn test_notification(app: tauri::AppHandle) -> Result<(), String> {
-    alerts::send_test(&app)
-}
-
 #[tauri::command]
 fn get_mcp_executable(app: tauri::AppHandle) -> Option<String> {
     #[cfg(target_os = "linux")]
@@ -1157,6 +1244,23 @@ fn get_mcp_executable(app: tauri::AppHandle) -> Option<String> {
     resource.is_file().then(|| resource.display().to_string())
 }
 
+#[tauri::command]
+fn get_startup_enabled() -> Result<bool, String> {
+    startup::enabled()
+}
+#[tauri::command]
+fn set_startup_enabled(enabled: bool) -> Result<bool, String> {
+    startup::set_enabled(enabled)
+}
+#[tauri::command]
+fn is_background_start() -> bool {
+    startup::background(std::env::args())
+}
+#[tauri::command]
+fn get_watch_status(app: tauri::AppHandle) -> live::WatchStatus {
+    live::status(&app)
+}
+
 /// Arranca la app de escritorio con los comandos del núcleo registrados.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -1169,7 +1273,9 @@ pub fn run() {
     // Si intercepta `tauri dev`, el proceso nuevo sale y mata el servidor recién iniciado.
     if !tauri::is_dev() {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            shell::show_main(app);
+            if !startup::background(_args.iter()) {
+                shell::show_main(app);
+            }
         }));
     }
 
@@ -1186,7 +1292,9 @@ pub fn run() {
             live::start(app.handle());
             updates::start(app.handle());
 
-            if let Some(window) = app.get_webview_window(shell::MAIN_WINDOW) {
+            if let Some(window) = app.get_webview_window(shell::MAIN_WINDOW)
+                && !startup::background(std::env::args())
+            {
                 shell::fit_to_screen(&window);
                 // La página muestra la ventana cuando ya pintó; esto es por si no llega.
                 std::thread::spawn(move || {
@@ -1207,6 +1315,16 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            get_github_workspace,
+            get_remote_pr_details,
+            ask_pr_agent,
+            review_tools::get_review_agents,
+            review_tools::ask_review_agent,
+            review_tools::open_pr_editor,
+            get_startup_enabled,
+            set_startup_enabled,
+            is_background_start,
+            get_watch_status,
             get_dashboard_data,
             list_project_files,
             choose_watch_folder,
@@ -1219,7 +1337,8 @@ pub fn run() {
             quit_app,
             set_tray_labels,
             set_alert_prefs,
-            test_notification,
+            intelligence::get_intelligence,
+            intelligence::set_intelligence,
             get_mcp_executable,
             open_in_vscode,
             resume_session,

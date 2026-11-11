@@ -3,8 +3,8 @@
     "showFiles": "Show files",
     "hideFiles": "Hide files",
     "summary": "Summary",
-    "cards": "Cards",
-    "pullRequests": "Pull requests",
+    "cards": "To do",
+    "pullRequests": "Code review",
     "settings": "Settings",
     "projects": "Projects",
     "projectFiles": "Project files",
@@ -18,7 +18,8 @@
     "addFirstProject": "Watch your first project",
     "collapse": "Hide sidebar (Ctrl+B)",
     "expand": "Show sidebar (Ctrl+B)",
-    "newCount": "{{count}} new"
+    "newCount": "{{count}} new",
+    "repositories": "Repositories"
   },
   "toast": {
     "title": "New error in Contastack",
@@ -103,7 +104,7 @@
     "rowsPerPageLabel": "Rows per page:",
     "nextPage": "Next page",
     "previousPage": "Previous page",
-    "title": "Cards",
+    "title": "To do",
     "subtitle": "Errors, tasks and ideas from every project.",
     "table": "Table",
     "kanban": "Board",
@@ -161,7 +162,8 @@
     "promptOrigin": "Origin",
     "promptPending": "Pending",
     "promptEvidence": "Evidence",
-    "promptCode": "Code"
+    "promptCode": "Code",
+    "search": "Search findings..."
   },
   "pullRequests": {
     "diffLayout": "Diff layout",
@@ -243,7 +245,7 @@
     "themeLight": "Light",
     "themeSystem": "System",
     "startWithWindows": "Start with Windows",
-    "startWithWindowsHint": "Launches minimized to the tray",
+    "startWithWindowsHint": "Starts in the background with a tray icon. The switch reflects Windows registration.",
     "exportPath": "Export folder",
     "exportPathHint": "Where TODO.md is written in each repo",
     "llmTitle": "Intelligence (optional)",
@@ -270,8 +272,8 @@
     "historyStartHint": "Last 30 days only",
     "importAll": "Import all",
     "alertsTitle": "Notifications",
-    "alertsWin": "Desktop notifications for errors and open PRs",
-    "alertsWinHint": "GitHub is checked every minute. PRs are announced once per session; errors, at most every 10 minutes.",
+    "alertsWin": "Desktop notifications",
+    "alertsWinHint": "New errors and pull requests. Respects your selected channels.",
     "alertsTray": "Tray badge count",
     "alertsTrayHint": "New errors across all projects",
     "alertsDaily": "Daily summary on open",
@@ -327,7 +329,10 @@
     "quit": "Quit Wakeline",
     "shortcutToggle": "Show or hide the sidebar",
     "shortcutSettings": "Open settings",
-    "close": "Close"
+    "close": "Close",
+    "reportTemplate": "## What happened\n\n## What you expected\n\n## Steps to reproduce\n\nReview the report and remove private data before submitting.",
+    "checkingUpdates": "Checking for updates…",
+    "upToDate": "You’re up to date"
   },
   "tray": {
     "open": "Open Wakeline",
@@ -391,15 +396,424 @@
     "desktopUpdates": "Check updates from the desktop application.",
     "desktopFolderPicker": "Choose the folder from the desktop application",
     "unexpected": "Unexpected application error",
-    "unknown": "Unknown error"
+    "unknown": "Unknown error",
+    "clipboard": "Could not copy. Select the text and copy it manually.",
+    "desktopRuntime": "Open the desktop app to access your data."
   },
   "dailySummary": {
-    "title": "Daily summary",
+    "title": "Pick up where you left off",
     "subtitle": "Changes since your last visit. The first summary shows cards first seen today.",
     "errors": "New errors",
     "tasks": "New tasks",
     "ideas": "New ideas",
     "completed": "Resolved cards",
-    "open": "View summary"
+    "open": "View summary",
+    "balance": "New cards: {{count}}. Resolved: {{completed}}.",
+    "empty": "No changes since your last summary. You are up to date.",
+    "failed": "Could not load the summary. Please try again.",
+    "attention": "Where to start",
+    "priority": "Open changes: errors first, then tasks and ideas.",
+    "pendingPrs": "Pending PRs: {{count}}",
+    "footer": "Daily summary",
+    "pendingIntro": "You have {{count}} pending findings. Here is where to start.",
+    "pendingKinds": {
+      "errors": "Errors",
+      "tasks": "Open tasks",
+      "ideas": "Saved ideas"
+    },
+    "viewTasks": "View my tasks",
+    "needsAttention": "Needs your attention"
+  },
+  "watch": {
+    "active": "Watching {{count}} projects",
+    "unavailable": "Could not check monitoring",
+    "lastScan": "Last scan: {{time}}",
+    "noScan": "Waiting for the first scan",
+    "failed": "Could not watch",
+    "active_one": "Watching {{count}} project",
+    "active_other": "Watching {{count}} projects"
+  },
+  "releaseUi": {
+    "kind": {
+      "feature": "New feature",
+      "fix": "Bug fix",
+      "update": "Feature update"
+    },
+    "news": "What’s new",
+    "close": "Close release notes",
+    "next": "Next",
+    "start": "Get started",
+    "previous": "Previous",
+    "all": "View all changes",
+    "skip": "Skip",
+    "counter": "{{current}} of {{total}}",
+    "allTitle": "All changes",
+    "allSubtitle": "Everything in this version, in one place.",
+    "fixes": "What we fixed",
+    "done": "Got it",
+    "history": "Version history",
+    "historyHint": "Read the features and fixes included in each version.",
+    "art": {
+      "priority": "Focus next",
+      "reconnect": "Restore the connection",
+      "import": "Validate project imports",
+      "review": "Review pending items",
+      "tomorrow": "Tomorrow, 09:00",
+      "detected": "Detected",
+      "reviewing": "In review",
+      "resolved": "Resolved"
+    },
+    "presentation": "View presentation"
+  },
+  "workflow": {
+    "priority": "Focus next",
+    "prioritySub": "Open items, with a reason to prioritize each one.",
+    "reason": {
+      "command": "A project command failed",
+      "repeated": "Seen {{count}} times",
+      "error": "Error awaiting review",
+      "aging": "Pending for {{count}} days",
+      "task": "Pending task",
+      "idea": "Idea awaiting review"
+    },
+    "snooze": "Snooze",
+    "tomorrow": "Until tomorrow",
+    "week": "For one week",
+    "recurrence": "Until a new occurrence",
+    "date": "Until a date",
+    "resume": "Show again",
+    "snoozed": "Snoozed",
+    "history": "Card history",
+    "historyHint": "Recorded by Wakeline since this card was first observed in this version.",
+    "event": {
+      "detected": "Detected",
+      "repeated": "New occurrence",
+      "status": "Status decision",
+      "signal_closed": "Signal disappeared",
+      "signal_returned": "Signal reappeared",
+      "snoozed": "Snoozed",
+      "resumed": "Shown again",
+      "stage": "Stage changed"
+    },
+    "prepare": "Prepare context",
+    "execute": "Run",
+    "assign": "Assign",
+    "copy": "Copy context",
+    "criteria": "Resolution criteria",
+    "criteriaText": "Explain the cause and include a reproducible check for the proposed solution.",
+    "limit": "Analyze and propose; do not apply changes or publish.",
+    "reviewTask": "Review the prepared task",
+    "agent": "Agent",
+    "send": "Assign to {{agent}}",
+    "agentScope": "The agent analyzes and proposes in read-only mode. You review the result.",
+    "agentMissing": "{{agent}} was not found. Install its CLI and sign in to use it.",
+    "agentState": {
+      "running": "Agent working",
+      "completed": "Proposal ready for review",
+      "failed": "Task did not complete"
+    },
+    "commandsNone": "This project has no approved commands. Review them in Settings.",
+    "openSettings": "Open Settings",
+    "run": "Run command",
+    "running": "Running",
+    "approveFirst": "Commands require approval in Settings.",
+    "timeout": "The agent has up to 10 minutes. The result is kept when you close the panel.",
+    "cancel": "Cancel task",
+    "error": "Could not complete the action",
+    "status": "Status",
+    "viewResult": "View proposal"
+  },
+  "board": {
+    "new": "To do",
+    "accepted": "In progress",
+    "review": "In review",
+    "done": "Resolved",
+    "cardLabel": "{{title}}. Alt + arrows to move; Enter to open.",
+    "reopen": "Reopen"
+  },
+  "repositories": {
+    "sort": "Sort repositories",
+    "recent": "Recent",
+    "name": "Name",
+    "refresh": "Refresh",
+    "empty": "Add a folder to see your projects and repositories.",
+    "localSource": "Local reading",
+    "readOnly": "Read only with gh",
+    "stars": "Most stars"
+  },
+  "shell": {
+    "navigation": "Main navigation",
+    "available": "Available",
+    "openPrs": "Open PRs",
+    "period": "Period",
+    "today": "Today",
+    "week": "Week",
+    "month": "Month",
+    "metrics": "Live metrics",
+    "findingActivity": "Finding activity",
+    "projectActivity": "Active projects",
+    "viewAll": "View all",
+    "findingCount": "{{count}} pending findings",
+    "noFindings": "No findings",
+    "details": "Details",
+    "open": "Open",
+    "searchRepositories": "Find repositories...",
+    "installUpdate": "Install update",
+    "settingsSubtitle": "A workspace that fits you.",
+    "settingsSections": "Settings sections",
+    "accent": "Accent color",
+    "accentHint": "Buttons, charts and selections.",
+    "accents": {
+      "teal": "Teal",
+      "blue": "Blue",
+      "violet": "Violet",
+      "amber": "Amber"
+    },
+    "dockPr": "Dock PR details",
+    "dockPrHint": "Keeps your preferred detail layout.",
+    "reducedMotion": "Animations respect your system’s reduced-motion preference.",
+    "openSummary": "Open daily summary",
+    "intelligenceStatus": "Local service availability",
+    "intelligencePending": "Detection uses local rules. Agent chat is not yet available in this candidate.",
+    "protected": "Protected",
+    "reviewCandidate": "Review candidate; unpublished.",
+    "viewChanges": "View changes",
+    "sessionsAvailable": "Local Claude Code sessions",
+    "mcpConfigured": "Wakeline MCP configuration detected",
+    "connectionsSubtitle": "Status detected on your computer and GitHub session.",
+    "exportTodo": "Export pending cards",
+    "selectCards": "Select cards",
+    "connectionCommand": "Connection configuration",
+    "settingsTabs": {
+      "general": "General",
+      "appearance": "Appearance",
+      "notifications": "Notifications",
+      "intelligence": "Intelligence",
+      "mcp": "MCP server",
+      "privacy": "Privacy",
+      "commands": "Commands",
+      "versions": "Versions"
+    }
+  },
+  "githubDashboard": {
+    "loading": "Loading your GitHub session…",
+    "partial": "Some data could not be loaded ({{count}}).",
+    "emptyPrs": "No pull requests match this filter.",
+    "states": {
+      "open": "Open",
+      "review": "In review",
+      "merged": "Merged",
+      "closed": "Closed"
+    },
+    "metrics": {
+      "commits": "Commits",
+      "pulls": "Pull Requests",
+      "merged": "Merged PRs",
+      "review_hours": "Avg Review Time"
+    },
+    "activity": "Commit activity",
+    "contributors": "Top contributors",
+    "unknown": "Unlinked author",
+    "commits": "commits",
+    "ofCommits": "of commits",
+    "emptyActivity": "No commits in this period.",
+    "recentPrs": "Recent PRs",
+    "repositoryCount": "{{count}} repositories from your GitHub session",
+    "openCount": "{{count}} open PRs",
+    "emptyRepositories": "No repositories match this filter.",
+    "allHistory": "Full pull request history from your GitHub repositories.",
+    "searchPrs": "Search PRs, repository, or author…",
+    "rateLimited": "GitHub has temporarily rate-limited requests. Showing saved data; Wakeline will query again when the pause ends.",
+    "rateLimitedUntil": "GitHub has temporarily rate-limited requests. Showing saved data; Wakeline will query again at {{time}}.",
+    "retry": "Retry",
+    "todayPrs": "Today PRs",
+    "openedBy": "PR opened by {{author}}",
+    "repositorySummary": "{{count}} repositories · {{open}} open pull requests · {{week}} this week",
+    "clearSearch": "Clear search",
+    "showMore": "Show more ({{count}})",
+    "private": "Private",
+    "public": "Public",
+    "favorite": "Mark {{name}} as favorite",
+    "commitBars": "Commits over the last 14 days, peak {{peak}} per day",
+    "updated": "Updated {{ago}}",
+    "waiting_one": "{{count}} pull request is waiting for review",
+    "waiting_other": "{{count}} pull requests are waiting for review",
+    "allRepositories": "Show all repositories",
+    "filter": "Filter by status"
+  },
+  "intelligence": {
+    "provider": "Provider",
+    "off": "Disabled",
+    "api": "OpenAI-compatible API",
+    "endpoint": "Service URL",
+    "model": "Model",
+    "key": "API key",
+    "keySaved": "Key saved; leave blank to keep it",
+    "keyEmpty": "Add API key",
+    "secure": "The key is stored in Windows Credential Manager.",
+    "unavailable": "Secure key storage is unavailable on this platform.",
+    "remove": "Remove key and disable",
+    "save": "Save settings",
+    "saved": "Settings saved.",
+    "desktop": "Save changes in the desktop app. The web review is read-only."
+  },
+  "notificationChannels": {
+    "errors": "New errors",
+    "errorsHint": "Notifications for detected errors without repeating the same finding.",
+    "prs": "Pull Requests",
+    "prsHint": "Open PR notifications without repeating the same PR."
+  },
+  "releasePresentation": {
+    "features": {
+      "todo": {
+        "title": "To do, without lost tasks.",
+        "text": "Errors, tasks, and ideas from your sessions in four columns. Filter by type and open any finding to recover its context.",
+        "label": "To do"
+      },
+      "priorities": {
+        "title": "Your next step, made clear.",
+        "text": "The items that deserve your attention, with a reason to start with each one.",
+        "label": "Priorities with context"
+      },
+      "snooze": {
+        "title": "Not now. Later, yes.",
+        "text": "Snooze a card until tomorrow or until it occurs again. Keep the thread.",
+        "label": "Snooze cards"
+      },
+      "history": {
+        "title": "Every change has a history.",
+        "text": "From the first finding to resolution. Origin, evidence, and progress in one place.",
+        "label": "Card history"
+      },
+      "repositories": {
+        "title": "Your repositories, at hand.",
+        "text": "Find your projects by recent activity, name, or stars.",
+        "label": "Repositories"
+      },
+      "reviews": {
+        "title": "Reviews with context.",
+        "text": "PRs with unified or split diffs, isolated chat with images, Claude versions and effort. Open your local copy in VS Code, Cursor or Antigravity.",
+        "label": "Code review"
+      },
+      "connectors": {
+        "title": "Your tools, connected.",
+        "text": "GitHub, Claude, and Codex in your sidebar. MCP and privacy in clearer settings.",
+        "label": "Connectors and MCP"
+      }
+    },
+    "ui": {
+      "new_feature": "New feature",
+      "fix": "Fix",
+      "update": "Update",
+      "open": "Open",
+      "in_review": "In review",
+      "merged": "Merged",
+      "to_do": "To do",
+      "in_progress": "In progress",
+      "resolved": "Resolved",
+      "recurring_error": "Recurring error",
+      "next_step": "Next step",
+      "with_context": "With context",
+      "until_tomorrow": "Until tomorrow",
+      "new_occurrence": "New occurrence",
+      "resume": "Resume",
+      "origin": "Origin",
+      "evidence": "Evidence",
+      "resolution": "Resolution",
+      "close_release_notes": "Close release notes",
+      "all_changes": "All changes",
+      "changes_in_this_wakeline_release": "Changes in this Wakeline release.",
+      "what_we_fixed": "What we fixed",
+      "more_compact_navigation_dockable_details_and_a_consistent_accent_color": "More compact navigation, dockable details, and a consistent accent color.",
+      "view_presentation": "View presentation",
+      "got_it": "Got it",
+      "what_s_new": "What’s new",
+      "get_started": "Get started",
+      "next": "Next",
+      "previous": "Previous",
+      "skip": "Skip"
+    }
+  },
+  "connections": {
+    "disconnect": "Disconnect",
+    "disconnectCommand": "To disconnect, run",
+    "disconnectHint": {
+      "github": "Signs gh out on this computer. Wakeline stops reading your repositories and PRs.",
+      "claude": "Removes the Wakeline MCP server from Claude Code. Local sessions are still read.",
+      "codex": "Removes the Wakeline MCP server from Codex.",
+      "antigravity": "Delete the “wakeline” entry from mcpServers in Antigravity’s mcp_config.json.",
+      "ollama": "Turn Ollama off in Settings → Intelligence."
+    }
+  },
+  "pullRequestPage": {
+    "files_one": "{{count}} file changed",
+    "files_other": "{{count}} files changed",
+    "layout": "Diff layout",
+    "unified": "Unified",
+    "split": "Split"
+  },
+  "prChat": {
+    "title": "Review with AI",
+    "privacy": "This PR only · No local files",
+    "empty": "Ask anything about this PR.",
+    "placeholder": "Ask about the PR…",
+    "thinking": "{{agent}} is thinking",
+    "send": "Send",
+    "chooseAgent": "Choose agent",
+    "chooseModel": "Choose model",
+    "unavailable": "Installed; isolated review not yet supported",
+    "soon": "Unsupported",
+    "suggestions": {
+      "summary": "Summarize the changes in this PR",
+      "risks": "What risks or bugs do you see?",
+      "tests": "Which tests are missing?"
+    },
+    "errors": {
+      "notInstalled": "Claude Code was not found on this computer. Install it and sign in to use the chat.",
+      "timeout": "The agent took too long and was stopped. Try again.",
+      "empty": "The agent returned no answer. Try again.",
+      "failed": "Could not get an answer:"
+    }
+  },
+  "reviewChat": {
+    "open": "Review chat",
+    "privacy": "PR overview · No local files",
+    "placeholder": "Ask about open, in-review or merged PRs…",
+    "empty": "Ask about the state of your repository pull requests.",
+    "suggestions": {
+      "summary": "Which PRs are open or in review?",
+      "risks": "Which PRs still await review?",
+      "tests": "Which PRs were merged recently?"
+    },
+    "detecting": "Detecting agents…",
+    "detectError": "Could not detect agents. Refocus this window to retry.",
+    "noAgent": "No agent supports isolated review. Install Claude Code to use this chat."
+  },
+  "prEditor": {
+    "open": "Open in {{editor}}",
+    "choose": "Choose editor",
+    "noLocal": "Add the local copy of this repository to watched projects to open it.",
+    "notInstalled": "Selected editor was not found. Install it or choose another.",
+    "failed": "Could not open the editor.",
+    "localOnly": "Opens your local copy; does not switch branches or download the PR."
+  },
+  "chatInput": {
+    "attach": "Add image or paste with Ctrl+V",
+    "remove": "Remove {{name}}",
+    "limit": "Up to 3 images, 5 MB each and 10 MB total.",
+    "type": "Use PNG, JPG, WebP or GIF images.",
+    "invalid": "The image is invalid or exceeds the allowed limit.",
+    "readFailed": "Could not read the image.",
+    "imageQuestion": "Analyze the attached images in the context of this review.",
+    "effortLabel": "Model effort",
+    "effort": {
+      "default": "Auto",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Very high",
+      "max": "Maximum"
+    },
+    "access": "Explicit versions or CLI aliases. Access depends on your account."
   }
 }

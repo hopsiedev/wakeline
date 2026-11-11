@@ -39,4 +39,4 @@ jobs:
             node -e 'const e=process.env; console.log(JSON.stringify({version:e.VERSION,pub_date:new Date().toISOString(),platforms:{"windows-x86_64":{signature:e.SIGNATURE,url:e.URL}}},null,2))' > release-packages/latest.json
           mapfile -t assets < <(find release-packages -type f \( -name '*.zip' -o -name '*.sha256' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.tar.gz' -o -name '*-setup.exe' -o -name '*-setup.exe.sig' -o -name latest.json -o -name SHA256SUMS -o -name 'build-info-*.json' \))
           test "${#assets[@]}" -gt 0
-          gh release create "$TAG" "${assets[@]}" --verify-tag --target "$COMMIT" --draft --title "Wakeline $TAG - Windows and Linux" --notes-file RELEASE.md
+          gh release create "$TAG" "${assets[@]}" --verify-tag --target "$COMMIT" --draft --title "Wakeline $TAG - Windows and Linux" --notes-file RELEASE-NOTES.md

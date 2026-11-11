@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { varAlpha } from 'minimal-shared/utils';
-import { useMemo, useState, useEffect } from 'react';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
@@ -11,7 +11,6 @@ import Alert from '@mui/material/Alert';
 import Table from '@mui/material/Table';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
-import Drawer from '@mui/material/Drawer';
 import Select from '@mui/material/Select';
 import Checkbox from '@mui/material/Checkbox';
 import MenuItem from '@mui/material/MenuItem';
@@ -30,6 +29,13 @@ import LinearProgress from '@mui/material/LinearProgress';
 import TablePagination from '@mui/material/TablePagination';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import {
+  isSnoozed,
+  boardStage,
+  observeCards,
+  setReviewStage,
+  type BoardStage,
+} from 'src/services/card-workflow';
 import {
   type UiCard,
   originLabel,
@@ -50,6 +56,9 @@ import {
 import { Label } from 'src/components/label';
 import { EvidenceMarkdown } from 'src/components/evidence-markdown';
 import { AppIcon, type AppIconName } from 'src/components/nav-icon';
+import { useWorkflow, CardWorkflow, CardPriorities } from 'src/components/card-workflow';
+
+import { ProjectCommands } from 'src/sections/settings/project-commands-card';
 
 import { type SourceFilter, type StatusFilter, matchesCardFilters } from './card-filters';
 import { toggleCardSelection, togglePageSelection, selectedStatusInputs } from './card-selection';
@@ -69,12 +78,12 @@ export function CardsView() {
   const [loaded, setLoaded] = useState(false);
   const [importingFolder, setImportingFolder] = useState<string | null>(() => getImportingFolder());
   const [watchError, setWatchError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedCard, setSelectedCard] = useState<UiCard | null>(null);
@@ -88,8 +97,20 @@ export function CardsView() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
 
+  const workflow = useWorkflow();
+  const [showSnoozed, setShowSnoozed] = useState(false);
+  const [dragTarget, setDragTarget] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
+  const dragged = useRef(false);
   const loadCards = (force = false) => {
     fetchDashboardData({ force }).then((res) => {
+      if (res.scan_error) {
+        setWatchError(res.scan_error);
+        setLoaded(true);
+        return;
+      }
+      setWatchError(null);
+      observeCards(res.cards);
       setCards(res.cards);
       setProjects(res.projects);
       setLoaded(true);
@@ -135,6 +156,7 @@ export function CardsView() {
   }, [detailId, cards, loaded]);
 
   const openDetail = (card: UiCard) => {
+    if (dragged.current) return;
     setSelectedCard(card);
     navigate(`/cards/${card.fingerprint}`);
   };
@@ -153,8 +175,13 @@ export function CardsView() {
     [cards, projectFilter, sourceFilter, statusFilter, search]
   );
   const filtered = useMemo(
-    () => scopedCards.filter((card) => typeFilter === 'all' || card.kind === typeFilter),
-    [scopedCards, typeFilter]
+    () =>
+      scopedCards.filter(
+        (card) =>
+          (typeFilter === 'all' || card.kind === typeFilter) &&
+          isSnoozed(card, workflow) === showSnoozed
+      ),
+    [scopedCards, typeFilter, workflow, showSnoozed]
   );
   const currentPage = Math.min(page, Math.max(0, Math.ceil(filtered.length / rowsPerPage) - 1));
   const pageCards = filtered.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
@@ -207,6 +234,7 @@ export function CardsView() {
 
   const handleStatusChange = async (card: UiCard, status: CardStatus) => {
     await updateCardStatus(card.fingerprint, status, card.fingerprints);
+    observeCards([{ ...card, status }]);
     setCards((prev) =>
       prev.map((c) => (c.fingerprint === card.fingerprint ? { ...c, status } : c))
     );
@@ -217,24 +245,51 @@ export function CardsView() {
 
   const handleCreate = async () => {
     if (!newTitle.trim() || !newProject) return;
-    await createManualCard(newTitle, newKind, newProject);
-    setNewTitle('');
-    setCreateOpen(false);
-    loadCards();
+    try {
+      await createManualCard(newTitle, newKind, newProject);
+      setNewTitle('');
+      setCreateOpen(false);
+      loadCards();
+    } catch (error) {
+      setWatchError(String(error));
+    }
   };
 
-  const copyPromptText = (text: string) => {
-    navigator.clipboard?.writeText(text);
-    setCopiedPrompt(true);
-    setTimeout(() => setCopiedPrompt(false), 1400);
+  const moveCard = async (card: UiCard, stage: BoardStage) => {
+    if (moving || boardStage(card, workflow) === stage) return;
+    setMoving(true);
+    setWatchError(null);
+    try {
+      const status = stage === 'review' ? 'accepted' : stage;
+      await handleStatusChange(card, status);
+      setReviewStage({ ...card, status }, stage === 'review');
+    } catch (error) {
+      setWatchError(String(error));
+    } finally {
+      setMoving(false);
+      setDragTarget(null);
+    }
   };
-
-  const handleResumeSession = (card: UiCard) => {
-    const cmd = card.session_id ? `claude --resume ${card.session_id}` : 'claude --continue';
-    navigator.clipboard?.writeText(cmd);
-    setResumedSession(true);
-    setTimeout(() => setResumedSession(false), 1400);
-    resumeClaudeSession(card);
+  const copyPromptText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedPrompt(true);
+    } catch (error) {
+      setWatchError(String(error));
+    }
+  };
+  useEffect(() => {
+    if (!copiedPrompt) return undefined;
+    const timer = setTimeout(() => setCopiedPrompt(false), 2400);
+    return () => clearTimeout(timer);
+  }, [copiedPrompt]);
+  const handleResumeSession = async (card: UiCard) => {
+    try {
+      await resumeClaudeSession(card);
+      setResumedSession(true);
+    } catch (error) {
+      setWatchError(String(error));
+    }
   };
 
   const closeDetail = () => {
@@ -242,8 +297,23 @@ export function CardsView() {
     navigate('/cards');
   };
 
+  const changeDetailStatus = async (card: UiCard, status: CardStatus, close = false) => {
+    setWatchError(null);
+    try {
+      await handleStatusChange(card, status);
+      if (close) closeDetail();
+    } catch (error) {
+      setWatchError(String(error));
+    }
+  };
+
   const detail = selectedCard ? (
     <Box sx={{ p: 3 }}>
+      {watchError && (
+        <Alert severity="error" onClose={() => setWatchError(null)}>
+          {watchError}
+        </Alert>
+      )}
       <Box
         sx={{
           mb: 1.5,
@@ -375,7 +445,7 @@ export function CardsView() {
           <Button
             color="inherit"
             onClick={() =>
-              handleStatusChange(
+              changeDetailStatus(
                 selectedCard,
                 selectedCard.status === 'accepted' ? 'done' : 'accepted'
               )
@@ -390,15 +460,12 @@ export function CardsView() {
             {selectedCard.status === 'accepted'
               ? t('common.markDone')
               : selectedCard.status === 'done'
-                ? t('common.done')
+                ? t('board.reopen')
                 : t('common.accept')}
           </Button>
 
           <Button
-            onClick={async () => {
-              await handleStatusChange(selectedCard, 'dismissed');
-              closeDetail();
-            }}
+            onClick={() => changeDetailStatus(selectedCard, 'dismissed', true)}
             sx={{
               height: 36,
               px: 1.75,
@@ -549,6 +616,12 @@ export function CardsView() {
           </Card>
         </Grid>
       </Grid>
+      <CardWorkflow card={selectedCard} />
+      {projects
+        .filter((project) => project.name === selectedCard.project)
+        .map((project) => (
+          <ProjectCommands key={project.path} project={project} mode="run" />
+        ))}
     </Box>
   ) : null;
 
@@ -658,6 +731,10 @@ export function CardsView() {
         </Box>
       </Box>
 
+      <CardPriorities cards={cards} />
+      <Button aria-pressed={showSnoozed} onClick={() => setShowSnoozed(!showSnoozed)}>
+        {t('workflow.snoozed')} ({cards.filter((c) => isSnoozed(c, workflow)).length})
+      </Button>
       {watchError && <Typography sx={{ mb: 2, color: 'error.main' }}>{watchError}</Typography>}
 
       {importingFolder && (
@@ -710,8 +787,8 @@ export function CardsView() {
               [
                 ['all', t('common.all'), scopedCards.length, 'default'],
                 ['error', t('common.errors'), errTotal, 'error'],
-                ['task', t('common.tasks'), taskTotal, 'info'],
-                ['idea', t('common.ideas'), ideaTotal, 'secondary'],
+                ['task', t('common.tasks'), taskTotal, 'primary'],
+                ['idea', t('common.ideas'), ideaTotal, 'warning'],
               ] as const
             ).map(([key, lbl, count, color]) => {
               const active = typeFilter === key;
@@ -1060,18 +1137,33 @@ export function CardsView() {
         <Grid container spacing={3}>
           {(
             [
-              ['new', t('common.newPlural'), 'warning'],
-              ['accepted', t('common.acceptedPlural'), 'default'],
-              ['done', t('common.donePlural'), 'success'],
-              ['dismissed', t('common.dismissedPlural'), 'default'],
+              ['new', t('board.new'), 'default'],
+              ['accepted', t('board.accepted'), 'default'],
+              ['review', t('board.review'), 'default'],
+              ['done', t('board.done'), 'success'],
             ] as const
           ).map(([st, colTitle, colColor]) => {
-            const colCards = filtered.filter((c) => c.status === st);
+            const colCards = filtered.filter((c) => boardStage(c, workflow) === st);
             return (
               <Grid key={st} size={{ xs: 12, sm: 6, md: 3 }}>
                 <Box
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setDragTarget(st);
+                  }}
+                  onDragLeave={() => setDragTarget(null)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const card = cards.find(
+                      (c) => c.fingerprint === event.dataTransfer.getData('text/plain')
+                    );
+                    if (card) void moveCard(card, st);
+                  }}
                   sx={(theme) => ({
                     p: 2,
+                    minHeight: 240,
+                    border: '1px solid',
+                    borderColor: dragTarget === st ? 'primary.main' : 'divider',
                     gap: 1.5,
                     display: 'flex',
                     borderRadius: 2,
@@ -1089,6 +1181,33 @@ export function CardsView() {
                   {colCards.map((card) => (
                     <Card
                       key={card.fingerprint}
+                      draggable={!moving}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={t('board.cardLabel', { title: card.title })}
+                      onDragStart={(event) => {
+                        dragged.current = true;
+                        event.dataTransfer.setData('text/plain', card.fingerprint);
+                      }}
+                      onDragEnd={() => {
+                        setDragTarget(null);
+                        requestAnimationFrame(() => {
+                          dragged.current = false;
+                        });
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          openDetail(card);
+                        }
+                        const stages: BoardStage[] = ['new', 'accepted', 'review', 'done'];
+                        if (event.altKey && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+                          event.preventDefault();
+                          const index = stages.indexOf(st) + (event.key === 'ArrowRight' ? 1 : -1);
+                          if (stages[index]) void moveCard(card, stages[index]);
+                        }
+                      }}
                       onClick={() => openDetail(card)}
                       sx={{
                         p: 2,
@@ -1150,6 +1269,7 @@ export function CardsView() {
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{t('cards.newCard')}</DialogTitle>
         <DialogContent sx={{ pt: 2, gap: 2, display: 'flex', flexDirection: 'column' }}>
+          {watchError && <Alert severity="error">{watchError}</Alert>}
           <TextField
             autoFocus
             fullWidth
@@ -1192,14 +1312,16 @@ export function CardsView() {
           </Button>
         </DialogActions>
       </Dialog>
-      <Drawer
-        anchor="right"
+      <Dialog
+        fullWidth
+        maxWidth="md"
+        aria-label={selectedCard?.title}
         open={selectedCard !== null}
         onClose={closeDetail}
-        slotProps={{ paper: { sx: { width: { xs: 1, md: 760 }, maxWidth: 1 } } }}
+        slotProps={{ paper: { sx: { maxHeight: 'calc(100% - 48px)' } } }}
       >
         {detail}
-      </Drawer>
+      </Dialog>
     </DashboardContent>
   );
 }
@@ -1218,14 +1340,14 @@ function KindBadge({ kind }: { kind: CardKind }) {
   }
   if (kind === 'idea') {
     return (
-      <Label color="secondary" sx={{ gap: 0.75 }}>
+      <Label color="warning" sx={{ gap: 0.75 }}>
         <AppIcon name="idea" size={14} />
         {t('common.idea')}
       </Label>
     );
   }
   return (
-    <Label color="info" sx={{ gap: 0.75 }}>
+    <Label color="primary" sx={{ gap: 0.75 }}>
       <AppIcon name="task" size={14} />
       {t('common.task')}
     </Label>
@@ -1234,10 +1356,10 @@ function KindBadge({ kind }: { kind: CardKind }) {
 
 function StatusBadge({ status }: { status: CardStatus }) {
   const { t } = useTranslation();
-  if (status === 'new') return <Label color="warning">{t('common.new')}</Label>;
+  if (status === 'new') return <Label color="primary">{t('common.new')}</Label>;
   if (status === 'done') return <Label color="success">{t('common.done')}</Label>;
   if (status === 'dismissed') return <Label color="default">{t('common.dismissed')}</Label>;
-  return <Label color="default">{t('common.accepted')}</Label>;
+  return <Label color="primary">{t('common.accepted')}</Label>;
 }
 
 function sourceIcon(kind: UiCard['source_kind']): AppIconName {

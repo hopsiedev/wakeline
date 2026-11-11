@@ -241,7 +241,7 @@ export function NavContent({ data, collapsed = false, onToggleCollapse, sx }: Na
               size="small"
               onClick={onToggleCollapse}
               aria-label={collapsed ? t('nav.expand') : t('nav.collapse')}
-              sx={{ width: 30, height: 30, borderRadius: 1, color: 'text.secondary' }}
+              sx={{ width: 36, height: 36, borderRadius: 1, color: 'text.secondary' }}
             >
               <NavIcon name="panel" size={18} />
             </IconButton>
@@ -315,7 +315,7 @@ export function NavContent({ data, collapsed = false, onToggleCollapse, sx }: Na
               <Tooltip key={p.path} title={p.name} placement="right">
                 <IconButton
                   component={RouterLink}
-                  href="/pull-requests"
+                  href={`/projects/${encodeURIComponent(p.name)}`}
                   sx={{ width: 36, height: 36, borderRadius: 1, fontSize: 14, fontWeight: 700 }}
                 >
                   {p.name.slice(0, 1).toUpperCase()}

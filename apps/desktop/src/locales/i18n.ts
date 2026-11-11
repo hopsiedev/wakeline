@@ -26,6 +26,13 @@ export async function changeLanguage(lang: Language) {
 }
 
 const ALERTS_KEY = 'wakeline-alerts-enabled';
+export function notificationChannel(channel: 'errors' | 'prs'): boolean {
+  return localStorage.getItem(`wakeline-alerts-${channel}`) !== 'false';
+}
+export function setNotificationChannel(channel: 'errors' | 'prs', enabled: boolean) {
+  localStorage.setItem(`wakeline-alerts-${channel}`, String(enabled));
+  syncTrayLabels();
+}
 
 /** ¿Avisar con una notificación de Windows cuando aparece un error nuevo? */
 export function alertsEnabled(): boolean {
@@ -47,7 +54,12 @@ function syncTrayLabels() {
     invoke('set_tray_labels', { open: i18n.t('tray.open'), quit: i18n.t('tray.quit') }).catch(
       () => {}
     );
-    invoke('set_alert_prefs', { enabled: alertsEnabled(), lang: i18n.language }).catch(() => {});
+    invoke('set_alert_prefs', {
+      enabled: alertsEnabled(),
+      lang: i18n.language,
+      errors: notificationChannel('errors'),
+      pullRequests: notificationChannel('prs'),
+    }).catch(() => {});
   });
 }
 
