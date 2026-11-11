@@ -765,7 +765,11 @@ export function TodoPage() {
         </div>
       </div>
       {selected && (
-        <Modal title={`${selected.short_id} / ${t('shell.details')}`} onClose={close}>
+        <Modal
+          title={`${selected.short_id} / ${t('shell.details')}`}
+          onClose={close}
+          className="real-card-detail"
+        >
           <div className="wk-todo-side-body">
             <ErrorNotice error={error} />
             <span className="wk-todo-state">

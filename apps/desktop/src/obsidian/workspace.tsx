@@ -18,6 +18,7 @@ import {
   Code2,
   Layers,
   LogOut,
+  ListTodo,
   Settings,
   Keyboard,
   Download,
@@ -57,7 +58,7 @@ const NAV = [
   { path: '/', key: 'nav.summary', Icon: Home },
   { path: '/repositories', key: 'nav.repositories', Icon: Layers },
   { path: '/pull-requests', key: 'nav.pullRequests', Icon: Code2 },
-  { path: '/cards', key: 'nav.cards', Icon: Layers },
+  { path: '/cards', key: 'nav.cards', Icon: ListTodo },
 ];
 
 export function ObsidianLayout({ children }: { children: ReactNode }) {
