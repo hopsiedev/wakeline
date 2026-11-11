@@ -20,7 +20,42 @@ const DEBOUNCE: Duration = Duration::from_millis(1500);
 const MAX_WAIT: Duration = Duration::from_secs(10);
 
 #[derive(Default)]
-struct Live(Mutex<Option<Stopper>>);
+struct Live(Mutex<Option<Stopper>>, Mutex<WatchStatus>);
+#[derive(Default, Clone, serde::Serialize)]
+pub struct WatchStatus {
+    pub watching: Vec<String>,
+    pub errors: Vec<String>,
+    pub last_scan: Option<u64>,
+}
+static LAST_SCAN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+pub fn scanned() {
+    LAST_SCAN.store(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+        std::sync::atomic::Ordering::Relaxed,
+    );
+}
+pub fn status(app: &AppHandle) -> WatchStatus {
+    let Some(live) = app.try_state::<Live>() else {
+        return WatchStatus::default();
+    };
+    let mut health = live.1.lock().unwrap_or_else(|e| e.into_inner());
+    let mut missing = Vec::new();
+    health.watching.retain(|path| {
+        if std::path::Path::new(path).is_dir() {
+            true
+        } else {
+            missing.push(path.clone());
+            false
+        }
+    });
+    health.errors.extend(missing);
+    let last = LAST_SCAN.load(std::sync::atomic::Ordering::Relaxed);
+    health.last_scan = (last > 0).then_some(last);
+    health.clone()
+}
 
 pub fn start(app: &AppHandle) {
     app.manage(Live::default());
@@ -37,27 +72,35 @@ pub fn restart(app: &AppHandle) {
         old.stop();
     }
 
+    let mut health = live.1.lock().unwrap_or_else(|e| e.into_inner());
+    *health = WatchStatus::default();
     let state = LocalState::load(&LocalState::default_path());
-    let mut dirs: Vec<PathBuf> = state
-        .watched_folders
-        .iter()
-        .map(PathBuf::from)
-        .filter(|p| p.is_dir())
-        .collect();
+    let mut dirs: Vec<PathBuf> = state.watched_folders.iter().map(PathBuf::from).collect();
     if dirs.is_empty() {
         return;
     }
     let router = ChangeRouter::new(&dirs);
     let sessions = crate::user_home().join(".claude").join("projects");
     if sessions.is_dir() {
-        dirs.push(sessions);
+        dirs.push(sessions.clone());
     }
 
-    let Ok((mut watcher, stopper)) = DirWatcher::new(DEBOUNCE, MAX_WAIT) else {
-        return;
+    let (mut watcher, stopper) = match DirWatcher::new(DEBOUNCE, MAX_WAIT) {
+        Ok(value) => value,
+        Err(error) => {
+            health.errors.push(error.to_string());
+            return;
+        }
     };
     for dir in &dirs {
-        let _ = watcher.watch(dir);
+        match watcher.watch(dir) {
+            Ok(()) => {
+                if dir != &sessions {
+                    health.watching.push(dir.display().to_string());
+                }
+            }
+            Err(error) => health.errors.push(format!("{}: {error}", dir.display())),
+        }
     }
     *slot = Some(stopper);
 

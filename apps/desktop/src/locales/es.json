@@ -3,8 +3,8 @@
     "showFiles": "Ver archivos",
     "hideFiles": "Ocultar archivos",
     "summary": "Resumen",
-    "cards": "Tarjetas",
-    "pullRequests": "Pull requests",
+    "cards": "To do",
+    "pullRequests": "Revisión de código",
     "settings": "Configuración",
     "projects": "Proyectos",
     "projectFiles": "Archivos del proyecto",
@@ -18,7 +18,8 @@
     "addFirstProject": "Vigila tu primer proyecto",
     "collapse": "Ocultar barra (Ctrl+B)",
     "expand": "Mostrar barra (Ctrl+B)",
-    "newCount": "{{count}} nuevas"
+    "newCount": "{{count}} nuevas",
+    "repositories": "Repositorios"
   },
   "toast": {
     "title": "Error nuevo en Contastack",
@@ -103,7 +104,7 @@
     "rowsPerPageLabel": "Filas por página:",
     "nextPage": "Página siguiente",
     "previousPage": "Página anterior",
-    "title": "Tarjetas",
+    "title": "To do",
     "subtitle": "Errores, tareas e ideas de todos los proyectos.",
     "table": "Tabla",
     "kanban": "Tablero",
@@ -161,7 +162,8 @@
     "promptOrigin": "Origen",
     "promptPending": "Pendiente",
     "promptEvidence": "Evidencia",
-    "promptCode": "Código"
+    "promptCode": "Código",
+    "search": "Buscar hallazgos..."
   },
   "pullRequests": {
     "diffLayout": "Vista de cambios",
@@ -243,7 +245,7 @@
     "themeLight": "Claro",
     "themeSystem": "Sistema",
     "startWithWindows": "Iniciar con Windows",
-    "startWithWindowsHint": "Arranca minimizada en la bandeja",
+    "startWithWindowsHint": "Inicia en segundo plano, con un icono en la bandeja. El interruptor refleja el registro de Windows.",
     "exportPath": "Carpeta de exportación",
     "exportPathHint": "Dónde se escribe TODO.md en cada repo",
     "llmTitle": "Inteligencia (opcional)",
@@ -270,8 +272,8 @@
     "historyStartHint": "Solo los últimos 30 días",
     "importAll": "Importar todo",
     "alertsTitle": "Avisos",
-    "alertsWin": "Notificaciones de errores y PR abiertas",
-    "alertsWinHint": "GitHub se revisa cada minuto. Las PR se avisan una vez por sesión; los errores, como máximo cada 10 minutos.",
+    "alertsWin": "Avisos de escritorio",
+    "alertsWinHint": "Errores nuevos y Pull Requests. Respeta los canales que elijas.",
     "alertsTray": "Número en la bandeja",
     "alertsTrayHint": "Errores nuevos de todos los proyectos",
     "alertsDaily": "Resumen diario al abrir",
@@ -327,7 +329,10 @@
     "quit": "Salir de Wakeline",
     "shortcutToggle": "Mostrar u ocultar la barra lateral",
     "shortcutSettings": "Abrir la configuración",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "reportTemplate": "## Qué ocurrió\n\n## Qué esperabas\n\n## Pasos para reproducir\n\nRevisa el reporte y elimina datos privados antes de enviarlo.",
+    "checkingUpdates": "Buscando actualizaciones…",
+    "upToDate": "Estás al día"
   },
   "tray": {
     "open": "Abrir Wakeline",
@@ -391,15 +396,424 @@
     "desktopUpdates": "Comprueba las actualizaciones desde la aplicación de escritorio.",
     "desktopFolderPicker": "Elige la carpeta desde la aplicación de escritorio",
     "unexpected": "Error inesperado de la aplicación",
-    "unknown": "Error desconocido"
+    "unknown": "Error desconocido",
+    "clipboard": "No se pudo copiar. Selecciona el texto y cópialo manualmente.",
+    "desktopRuntime": "Abre la aplicación de escritorio para consultar tus datos."
   },
   "dailySummary": {
-    "title": "Resumen del día",
+    "title": "Retoma donde lo dejaste",
     "subtitle": "Cambios desde tu última visita. La primera vez se muestran las tarjetas nuevas de hoy.",
     "errors": "Errores nuevos",
     "tasks": "Tareas nuevas",
     "ideas": "Ideas nuevas",
     "completed": "Tarjetas resueltas",
-    "open": "Ver resumen"
+    "open": "Ver resumen",
+    "balance": "Tarjetas nuevas: {{count}}. Resueltas: {{completed}}.",
+    "empty": "Sin novedades desde el último resumen. Todo al día.",
+    "failed": "No se pudo consultar el resumen. Intenta de nuevo.",
+    "attention": "Por dónde empezar",
+    "priority": "Novedades pendientes: errores primero, después tareas e ideas.",
+    "pendingPrs": "PR pendientes: {{count}}",
+    "footer": "Resumen diario",
+    "pendingIntro": "Tienes {{count}} hallazgos pendientes. Estos son los que conviene revisar primero.",
+    "pendingKinds": {
+      "errors": "Errores",
+      "tasks": "Tareas abiertas",
+      "ideas": "Ideas guardadas"
+    },
+    "viewTasks": "Ver mis pendientes",
+    "needsAttention": "Necesitan tu atención"
+  },
+  "watch": {
+    "active": "Vigilando {{count}} proyectos",
+    "unavailable": "No se pudo comprobar la vigilancia",
+    "lastScan": "Último escaneo: {{time}}",
+    "noScan": "Esperando el primer escaneo",
+    "failed": "No se pudo vigilar",
+    "active_one": "Vigilando {{count}} proyecto",
+    "active_other": "Vigilando {{count}} proyectos"
+  },
+  "releaseUi": {
+    "kind": {
+      "feature": "Función nueva",
+      "fix": "Corrección de error",
+      "update": "Mejora de una función"
+    },
+    "news": "Novedades",
+    "close": "Cerrar novedades",
+    "next": "Ver siguiente",
+    "start": "Empezar",
+    "previous": "Anterior",
+    "all": "Ver todos los cambios",
+    "skip": "Omitir",
+    "counter": "{{current}} de {{total}}",
+    "allTitle": "Todos los cambios",
+    "allSubtitle": "Las novedades de esta versión, en un solo lugar.",
+    "fixes": "Qué corregimos",
+    "done": "Entendido",
+    "history": "Historial de versiones",
+    "historyHint": "Consulta las novedades y correcciones de cada versión.",
+    "art": {
+      "priority": "Para atender ahora",
+      "reconnect": "Recuperar la conexión",
+      "import": "Validar la importación",
+      "review": "Revisar los pendientes",
+      "tomorrow": "Mañana, 09:00",
+      "detected": "Detectada",
+      "reviewing": "En revisión",
+      "resolved": "Resuelta"
+    },
+    "presentation": "Ver presentación"
+  },
+  "workflow": {
+    "priority": "Para atender ahora",
+    "prioritySub": "Pendientes abiertos, con el motivo de su prioridad.",
+    "reason": {
+      "command": "Falló un comando del proyecto",
+      "repeated": "Se repitió {{count}} veces",
+      "error": "Error pendiente de revisar",
+      "aging": "Pendiente desde hace {{count}} días",
+      "task": "Tarea pendiente",
+      "idea": "Idea pendiente de revisar"
+    },
+    "snooze": "Posponer",
+    "tomorrow": "Hasta mañana",
+    "week": "Durante una semana",
+    "recurrence": "Hasta una nueva aparición",
+    "date": "Hasta una fecha",
+    "resume": "Volver a mostrar",
+    "snoozed": "Pospuestas",
+    "history": "Historial de esta tarjeta",
+    "historyHint": "Registrado por Wakeline desde que se observó la tarjeta en esta versión.",
+    "event": {
+      "detected": "Detectada",
+      "repeated": "Nueva aparición",
+      "status": "Decisión de estado",
+      "signal_closed": "La señal desapareció",
+      "signal_returned": "La señal reapareció",
+      "snoozed": "Pospuesta",
+      "resumed": "Mostrada de nuevo",
+      "stage": "Cambio de etapa"
+    },
+    "prepare": "Preparar contexto",
+    "execute": "Ejecutar",
+    "assign": "Encargar",
+    "copy": "Copiar contexto",
+    "criteria": "Criterio de resolución",
+    "criteriaText": "La causa queda explicada y la solución propuesta incluye una comprobación reproducible.",
+    "limit": "Analizar y proponer; no aplicar cambios ni publicar.",
+    "reviewTask": "Revisar la tarea preparada",
+    "agent": "Agente",
+    "send": "Encargar a {{agent}}",
+    "agentScope": "El agente analiza y propone en modo de solo lectura. Tú revisas el resultado.",
+    "agentMissing": "No se encontró {{agent}}. Instala su CLI e inicia sesión para usarlo.",
+    "agentState": {
+      "running": "Agente trabajando",
+      "completed": "Propuesta lista para revisar",
+      "failed": "La tarea no se completó"
+    },
+    "commandsNone": "Este proyecto no tiene comandos aprobados. Revísalos en Configuración.",
+    "openSettings": "Abrir Configuración",
+    "run": "Ejecutar comando",
+    "running": "Ejecutando",
+    "approveFirst": "Los comandos necesitan aprobación en Configuración.",
+    "timeout": "El agente dispone de hasta 10 minutos. El resultado se conserva al cerrar el panel.",
+    "cancel": "Cancelar tarea",
+    "error": "No se pudo completar la acción",
+    "status": "Estado",
+    "viewResult": "Ver propuesta"
+  },
+  "board": {
+    "new": "Pendiente",
+    "accepted": "En curso",
+    "review": "En revisión",
+    "done": "Resuelto",
+    "cardLabel": "{{title}}. Alt + flechas para mover; Intro para abrir.",
+    "reopen": "Reabrir"
+  },
+  "repositories": {
+    "sort": "Ordenar repositorios",
+    "recent": "Recientes",
+    "name": "Nombre",
+    "refresh": "Actualizar",
+    "empty": "Añade una carpeta para ver tus proyectos y repositorios.",
+    "localSource": "Lectura local",
+    "readOnly": "Solo lectura con gh",
+    "stars": "Más estrellas"
+  },
+  "shell": {
+    "navigation": "Navegación principal",
+    "available": "Disponible",
+    "openPrs": "PR abiertas",
+    "period": "Periodo",
+    "today": "Hoy",
+    "week": "Semana",
+    "month": "Mes",
+    "metrics": "Métricas reales",
+    "findingActivity": "Actividad de hallazgos",
+    "projectActivity": "Proyectos activos",
+    "viewAll": "Ver todos",
+    "findingCount": "{{count}} hallazgos pendientes",
+    "noFindings": "Sin hallazgos",
+    "details": "Detalles",
+    "open": "Abierta",
+    "searchRepositories": "Buscar repositorios...",
+    "installUpdate": "Instalar actualización",
+    "settingsSubtitle": "Un espacio de trabajo a tu medida.",
+    "settingsSections": "Secciones de configuración",
+    "accent": "Color de acento",
+    "accentHint": "Botones, gráficos y selecciones.",
+    "accents": {
+      "teal": "Teal",
+      "blue": "Azul",
+      "violet": "Violeta",
+      "amber": "Ámbar"
+    },
+    "dockPr": "Acoplar detalle de PR",
+    "dockPrHint": "Conserva el modo de detalle elegido.",
+    "reducedMotion": "Las animaciones respetan el movimiento reducido del sistema.",
+    "openSummary": "Ver resumen diario",
+    "intelligenceStatus": "Disponibilidad del servicio local",
+    "intelligencePending": "La detección funciona con reglas locales. El chat de agentes todavía no está disponible en esta candidata.",
+    "protected": "Protegido",
+    "reviewCandidate": "Candidata para revisión; sin publicar.",
+    "viewChanges": "Ver cambios",
+    "sessionsAvailable": "Sesiones locales de Claude Code",
+    "mcpConfigured": "Configuración MCP de Wakeline detectada",
+    "connectionsSubtitle": "Estado detectado en tu equipo y en tu sesión de GitHub.",
+    "exportTodo": "Exportar pendientes",
+    "selectCards": "Seleccionar tarjetas",
+    "connectionCommand": "Configuración para conectar",
+    "settingsTabs": {
+      "general": "General",
+      "appearance": "Apariencia",
+      "notifications": "Notificaciones",
+      "intelligence": "Inteligencia",
+      "mcp": "Servidor MCP",
+      "privacy": "Privacidad",
+      "commands": "Comandos",
+      "versions": "Versiones"
+    }
+  },
+  "githubDashboard": {
+    "loading": "Consultando tu sesión de GitHub…",
+    "partial": "Algunos datos no se pudieron consultar ({{count}}).",
+    "emptyPrs": "No hay PR para este filtro.",
+    "states": {
+      "open": "Abierta",
+      "review": "En revisión",
+      "merged": "Fusionada",
+      "closed": "Cerrada"
+    },
+    "metrics": {
+      "commits": "Commits",
+      "pulls": "Pull Requests",
+      "merged": "Merged PRs",
+      "review_hours": "Avg Review Time"
+    },
+    "activity": "Actividad de commits",
+    "contributors": "Principales colaboradores",
+    "unknown": "Autor sin cuenta",
+    "commits": "commits",
+    "ofCommits": "de los commits",
+    "emptyActivity": "Sin commits en este periodo.",
+    "recentPrs": "PR recientes",
+    "repositoryCount": "{{count}} repositorios de tu sesión de GitHub",
+    "openCount": "{{count}} PR abiertas",
+    "emptyRepositories": "No hay repositorios para este filtro.",
+    "allHistory": "Historial completo de PR de tus repositorios de GitHub.",
+    "searchPrs": "Buscar PR, repositorio o autor…",
+    "rateLimited": "GitHub ha limitado temporalmente las consultas. Se muestran los datos guardados; Wakeline volverá a consultar cuando termine la pausa.",
+    "rateLimitedUntil": "GitHub ha limitado temporalmente las consultas. Se muestran los datos guardados; Wakeline volverá a consultar a las {{time}}.",
+    "retry": "Reintentar",
+    "todayPrs": "PR de hoy",
+    "openedBy": "PR de {{author}}",
+    "repositorySummary": "{{count}} repositorios · {{open}} PR abiertas · {{week}} esta semana",
+    "clearSearch": "Borrar búsqueda",
+    "showMore": "Mostrar más ({{count}})",
+    "private": "Privado",
+    "public": "Público",
+    "favorite": "Marcar {{name}} como favorito",
+    "commitBars": "Commits de los últimos 14 días, máximo {{peak}} al día",
+    "updated": "Actualizado {{ago}}",
+    "waiting_one": "{{count}} pull request espera revisión",
+    "waiting_other": "{{count}} pull requests esperan revisión",
+    "allRepositories": "Ver todos los repositorios",
+    "filter": "Filtrar por estado"
+  },
+  "intelligence": {
+    "provider": "Proveedor",
+    "off": "Desactivado",
+    "api": "API compatible con OpenAI",
+    "endpoint": "URL del servicio",
+    "model": "Modelo",
+    "key": "Clave API",
+    "keySaved": "Clave guardada; dejar vacío para conservar",
+    "keyEmpty": "Agregar clave API",
+    "secure": "La clave se guarda en el Administrador de credenciales de Windows.",
+    "unavailable": "El almacén seguro de claves no está disponible en esta plataforma.",
+    "remove": "Eliminar clave y desactivar",
+    "save": "Guardar configuración",
+    "saved": "Configuración guardada.",
+    "desktop": "Guarda los cambios desde la app de escritorio. La vista web es de solo lectura."
+  },
+  "notificationChannels": {
+    "errors": "Errores nuevos",
+    "errorsHint": "Avisos de errores detectados sin repetir el mismo hallazgo.",
+    "prs": "Pull Requests",
+    "prsHint": "Avisos de PR abiertas, sin repetir la misma PR."
+  },
+  "releasePresentation": {
+    "features": {
+      "todo": {
+        "title": "To do, sin pendientes perdidos.",
+        "text": "Errores, tareas e ideas de tus sesiones en cuatro columnas. Filtra por tipo y abre cada hallazgo para recuperar su contexto.",
+        "label": "To do"
+      },
+      "priorities": {
+        "title": "Tu siguiente paso, claro.",
+        "text": "Los pendientes que merecen tu atención, con una razón para empezar por ellos.",
+        "label": "Prioridades con contexto"
+      },
+      "snooze": {
+        "title": "Ahora no. Más tarde, sí.",
+        "text": "Pospón una tarjeta hasta mañana o hasta que vuelva a ocurrir. Sin perder el hilo.",
+        "label": "Posponer tarjetas"
+      },
+      "history": {
+        "title": "Cada cambio tiene historia.",
+        "text": "Del primer hallazgo a la resolución. Origen, evidencia y progreso en un mismo lugar.",
+        "label": "Historial de tarjetas"
+      },
+      "repositories": {
+        "title": "Tus repositorios, a mano.",
+        "text": "Encuentra tus proyectos por actividad reciente, nombre o estrellas.",
+        "label": "Repositorios"
+      },
+      "reviews": {
+        "title": "Una revisión con contexto.",
+        "text": "PR con diff unificado o dividido, chat aislado con imágenes, versiones de Claude y esfuerzo. Abre tu copia local en VS Code, Cursor o Antigravity.",
+        "label": "Code review"
+      },
+      "connectors": {
+        "title": "Tus herramientas, conectadas.",
+        "text": "GitHub, Claude y Codex en el sidebar. MCP y privacidad, en una configuración más clara.",
+        "label": "Conectores y MCP"
+      }
+    },
+    "ui": {
+      "new_feature": "Función nueva",
+      "fix": "Corrección",
+      "update": "Mejora",
+      "open": "Abierta",
+      "in_review": "En revisión",
+      "merged": "Fusionada",
+      "to_do": "Pendiente",
+      "in_progress": "En curso",
+      "resolved": "Resuelto",
+      "recurring_error": "Error recurrente",
+      "next_step": "Siguiente paso",
+      "with_context": "Con contexto",
+      "until_tomorrow": "Hasta mañana",
+      "new_occurrence": "Nueva aparición",
+      "resume": "Retomar",
+      "origin": "Origen",
+      "evidence": "Evidencia",
+      "resolution": "Resolución",
+      "close_release_notes": "Cerrar novedades",
+      "all_changes": "Todos los cambios",
+      "changes_in_this_wakeline_release": "Los cambios de esta versión de Wakeline.",
+      "what_we_fixed": "Qué corregimos",
+      "more_compact_navigation_dockable_details_and_a_consistent_accent_color": "Navegación más compacta, detalles acoplables y un color de acento consistente.",
+      "view_presentation": "Ver presentación",
+      "got_it": "Entendido",
+      "what_s_new": "Novedades",
+      "get_started": "Empezar",
+      "next": "Ver siguiente",
+      "previous": "Anterior",
+      "skip": "Omitir"
+    }
+  },
+  "connections": {
+    "disconnect": "Desconectar",
+    "disconnectCommand": "Para desconectar, ejecuta",
+    "disconnectHint": {
+      "github": "Cierra la sesión de gh en este equipo. Wakeline dejará de leer tus repositorios y PR.",
+      "claude": "Quita el servidor MCP de Wakeline de Claude Code. Las sesiones locales se siguen leyendo.",
+      "codex": "Quita el servidor MCP de Wakeline de Codex.",
+      "antigravity": "Borra la entrada «wakeline» de mcpServers en el mcp_config.json de Antigravity.",
+      "ollama": "Desactiva Ollama en Configuración → Inteligencia."
+    }
+  },
+  "pullRequestPage": {
+    "files_one": "{{count}} archivo cambiado",
+    "files_other": "{{count}} archivos cambiados",
+    "layout": "Vista del diff",
+    "unified": "Unificada",
+    "split": "Dividida"
+  },
+  "prChat": {
+    "title": "Revisar con IA",
+    "privacy": "Solo esta PR · Sin archivos locales",
+    "empty": "Pregunta lo que quieras sobre esta PR.",
+    "placeholder": "Pregunta algo sobre la PR…",
+    "thinking": "{{agent}} está pensando",
+    "send": "Enviar",
+    "chooseAgent": "Elegir agente",
+    "chooseModel": "Elegir modelo",
+    "unavailable": "Instalado; revisión aislada aún no compatible",
+    "soon": "No compatible",
+    "suggestions": {
+      "summary": "Resume los cambios de esta PR",
+      "risks": "¿Qué riesgos o errores ves?",
+      "tests": "¿Qué pruebas faltan?"
+    },
+    "errors": {
+      "notInstalled": "No se encontró Claude Code en este equipo. Instálalo e inicia sesión para usar el chat.",
+      "timeout": "El agente tardó demasiado y se detuvo. Inténtalo de nuevo.",
+      "empty": "El agente no devolvió respuesta. Inténtalo de nuevo.",
+      "failed": "No se pudo obtener respuesta:"
+    }
+  },
+  "reviewChat": {
+    "open": "Chat de revisión",
+    "privacy": "Contexto de las PR · Sin archivos locales",
+    "placeholder": "Pregunta sobre las PR abiertas, en revisión o fusionadas…",
+    "empty": "Consulta el estado de las PR de tus repositorios.",
+    "suggestions": {
+      "summary": "¿Qué PR están abiertas o en revisión?",
+      "risks": "¿Qué PR siguen pendientes de revisión?",
+      "tests": "¿Qué PR se han fusionado recientemente?"
+    },
+    "detecting": "Detectando agentes…",
+    "detectError": "No se pudieron detectar los agentes. Vuelve a enfocar la ventana para reintentar.",
+    "noAgent": "No hay un agente compatible con revisión aislada. Instala Claude Code para usar este chat."
+  },
+  "prEditor": {
+    "open": "Abrir en {{editor}}",
+    "choose": "Elegir editor",
+    "noLocal": "Añade la copia local de este repositorio a tus proyectos vigilados para abrirla.",
+    "notInstalled": "No se encontró el editor seleccionado. Instálalo o elige otro.",
+    "failed": "No se pudo abrir el editor.",
+    "localOnly": "Abre tu copia local; no cambia de rama ni descarga la PR."
+  },
+  "chatInput": {
+    "attach": "Agregar imagen o pegar con Ctrl+V",
+    "remove": "Quitar {{name}}",
+    "limit": "Máximo 3 imágenes, 5 MB por imagen y 10 MB en total.",
+    "type": "Usa imágenes PNG, JPG, WebP o GIF.",
+    "invalid": "La imagen no es válida o supera el límite permitido.",
+    "readFailed": "No se pudo leer la imagen.",
+    "imageQuestion": "Analiza las imágenes adjuntas en el contexto de esta revisión.",
+    "effortLabel": "Esfuerzo del modelo",
+    "effort": {
+      "default": "Auto",
+      "low": "Bajo",
+      "medium": "Medio",
+      "high": "Alto",
+      "xhigh": "Muy alto",
+      "max": "Máximo"
+    },
+    "access": "Versiones explícitas o alias del CLI. El acceso depende de tu cuenta."
   }
 }

@@ -77,12 +77,10 @@ pub fn start(app: &AppHandle) {
 pub async fn check_update(app: AppHandle) -> Result<UiUpdate, String> {
     let current_version = app.package_info().version.to_string();
     if manual_updates(&app) {
-        return Ok(UiUpdate {
-            current_version,
-            version: None,
-            notes: None,
-            state: "manual",
-        });
+        // Portable/unsigned builds still check the real published release.
+        return tauri::async_runtime::spawn_blocking(move || check_manual_release(current_version))
+            .await
+            .map_err(|error| error.to_string())?;
     }
     let result = app
         .updater_builder()
@@ -107,18 +105,55 @@ pub async fn check_update(app: AppHandle) -> Result<UiUpdate, String> {
         }
         Err(error) => return Err(error.to_string()),
     };
-    let state = if !signing_configured(&app) {
-        "unconfigured"
-    } else if update.is_some() {
-        "available"
-    } else {
-        "up_to_date"
+    // Without a newer release the user is up to date, signed build or not.
+    let state = match (&update, signing_configured(&app)) {
+        (None, _) => "up_to_date",
+        (Some(_), false) => "unconfigured",
+        (Some(_), true) => "available",
     };
     Ok(UiUpdate {
         current_version,
         version: update.as_ref().map(|u| u.version.clone()),
         notes: update.and_then(|u| u.body),
         state,
+    })
+}
+
+/// Public release lookup must work without gh, authentication, or private-repo quota.
+pub(crate) fn check_manual_release(current_version: String) -> Result<UiUpdate, String> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let response = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent(concat!("Wakeline/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|e| e.to_string())?
+        .get("https://api.github.com/repos/hopsiedev/wakeline/releases/latest")
+        .send()
+        .map_err(|e| e.to_string())?;
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(UiUpdate {
+            current_version,
+            version: None,
+            notes: None,
+            state: "unpublished",
+        });
+    }
+    let release: serde_json::Value = response
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .json()
+        .map_err(|e| e.to_string())?;
+    let version = release["tag_name"]
+        .as_str()
+        .ok_or("INVALID_RELEASE")?
+        .trim_start_matches('v');
+    let available = semver::Version::parse(version).map_err(|e| e.to_string())?
+        > semver::Version::parse(&current_version).map_err(|e| e.to_string())?;
+    Ok(UiUpdate {
+        current_version,
+        version: available.then(|| version.to_string()),
+        notes: release["body"].as_str().map(str::to_string),
+        state: if available { "manual" } else { "up_to_date" },
     })
 }
 

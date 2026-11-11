@@ -60,10 +60,8 @@ The release workflow signs the Windows installer with the `TAURI_SIGNING_PRIVATE
 repository secrets and writes `latest.json`. Installed copies see the update only
 after the draft is published.
 
-## Remaining validation
+## Validation and preserved data
 
-Build and startup checks do not replace real desktop testing. Version 0.1.1 has
-been published, while manual update and data preservation testing, real Linux
-desktop validation, full application resource measurements, and the pilot period
-remain open in [the project backlog](docs/TODO.md). A passing X11 smoke test does
-not establish support for every Linux distribution or desktop.
+Version 0.1.5 keeps the existing app identifier and state path. Automated upgrade tests cover a private copy of the previous installed state across two save/load cycles, preserving existing fields. Existing WebView workflow/preferences have regression tests. Keep a backup and do not delete your user profile during an update.
+
+The repository runs frontend tests, Rust tests, formatting, lint, clippy, package regressions, and Windows/Linux package builds. Linux smoke checks cover an X11 environment; desktop tray and notification behavior still depends on the user's distribution and permissions. See [0.1.5 release notes](RELEASE-NOTES.md) and the usage guides in [English](README.md) and [Spanish](README.es.md).

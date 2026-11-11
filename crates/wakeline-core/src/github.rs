@@ -405,6 +405,13 @@ impl CheckJson {
     }
 }
 
+thread_local! {
+    /// Logs de CI fallido por `repo/run`: un run terminado no cambia, así que el
+    /// sondeo de cada minuto no vuelve a descargarlo (cada descarga son varias
+    /// llamadas REST). Por hilo: el del sondeo lo conserva entre lecturas.
+    static CI_LOGS: std::cell::RefCell<HashMap<String, String>> = Default::default();
+}
+
 /// Lee issues, PRs, revisiones y CI rojo de un repo.
 pub fn fetch(
     gh: &dyn GhClient,
@@ -486,11 +493,25 @@ pub fn fetch(
                 Some(id) => logs
                     .entry(id.to_string())
                     .or_insert_with(|| {
+                        let key = format!("{repo}/{id}");
+                        if let Some(log) = CI_LOGS.with(|logs| logs.borrow().get(&key).cloned()) {
+                            return Some(log);
+                        }
                         let log = gh.run(&["run", "view", id, "--repo", repo, "--log-failed"]);
                         if log.is_err() {
                             complete = false;
                         }
-                        log.ok().map(|text| clean_log(&text))
+                        let log = log.ok().map(|text| clean_log(&text));
+                        if let Some(text) = &log {
+                            CI_LOGS.with(|logs| {
+                                let mut logs = logs.borrow_mut();
+                                if logs.len() >= 256 {
+                                    logs.clear();
+                                }
+                                logs.insert(key, text.clone());
+                            });
+                        }
+                        log
                     })
                     .clone(),
                 None => None,
@@ -1191,6 +1212,26 @@ mod tests {
                 .any(|c| c.starts_with("run view 42"))
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_failed_run_log_is_downloaded_once_per_poller_thread() {
+        let checks = r#"[{"name":"Windows","workflowName":"CI","conclusion":"FAILURE","detailsUrl":"https://github.com/o/cached/actions/runs/77/job/7"}]"#;
+        let gh = fake(
+            "[]",
+            &pr_json("2026-11-06T00:00:00Z", "[]", checks),
+            Ok("boom\n".into()),
+        );
+        fetch(&gh, Path::new("C:/no-existe"), "o/cached", NOW).unwrap();
+        let snap = fetch(&gh, Path::new("C:/no-existe"), "o/cached", NOW).unwrap();
+        let runs = gh
+            .calls
+            .borrow()
+            .iter()
+            .filter(|c| c.starts_with("run view 77"))
+            .count();
+        assert_eq!(runs, 1);
+        assert!(snap.complete);
     }
 
     #[test]

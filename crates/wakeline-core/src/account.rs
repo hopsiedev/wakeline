@@ -4,7 +4,6 @@
 
 use std::net::{SocketAddr, TcpStream};
 use std::path::Path;
-use std::process::Command;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -91,14 +90,9 @@ fn antigravity_mcp_configured(config: &str) -> bool {
 
 /// Pide el usuario a la API de GitHub con la sesión de `gh`.
 fn github_user() -> Option<GithubUser> {
-    let mut command = Command::new("gh");
-    command.args(["api", "user"]);
-    hide_console(&mut command);
-    let output = command.output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    parse_github_user(&output.stdout)
+    use crate::github::{GhClient, SystemGh};
+    let output = SystemGh.run(&["api", "user"]).ok()?;
+    parse_github_user(output.as_bytes())
 }
 
 fn parse_github_user(json: &[u8]) -> Option<GithubUser> {
@@ -109,18 +103,6 @@ fn parse_github_user(json: &[u8]) -> Option<GithubUser> {
 fn ollama_running() -> bool {
     let address = SocketAddr::from(([127, 0, 0, 1], 11434));
     TcpStream::connect_timeout(&address, Duration::from_millis(300)).is_ok()
-}
-
-/// En Windows, evita que se abra una ventana de consola al lanzar `gh`.
-fn hide_console(command: &mut Command) {
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
-    #[cfg(not(windows))]
-    let _ = command;
 }
 
 #[cfg(test)]

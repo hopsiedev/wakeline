@@ -6,7 +6,7 @@
 //! servidor MCP, indexadas por huella estable.
 
 use std::collections::{HashMap, HashSet};
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -53,6 +53,9 @@ pub struct LocalState {
     /// Huellas que Wakeline cerró sola; si reaparecen vuelven a «nueva» (Q47).
     #[serde(default)]
     pub auto_closed: HashSet<String>,
+    /// Fields written by newer versions must survive a round trip.
+    #[serde(flatten)]
+    pub extra: HashMap<String, serde_json::Value>,
 }
 
 impl LocalState {
@@ -71,25 +74,43 @@ impl LocalState {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
-        // Las tarjetas antiguas pertenecían a proyectos fijados en el código.
-        // Al pasar a carpetas elegidas, empezamos sin proyectos ni decisiones heredadas.
+        // An absent version is not permission to erase an existing installation.
         if state.config_version == 0 {
-            state.statuses.clear();
-            state.manual_cards.clear();
-            state.watched_folders.clear();
-            state.session_offsets.clear();
-            state.session_file_cards.clear();
             state.config_version = 1;
         }
         state
     }
 
     pub fn save(&self, path: &Path) -> io::Result<()> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+        let parent = path
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
+        std::fs::create_dir_all(parent)?;
+        match std::fs::read(path) {
+            Ok(bytes) => {
+                // Never replace an unreadable state with the loader's empty fallback.
+                serde_json::from_slice::<Self>(&bytes).map_err(io::Error::other)?;
+                let backup = path.with_extension("pre-refresh.json");
+                if !backup.exists() {
+                    let mut copy = tempfile::NamedTempFile::new_in(parent)?;
+                    copy.write_all(&bytes)?;
+                    copy.as_file().sync_all()?;
+                    if let Err(error) = copy.persist_noclobber(&backup)
+                        && error.error.kind() != io::ErrorKind::AlreadyExists
+                    {
+                        return Err(error.error);
+                    }
+                }
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
         }
-        let json = serde_json::to_string_pretty(self).map_err(io::Error::other)?;
-        std::fs::write(path, json)
+        let mut file = tempfile::NamedTempFile::new_in(parent)?;
+        serde_json::to_writer_pretty(&mut file, self).map_err(io::Error::other)?;
+        file.as_file().sync_all()?;
+        file.persist(path).map_err(|error| error.error)?;
+        Ok(())
     }
 
     pub fn status_for(&self, fingerprint: &str) -> CardStatus {
@@ -146,7 +167,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn old_state_starts_with_no_watched_folders_or_cards() {
+    fn old_state_preserves_cards_and_decisions() {
         let path =
             std::env::temp_dir().join(format!("wakeline-old-state-{}.json", std::process::id()));
         std::fs::write(
@@ -158,8 +179,44 @@ mod tests {
         let _ = std::fs::remove_file(path);
         assert_eq!(state.config_version, 1);
         assert!(state.watched_folders.is_empty());
-        assert!(state.statuses.is_empty());
-        assert!(state.manual_cards.is_empty());
+        assert_eq!(state.status_for("old"), CardStatus::Accepted);
+        assert_eq!(state.manual_cards.len(), 1);
+    }
+
+    #[test]
+    fn upgrade_survives_two_restarts_and_preserves_unknown_fields() {
+        let dir = std::env::temp_dir().join(format!("wakeline-upgrade-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("state.json");
+        let original = r#"{"config_version":1,"watched_folders":["C:/projects/real"],"full_session_history":true,"statuses":{"stable-fingerprint":"done"},"session_offsets":{"session.jsonl":1048576},"trusted_commands":{"project":"approved-hash"},"future_field":{"nested":[1,2,3]}}"#;
+        std::fs::write(&path, original).unwrap();
+        for _ in 0..2 {
+            let state = LocalState::load(&path);
+            assert_eq!(state.watched_folders, ["C:/projects/real"]);
+            assert_eq!(state.status_for("stable-fingerprint"), CardStatus::Done);
+            assert_eq!(state.session_offsets["session.jsonl"], 1048576);
+            assert!(state.full_session_history);
+            assert_eq!(state.trusted_commands["project"], "approved-hash");
+            state.save(&path).unwrap();
+            let json: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+            assert_eq!(json["future_field"], serde_json::json!({"nested": [1,2,3]}));
+        }
+        assert_eq!(
+            std::fs::read_to_string(path.with_extension("pre-refresh.json")).unwrap(),
+            original
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn unreadable_state_cannot_be_overwritten_by_defaults() {
+        let path =
+            std::env::temp_dir().join(format!("wakeline-invalid-{}.json", std::process::id()));
+        std::fs::write(&path, "{interrupted").unwrap();
+        assert!(LocalState::load(&path).save(&path).is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{interrupted");
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]

@@ -1,181 +1,139 @@
-<p align="center">
-  <img src="assets/brand/wakeline-icon.png" width="96" alt="Wakeline">
-</p>
-
+<p align="center"><img src="assets/brand/wakeline-icon.png" width="80" alt="Wakeline"></p>
 <h1 align="center">Wakeline</h1>
-
-<p align="center"><b>Una bandeja de pendientes para los proyectos que construyes con agentes de IA.</b></p>
-
+<p align="center">Los errores, tareas e ideas de tus sesiones de IA, sin perderse en el historial.</p>
 <p align="center"><a href="README.md">English</a> · Español</p>
 
----
+Wakeline es una aplicación de escritorio para Windows y Linux. Reúne hallazgos de los proyectos que eliges, sesiones de Claude Code, comentarios del código, resultados de comandos, documentos y GitHub. Tus proyectos y decisiones se guardan localmente.
 
-Wakeline es una aplicación de escritorio para Windows y Linux que vigila las carpetas de proyecto que elijas y reúne en tarjetas los errores, tareas e ideas que van quedando en tus sesiones de IA y en los documentos del repositorio.
+[Descargar la última versión](https://github.com/hopsiedev/wakeline/releases/latest) · [Instalación y actualizaciones](RELEASE.md) · [Novedades de 0.1.5](RELEASE-NOTES.md)
 
-## Descargar e instalar
+![Resumen con proyectos ficticios de Orbit](assets/screenshots/summary-es.png)
 
-Windows x64: extrae el ZIP y abre `wakeline-app.exe` (requiere WebView2 Runtime).
-Linux x64: AppImage o DEB, construido en Ubuntu 22.04 para Ubuntu 22.04+ / Debian 12+.
-Estos primeros paquetes usan actualización manual y no necesitan certificado comercial.
-Consulta las [instrucciones de instalación, MCP y actualización](RELEASE.md).
-Los builds de revisión están disponibles como artefactos de CI; los releases se
-publican después de su validación.
+_Todas las capturas usan proyectos, cuentas, código y actividad ficticios. Se generan desde la interfaz real; la aplicación publicada no carga estos ejemplos._
 
-Cada tarjeta conserva su origen (la sesión, el comando que falló o el archivo donde apareció) y tiene un ciclo simple: puedes aceptarla, marcarla como hecha o descartarla si no te sirve. Wakeline organiza lo que hay que revisar; no modifica tu código por su cuenta y solo analiza las carpetas que tú selecciones.
+## Instalar y empezar
 
-<p align="center">
-  <img src="assets/screenshots/summary.png" width="100%" alt="Vista de Resumen en Wakeline">
-</p>
+1. **Windows:** instala `Wakeline_*_x64-setup.exe`, o extrae el ZIP portable y abre `wakeline-app.exe`. Necesitas WebView2. Conserva `wakeline.exe` junto a la aplicación portable para usar MCP.
+2. **Linux:** usa AppImage o DEB. AppImage puede necesitar FUSE 2; donde no esté disponible puedes usar `--appimage-extract-and-run`. Consulta la [guía de instalación](RELEASE.md).
+3. Abre **Configuración → General** desde el engranaje junto a tu perfil y añade las carpetas que quieres vigilar. Sin carpetas elegidas no se analizan proyectos locales.
+4. Instala [GitHub CLI](https://cli.github.com/) y ejecuta `gh auth login` para ver tus repositorios, PR y foto de perfil. Wakeline usa esa sesión existente.
+5. Usa **To do** para los hallazgos y **Revisión de código** para las PR. Configuración reúne idioma, apariencia, notificaciones, inteligencia, MCP, comandos y versiones.
 
-## Por qué usar Wakeline
+## To do: del hallazgo al siguiente paso
 
-Cuando trabajas con varios proyectos o pasas el día entre sesiones de terminal y agentes, el trabajo pendiente se dispersa muy rápido:
+![Tablero To do con hallazgos ficticios](assets/screenshots/cards-es.png)
 
-- Un comando falla tres veces seguidas en mitad de una conversación larga, sigues con otra cosa y a la hora ya no recuerdas en qué archivo estaba el fallo.
-- El agente termina un cambio y cierra su respuesta con «queda pendiente validar el caso de facturas anuladas». Cierras la ventana y esa nota desaparece en el historial.
-- Tienes pendientes repartidos entre `README.md`, notas de hoja de ruta y sesiones de distintos repositorios.
+- Filtra con **Todo, Errores, Tareas e Ideas**, busca por texto y acota por proyecto.
+- Arrastra entre **Pendiente, En curso, En revisión y Resuelto**, o utiliza las acciones de teclado disponibles. En revisión conserva el estado aceptado del backend y guarda la etapa del tablero.
+- Abre una tarjeta para consultar origen, evidencia, repeticiones e historial. Copia el contexto como prompt, abre el archivo relacionado o reanuda la sesión de Claude cuando esté disponible.
+- Consulta las prioridades para saber qué merece atención y por qué: errores repetidos, comandos fallidos o tareas antiguas.
+- **Pospón** hasta mañana o hasta una nueva aparición y retoma sin perder el historial. Las tarjetas pospuestas se conservan, no se borran.
+- Crea tarjetas manuales, selecciona varias para una acción conjunta o exporta los pendientes a `docs/TODO.md` dentro del proyecto. La exportación se ejecuta de forma explícita.
 
-Wakeline lee ese rastro en segundo plano y lo junta en un solo lugar, agrupando lo que se repite para que el mismo fallo no aparezca diez veces.
+![Evidencia e historial de una tarjeta](assets/screenshots/card-detail-es.png)
 
-## Vistas de la aplicación
+## Repositorios y revisión de código
 
-### Bandeja de tarjetas y detalle con contexto
+![Actividad de repositorios](assets/screenshots/repositories-es.png)
 
-En **Tarjetas** puedes filtrar por proyecto, tipo (`Error`, `Tarea`, `Idea`) o texto, y alternar entre tabla y tablero Kanban. Al abrir una tarjeta ves el fragmento de código donde ocurre el problema, la salida del comando que falló y las acciones directas para abrir el archivo en VS Code, reanudar la sesión de Claude o copiar el contexto como prompt.
+Consulta los repositorios accesibles desde tu cuenta de GitHub. Ordénalos por actividad reciente, nombre o estrellas, marca favoritos y abre sus PR. La sincronización usa caché local y actualizaciones incrementales; siguen aplicándose los permisos y límites de GitHub.
 
-<p align="center">
-  <img src="assets/screenshots/cards.png" width="49%" alt="Listado de tarjetas en Wakeline">
-  <img src="assets/screenshots/card-detail.png" width="49%" alt="Detalle de una tarjeta en Wakeline">
-</p>
+Filtra las PR abiertas, en revisión, fusionadas o cerradas. **Detalles** abre la descripción, los archivos y el diff con colores de sintaxis, en vista **Unificada / Dividida**. Para revisar o fusionar en GitHub, usa **Abrir en GitHub**: Wakeline no fusiona PR por ti.
 
-### Ajustes, notificaciones y exclusiones
+![Diff de una PR, selector de editor y chat de revisión](assets/screenshots/pr-review-es.png)
 
-Desde **Ajustes** controlas las alertas en la bandeja de Windows, el idioma, el tema, la carpeta de exportación (`docs/TODO.md`), la conexión con servidores MCP y las reglas fijas de exclusión de secretos.
+### Preguntar a la IA sobre una PR
 
-<p align="center">
-  <img src="assets/screenshots/settings.png" width="100%" alt="Vista de Ajustes en Wakeline">
-</p>
+1. Instala e inicia sesión en **Claude Code** en el mismo equipo.
+2. Abre **Chat de revisión** desde Revisión de código para preguntar por las PR listadas. Esa conversación usa sus metadatos guardados, no todos los archivos de tus repositorios.
+3. Dentro de una PR, pregunta por su título, descripción y diff filtrado. Cada PR tiene su conversación separada del chat general.
+4. Elige un alias del CLI o una versión concreta y el esfuerzo. La elección queda guardada. El acceso depende de tu cuenta y CLI; elegir un modelo no concede acceso a él.
+5. Escribe la pregunta: **Enter** envía y **Shift+Enter** añade una línea. La caja crece con el texto. Añade imágenes con el botón o pégalas con **Ctrl+V**; revisa la miniatura o quítala antes de enviar. Máximo 3 imágenes PNG/JPEG/WebP/GIF, 5 MB por imagen y 10 MB en total.
+6. Usa **Chat de revisión** para cerrar o reabrir el panel. Conserva su posición entre la lista y el detalle de PR.
 
-## Casos de uso
+Claude se ejecuta sin herramientas desde una carpeta temporal vacía. El contexto de la PR se filtra y redacta antes de enviarlo; las imágenes que eliges se envían al modelo. Codex y Antigravity pueden conectarse mediante MCP, pero todavía no están habilitados como proveedores del chat aislado. Las conversaciones y sus imágenes permanecen en memoria durante la sesión de la app; no son un archivo de chat permanente.
 
-### 1. Retomar un error sin buscar en el historial de la terminal
+### Abrir la copia local en tu editor
 
-Supongamos que durante una sesión aparece un fallo de tipos en `app/layout.tsx` al correr `npm run typecheck`. En vez de subir cientos de líneas en la consola o buscar en qué sesión ocurrió, abres la tarjeta en Wakeline, ves el mensaje exacto y cuántas veces se repitió, y con un clic abres el archivo en VS Code o reanudas esa sesión de Claude.
+Debajo del resumen de la PR, elige **VS Code, Cursor o Antigravity**. Wakeline recuerda la selección hasta que la cambies. El editor debe estar instalado y la copia local del repositorio debe estar entre los proyectos vigilados. Abrirla no clona el repositorio, no cambia de rama y no ejecuta código del proyecto.
 
-### 2. Capturar lo que el agente dejó para después
+## Resumen diario y notificaciones
 
-Es habitual pedirle a un agente que resuelva solo una parte del problema y dejar el resto para más adelante. Cuando en la respuesta final queda escrito lo que falta por hacer o una idea para mejorar el módulo, Wakeline lo detecta y crea una tarjeta de tarea o idea asociada a esa carpeta y rama.
+![Resumen diario con actividad de ejemplo](assets/screenshots/daily-summary-es.png)
 
-### 3. Cambiar entre varios proyectos sin perder el hilo
+Activa **Configuración → Notificaciones → Resumen al abrir** para ver un resumen una vez por día local cuando haya novedades o pendientes relevantes. Incluye errores, tareas, ideas, prioridades, hallazgos resueltos y PR que requieren atención. Puedes volver a abrirlo desde Configuración. Un día sin actividad no genera un badge porcentual negativo.
 
-Si alternas entre una app web, una app móvil en Expo y una librería en Rust, puedes elegir solo esas tres carpetas en la barra lateral. Wakeline ignora el resto de tu disco, agrupa las tarjetas por proyecto y te avisa en la bandeja de Windows únicamente cuando entra un error nuevo.
+Los errores y las PR nuevas también pueden producir notificaciones del sistema en Windows y Linux. Activa los canales correspondientes y permite los avisos en el sistema operativo. La entrega respeta la configuración del sistema, los límites de frecuencia, la deduplicación y si Wakeline está ejecutándose. Los indicadores de conexión permanecen verdes aunque cambies el acento.
 
-### 4. Trabajar las tarjetas desde el chat con MCP
+En Windows, la app instalada puede iniciarse en segundo plano y usar la bandeja del sistema. En Linux, la bandeja depende del escritorio; cerrar la ventana termina la aplicación.
 
-Wakeline incluye un servidor MCP (`wakeline mcp`) por `stdio`. Si lo conectas en Claude Code, Codex o Antigravity, puedes pedirle al agente desde el chat:
+## Conectar tus agentes con MCP
 
-> «Mira las tarjetas abiertas de este proyecto y ayúdame con el error de `app/layout.tsx`».
+![Conexiones detectadas](assets/screenshots/connections-es.png)
 
-El agente puede consultar las tarjetas (`list_cards`, `get_card`), anotar una nueva (`create_card`) o marcarla como terminada (`complete_card`) cuando acabes. Por diseño no existe herramienta de borrado: un agente nunca puede eliminar tu historial.
+Abre tu menú de perfil → **Conexiones** y pulsa **Servidor MCP**. Configuración muestra comandos copiables con la ruta del CLI instalado. Si `wakeline` está en PATH:
 
-## Arquitectura
-
-El proyecto está dividido en un núcleo en Rust sin dependencias de interfaz y tres puntos de entrada que comparten las mismas reglas de lectura, deduplicación y almacenamiento.
-
-```mermaid
-flowchart LR
-  subgraph Fuentes["Fuentes locales (solo lectura)"]
-    S["Sesiones de Claude Code<br/>~/.claude/projects/*.jsonl"]
-    D["Documentos del proyecto<br/>README · ROADMAP · TODO · docs/*.md"]
-  end
-
-  subgraph Core["wakeline-core (Rust)"]
-    W["Filtro de carpetas vigiladas<br/>watch::is_within"]
-    X["Exclusiones y redacción<br/>exclusions + redact"]
-    P["Detector y huella FNV-1a<br/>sessions + docs + fingerprint"]
-    ST[("Estado local<br/>%APPDATA%\\wakeline\\state.json")]
-  end
-
-  subgraph Clientes[" Clientes y salidas"]
-    UI["App de escritorio<br/>Tauri v2 + React + MUI"]
-    MCP["Servidor MCP (stdio)<br/>wakeline-mcp"]
-    CLI["CLI<br/>wakeline scan / watch / export"]
-    TODO["Exportación manual<br/>docs/TODO.md"]
-  end
-
-  S --> W
-  D --> W
-  W --> X
-  X --> P
-  P <--> ST
-  ST --> UI
-  ST --> MCP
-  ST --> CLI
-  UI --> TODO
-  CLI --> TODO
+```sh
+claude mcp add wakeline -- wakeline mcp
+codex mcp add wakeline -- wakeline mcp
 ```
 
-### Cómo se identifica y conserva cada tarjeta
+Para Antigravity, incorpora esta entrada a su configuración MCP. Utiliza una ruta absoluta al ejecutable si hace falta:
 
-Cada hallazgo se normaliza (quitando fechas, horas, rutas temporales y números de línea variables) y se resume en una huella `FNV-1a` (`Fingerprint`). Gracias a esa huella:
-
-- Si un comando falla tres veces con el mismo error en distintos momentos de una sesión, se agrupa en **una sola tarjeta** con contador `×3`.
-- Cuando aceptas, completas o descartas una tarjeta, la decisión se guarda asociada a su huella en `%APPDATA%\wakeline\state.json`. En los siguientes escaneos la tarjeta conserva su estado.
-
-```mermaid
-stateDiagram-v2
-  direction LR
-  [*] --> Nueva: Detectada en sesión, doc o creada a mano
-  Nueva --> Aceptada: Aceptar en la app
-  Nueva --> Hecha: Marcar hecha / complete_card (MCP)
-  Nueva --> Descartada: Descartar
-  Aceptada --> Hecha: Marcar hecha / complete_card (MCP)
-  Aceptada --> Descartada: Descartar
-  Hecha --> Aceptada: Reabrir desde el detalle
+```json
+{
+  "mcpServers": {
+    "wakeline": {
+      "command": "wakeline",
+      "args": ["mcp"]
+    }
+  }
+}
 ```
 
-### Componentes del espacio de trabajo
+Puedes pedir al agente: «Lista los pendientes de este proyecto y muestra la evidencia del error de pagos repetidos». Las herramientas incluyen `list_cards`, `get_card`, `create_card` y `complete_card`; no hay herramienta de borrado. Actualiza Conexiones después de configurar un cliente. Desconectar muestra el comando correspondiente para que lo ejecutes; no reescribe silenciosamente la configuración de otras aplicaciones.
 
-| Componente | Responsabilidad |
-| --- | --- |
-| `crates/wakeline-core` | Lectura incremental de sesiones JSONL de Claude Code, análisis de secciones de pendientes en Markdown, cálculo de huellas `FNV-1a`, lista fija de exclusiones (`.env`, credenciales, llaves), redacción de tokens, enfriamiento de alertas y persistencia en `%APPDATA%\wakeline\state.json`. |
-| `crates/wakeline-mcp` | Servidor JSON-RPC 2.0 sobre `stdio` compatible con MCP (`2024-11-05`, `2025-11-25` y `2026-07-28`). Expone `list_cards`, `get_card`, `create_card` y `complete_card` leyendo exactamente las mismas fuentes y carpetas vigiladas que la aplicación de escritorio. |
-| `crates/wakeline-cli` | Ejecutable de línea de comandos (`wakeline scan`, `wakeline watch`, `wakeline export`, `wakeline mcp`). |
-| `apps/desktop` | Aplicación nativa para Windows construida con Tauri v2 (`src-tauri`) y React 19 + MUI v7 (`src`). Incluye bandeja del sistema, notificaciones nativas de Windows por errores nuevos, selector de carpetas y apertura directa en VS Code. |
+Consultar tarjetas mediante MCP y revisar PR desde el chat aislado son capacidades distintas.
 
-## Qué lee hoy (y qué no)
+## Comandos, inteligencia y privacidad
 
-| Fuente | Qué recoge Wakeline |
-| --- | --- |
-| Sesiones de Claude Code | Errores repetidos de herramientas o comandos y trabajo pendiente mencionado en las sesiones de `~/.claude/projects` cuyo directorio pertenezca a tus carpetas vigiladas |
-| Documentos del proyecto | Secciones de pendientes, brechas conocidas y hojas de ruta en archivos Markdown (`README`, `ROADMAP`, `TODO`, `docs/*.md`) dentro de las carpetas elegidas |
-| Manual y MCP | Tarjetas que creas desde la aplicación o desde tu agente por MCP |
+- Define comandos permitidos en `wakeline.toml`, revisa ejecutable y argumentos y apruébalos antes de ejecutarlos desde Wakeline. Si cambia su definición, se requiere otra aprobación. Consulta `cargo run -p wakeline-cli -- --help` para `trust` y `run`.
+- **Configuración → Inteligencia** permite configurar Ollama o un proveedor externo opcional. Guardar esa configuración no ejecuta un modelo ni habilita todos los proveedores para el chat de PR. Las claves API usan el almacén seguro compatible del sistema; se informa si no está disponible.
+- Las carpetas vigiladas, decisiones y offsets de sesiones se guardan localmente. Se mantienen las exclusiones de credenciales y archivos privados y la redacción de texto. No se analiza todo tu disco ni se edita tu código automáticamente.
+- Conserva copias del estado y preferencias del WebView. Una actualización normal mantiene el identificador de la app, ubicación de datos, proyectos, huellas de tarjetas y preferencias; no borres el perfil anterior al actualizar.
 
-**Límites claros:**
+## Actualizar y volver a ver el anuncio
 
-- **Solo lee las carpetas que eliges.** Hasta que no añades una carpeta, Wakeline no muestra ni analiza nada.
-- **No toca secretos.** Tiene una lista fija de exclusiones (`.env`, credenciales, llaves privadas, tokens de sesión) y un filtro que redacta cualquier token antes de guardar una tarjeta.
-- **Todo queda en tu máquina.** Las carpetas vigiladas y el estado de tus tarjetas se guardan localmente en `%APPDATA%\wakeline\state.json`, y puedes exportar las tarjetas abiertas a `docs/TODO.md` cuando quieras.
+Usa el menú del perfil → **Buscar actualizaciones**, o **Configuración → Versiones**. El control muestra buscando, estás al día, versión nueva o error según la respuesta real. La app instalada de Windows usa el actualizador firmado; ZIP portable y paquetes Linux siguen las [instrucciones manuales](RELEASE.md).
 
-## Desarrollo
+**Configuración → Versiones → Ver cambios** permite volver al anuncio ilustrado cuando quieras.
 
-Requisitos en Windows 11: Rust (estable), Node.js 20+ y WebView2.
+![Anuncio de la actualización](assets/screenshots/updates-es.png)
 
-```bash
-# Ejecutar las pruebas del núcleo, la CLI y el servidor MCP
-cargo test -p wakeline-core -p wakeline-cli -p wakeline-mcp
+## CLI y desarrollo
 
-# Usar la CLI o arrancar el servidor MCP
-cargo run -p wakeline-cli -- --help
+```sh
+wakeline scan /ruta/al/proyecto
+wakeline watch
+wakeline export /ruta/al/proyecto
+wakeline mcp
+```
 
-# Arrancar la aplicación de escritorio en modo desarrollo
+Necesitas Rust estable, Node.js 22+ y las dependencias de Tauri de tu plataforma: WebView2 en Windows; WebKitGTK y bibliotecas de empaquetado en Linux.
+
+```sh
+cargo test --workspace
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
 cd apps/desktop
-npm install
+npm ci
+npm run lint
+npm run fm:check
+node --test tests/*.test.mjs
+npm run build
 npm run tauri dev
 ```
 
-## Licencia
+Para regenerar las capturas, ejecuta `npm run dev` y, en otra terminal, `npx playwright install chromium` y `npm run docs:screenshots`. El script intercepta la API de desarrollo con datos ficticios y comprueba alineación del chat, crecimiento del texto y apertura/cierre. No lee sesiones reales ni invoca agentes. `WAKELINE_DOCS_URL` permite usar otra dirección de servidor local. Los datos de ejemplo y el puente de revisión de desarrollo no son fuentes de producción.
 
-Licenciado bajo la [licencia MIT](LICENSE-MIT).
-
-La interfaz de escritorio está basada en [Minimal UI Kit](https://github.com/minimal-ui-kit/material-kit-react) (edición gratuita, MIT). Consulta [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+El núcleo Rust es compartido por la app de escritorio, el CLI y MCP. Consulta [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) para los créditos de interfaz, bibliotecas, fuentes y logos. Licencia [MIT](LICENSE-MIT).

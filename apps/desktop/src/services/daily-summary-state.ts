@@ -42,3 +42,29 @@ export function snapshotCards(cards: UiCard[]): SummarySnapshot {
     )
   );
 }
+
+export function shouldShowSummary(
+  counts: DailyCounts,
+  today: string,
+  shown: string | null,
+  pending = 0
+): boolean {
+  return shown !== today && (pending > 0 || Object.values(counts).some((value) => value > 0));
+}
+export function attentionCards(
+  cards: UiCard[],
+  previous: SummarySnapshot | null,
+  today: string
+): UiCard[] {
+  const rank = { error: 0, task: 1, idea: 2 };
+  return cards
+    .filter(
+      (card) =>
+        (card.status === 'new' || card.status === 'accepted') &&
+        (previous
+          ? ![card.fingerprint, ...card.fingerprints].some((key) => previous[key])
+          : card.first_seen === today)
+    )
+    .sort((a, b) => rank[a.kind] - rank[b.kind])
+    .slice(0, 3);
+}

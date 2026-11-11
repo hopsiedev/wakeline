@@ -14,7 +14,7 @@ import { logoClasses } from './classes';
 // ----------------------------------------------------------------------
 
 export type LogoProps = LinkProps & {
-  /** Solo el símbolo (true) o el símbolo con el nombre (false). */
+  /** Solo el sÃ­mbolo (true) o el sÃ­mbolo con el nombre (false). */
   isSingle?: boolean;
   disabled?: boolean;
 };
@@ -37,7 +37,7 @@ export function Logo({
       className={mergeClasses([logoClasses.root, className])}
       sx={[
         {
-          gap: 1,
+          gap: 0,
           display: 'inline-flex',
           alignItems: 'center',
           ...(disabled && { pointerEvents: 'none' }),
@@ -57,7 +57,7 @@ export function Logo({
           component="span"
           sx={{ typography: 'subtitle1', fontWeight: 700, color: 'text.primary' }}
         >
-          {t('common.appName')}
+          {t('common.appName').slice(1)}
         </Box>
       )}
     </LogoRoot>
