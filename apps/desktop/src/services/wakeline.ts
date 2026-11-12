@@ -8,6 +8,25 @@ import { CONFIG } from 'src/config-global';
 
 import { publishUpdate } from './update-status';
 import { preferredEditor } from './editor-preference';
+import { CardStatusJournal, type StatusChange } from './card-status-journal';
+
+const cardStatusJournal = new CardStatusJournal();
+function publishCardStatuses(inputs: StatusChange[]) {
+  if (cachedDashboard) {
+    cachedDashboard = {
+      ...cachedDashboard,
+      cards: cachedDashboard.cards.map((card) => {
+        const change = inputs.find((input) =>
+          [card.fingerprint, ...card.fingerprints].some(
+            (fp) => fp === input.fingerprint || input.fingerprints.includes(fp)
+          )
+        );
+        return change ? { ...card, status: change.status } : card;
+      }),
+    };
+  }
+  window.dispatchEvent(new CustomEvent('wakeline:card-status', { detail: inputs }));
+}
 
 export async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) return nativeInvoke<T>(command, args);
@@ -313,8 +332,10 @@ export function fetchDashboardData(options?: { force?: boolean }): Promise<Dashb
   }
 
   if (!dashboardRequest) {
+    const startedAt = cardStatusJournal.revision;
     const request = loadDashboardData().then(
       (payload) => {
+        payload = { ...payload, cards: cardStatusJournal.apply(payload.cards, startedAt) };
         if (dashboardRequest === request) {
           cachedDashboard = payload;
           dashboardRequest = null;
@@ -340,14 +361,7 @@ export async function updateCardStatus(
   status: CardStatus,
   fingerprints: string[] = []
 ): Promise<void> {
-  if (!isTauri()) throw new Error(i18n.t('errors.desktopCardChanges'));
-  if (isTauri()) {
-    await invoke('set_card_status', { input: { fingerprint, fingerprints, status } });
-  }
-  invalidateDashboardCache();
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('wakeline:rescan'));
-  }
+  return updateCardsStatus([{ fingerprint, fingerprints, status }]);
 }
 
 export async function createManualCard(
@@ -369,10 +383,16 @@ export async function updateCardsStatus(
   inputs: { fingerprint: string; fingerprints: string[]; status: CardStatus }[]
 ): Promise<void> {
   if (!inputs.length) return;
-  if (!isTauri()) throw new Error(i18n.t('errors.desktopCardChanges'));
-  await invoke('set_cards_status', { inputs });
-  invalidateDashboardCache();
-  window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+  if (!isTauri() && !import.meta.env.DEV) throw new Error(i18n.t('errors.desktopCardChanges'));
+  const transaction = cardStatusJournal.begin(inputs);
+  publishCardStatuses(inputs);
+  try {
+    await invoke('set_cards_status', { inputs });
+    cardStatusJournal.commit(transaction);
+  } catch (error) {
+    publishCardStatuses(cardStatusJournal.rollback(transaction));
+    throw error;
+  }
 }
 
 export async function openInVscode(card: UiCard): Promise<void> {

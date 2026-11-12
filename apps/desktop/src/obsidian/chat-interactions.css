@@ -1,0 +1,147 @@
+.wk-chat-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  width: 10px;
+  z-index: 7;
+  cursor: col-resize;
+  touch-action: none;
+}
+.wk-chat-resize:hover,
+.wk-chat-resize:focus-visible {
+  background: #14b8a633;
+  outline: none;
+}
+.wk-chat-dock[data-resizing='true'] {
+  user-select: none;
+}
+.obsidian-analytics-dashboard .wk-pr-chat .msg-user {
+  align-self: flex-end;
+  border-radius: 14px 14px 4px 14px;
+  white-space: pre-wrap;
+}
+.obsidian-analytics-dashboard .wk-pr-chat .msg-assistant {
+  align-self: flex-start;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.obsidian-analytics-dashboard .wk-pr-chat .wk-assistant {
+  display: block;
+}
+.obsidian-analytics-dashboard .wk-pr-chat .wk-message-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 500;
+}
+.obsidian-analytics-dashboard .wk-pr-chat .wk-message-meta .wk-thinking-logo {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+.obsidian-analytics-dashboard .wk-pr-chat-answer > .MuiBox-root {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.65;
+  color: inherit;
+  text-align: left;
+}
+.obsidian-analytics-dashboard .wk-pr-chat-answer > .MuiBox-root p {
+  margin: 0 0 14px;
+  white-space: normal;
+  font-weight: 400;
+}
+.obsidian-analytics-dashboard .wk-pr-chat-answer > .MuiBox-root strong {
+  color: inherit;
+  font-weight: 600;
+}
+.obsidian-analytics-dashboard .wk-pr-chat-answer > .MuiBox-root ul,
+.obsidian-analytics-dashboard .wk-pr-chat-answer > .MuiBox-root ol {
+  margin: 12px 0;
+  padding-left: 22px;
+}
+.obsidian-analytics-dashboard .wk-pr-chat-answer > .MuiBox-root li::marker {
+  color: var(--text-3);
+  font-weight: 400;
+}
+.obsidian-analytics-dashboard .wk-pr-chat-answer > .MuiBox-root h1,
+.obsidian-analytics-dashboard .wk-pr-chat-answer > .MuiBox-root h2,
+.obsidian-analytics-dashboard .wk-pr-chat-answer > .MuiBox-root h3 {
+  color: inherit;
+  font-size: 16px;
+}
+.wk-chat-images .wk-image-thumbnail {
+  display: block;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  cursor: zoom-in;
+}
+.wk-image-viewer {
+  width: min(1100px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  margin: auto;
+  background: #181818;
+  color: #eee;
+  border: 1px solid #444;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.wk-image-viewer::backdrop {
+  background: #000b;
+  backdrop-filter: blur(6px);
+}
+.wk-image-viewer header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+}
+.wk-image-viewer header span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wk-image-viewer > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(100dvh - 115px);
+  object-fit: contain;
+  background: #101010;
+}
+.obsidian-analytics-dashboard .overview-grid > .card {
+  display: flex;
+  flex-direction: column;
+}
+.obsidian-analytics-dashboard .overview-grid .chart {
+  flex: 1;
+  min-height: 196px;
+}
+@media (max-width: 760px) {
+  .obsidian-analytics-dashboard .wk-chat-dock {
+    width: min(var(--wk-chat-width, 380px), 100%);
+    max-width: 100%;
+  }
+  .wk-chat-resize {
+    display: none;
+  }
+}

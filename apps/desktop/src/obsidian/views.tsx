@@ -505,10 +505,15 @@ export function TodoPage() {
     setError(null);
     try {
       const status = stage === 'review' ? 'accepted' : stage;
-      await updateCardStatus(card.fingerprint, status, card.fingerprints);
-      observeCards([{ ...card, status }]);
+      const previousReview = boardStage(card, workflow) === 'review';
       setReviewStage({ ...card, status }, stage === 'review');
-      await reload();
+      try {
+        await updateCardStatus(card.fingerprint, status, card.fingerprints);
+      } catch (cause) {
+        setReviewStage(card, previousReview);
+        throw cause;
+      }
+      observeCards([{ ...card, status }]);
     } catch (cause) {
       setError(String(cause));
     } finally {
@@ -641,7 +646,6 @@ export function TodoPage() {
                     try {
                       await updateCardsStatus(selectedStatusInputs(visible, selection, status));
                       setSelection(new Set());
-                      await reload();
                     } catch (cause) {
                       setError(String(cause));
                     } finally {

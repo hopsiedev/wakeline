@@ -25,9 +25,11 @@
   container: workspace-area / inline-size;
 }
 .obsidian-analytics-dashboard .wk-chat-dock {
+  position: relative;
   display: flex;
   flex-direction: column;
-  flex: 0 0 clamp(300px, 30%, 420px);
+  flex: 0 0 var(--wk-chat-width, 380px);
+  max-width: calc(100% - 280px);
   min-width: 0;
   min-height: 0;
   border-left: 1px solid var(--line);
@@ -314,6 +316,8 @@
   gap: 12px;
 }
 .obsidian-analytics-dashboard .real-priority {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   padding: 16px;
   display: grid;
   gap: 8px;
@@ -327,11 +331,17 @@
   border-color: var(--accent);
 }
 .obsidian-analytics-dashboard .real-priority strong {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  padding-right: 16px;
   font-size: 12px;
   font-weight: 550;
   line-height: 1.6;
 }
 .obsidian-analytics-dashboard .real-priority small {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--text-3);
   font-size: 11px;
 }
@@ -1551,7 +1561,7 @@
   border: 1px solid rgb(var(--ad-ink) / 0.12);
   border-radius: 6px;
 }
-.wk-chat-images button {
+.wk-chat-images .wk-image-remove {
   position: absolute;
   right: -5px;
   top: -5px;

@@ -810,7 +810,7 @@
   "chatInput": {
     "attach": "Agregar imagen o pegar con Ctrl+V",
     "remove": "Quitar {{name}}",
-    "limit": "Máximo 3 imágenes, 5 MB por imagen y 10 MB en total.",
+    "limit": "Sin limite de cantidad; 5 MB por imagen y 10 MB en total.",
     "type": "Usa imágenes PNG, JPG, WebP o GIF.",
     "invalid": "La imagen no es válida o supera el límite permitido.",
     "readFailed": "No se pudo leer la imagen.",
@@ -824,7 +824,9 @@
       "xhigh": "Muy alto",
       "max": "Máximo"
     },
-    "access": "Versiones explícitas o alias del CLI. El acceso depende de tu cuenta."
+    "access": "Versiones explícitas o alias del CLI. El acceso depende de tu cuenta.",
+    "resize": "Ampliar chat",
+    "preview": "Ampliar imagen: {{name}}"
   },
   "releasePatch": {
     "copy0": "Configuración",
@@ -854,5 +856,60 @@
     "copy24": "Añade o quita las carpetas de tus proyectos sin salir de To do.",
     "copy25": "Seis correcciones, listas.",
     "copy26": "Estabilidad, GitHub e interfaz. Tus proyectos y preferencias siguen igual."
+  },
+  "release019": {
+    "chat": {
+      "caption": "Revisión de código",
+      "title": "Más espacio para conversar.",
+      "text": "Arrastra el borde del chat para ampliarlo. Tus mensajes van a la derecha y las respuestas a la izquierda, sin globo y bien formateadas. El chat solo aparece en Revisión de código y en las PR.",
+      "question": "¿Hay alguna condición de carrera?",
+      "answer": "Sí: dos entregas simultáneas pueden registrar el mismo pago."
+    },
+    "images": {
+      "caption": "Imágenes",
+      "title": "Todas las capturas que necesites.",
+      "text": "Adjunta tantas imágenes como quieras y ábrelas en grande, antes y después de enviarlas. Escape las cierra."
+    },
+    "todo": {
+      "caption": "To Do",
+      "title": "La tarjeta se queda donde la dejas.",
+      "text": "Al mover una tarjeta cambia de columna al instante, y un escaneo que ya estaba en marcha no la devuelve a su sitio anterior.",
+      "card": "Revisar el login",
+      "scanning": "Escaneando…"
+    },
+    "numbers": {
+      "caption": "Resumen",
+      "title": "Números completos, siempre.",
+      "text": "Los contadores del Resumen ya no salen cortados al abrir la ventana desde la bandeja, y el gráfico ya no deja una franja vacía debajo."
+    },
+    "paths": {
+      "caption": "Tarjetas",
+      "title": "Rutas largas, dentro de su tarjeta.",
+      "text": "Las rutas y los nombres largos se reparten en varias líneas a cualquier tamaño de ventana, sin salirse de la tarjeta.",
+      "card": "Type error en el formulario de pago"
+    },
+    "refresh": {
+      "caption": "Actualizar",
+      "title": "Actualizar, en la mitad de tiempo.",
+      "text": "Wakeline lee varios repositorios a la vez. En nuestras pruebas, con 39 repositorios, Actualizar en Resumen pasó de 6,3 a 3,4 segundos.",
+      "parallel": "8 a la vez"
+    },
+    "startup": {
+      "caption": "Inicio con Windows",
+      "title": "Listo desde que enciendes.",
+      "text": "Wakeline arranca con Windows en la bandeja, activado por defecto. Si lo apagas en Configuración, se queda apagado.",
+      "toggle": "Iniciar con Windows"
+    },
+    "daily": {
+      "caption": "Aviso del día",
+      "title": "Tu día, en una notificación.",
+      "text": "Una vez al día, Wakeline te avisa de lo que tienes pendiente en To Do. Solo si hay algo que hacer y con las notificaciones activadas.",
+      "noticeTitle": "Lo que tienes para hoy",
+      "noticeBody": "Tienes 2 tareas y 1 error pendientes en To Do."
+    },
+    "all": {
+      "title": "Ocho cambios, listos.",
+      "text": "Chat, imágenes, To Do, Resumen e inicio con Windows. Tus proyectos y preferencias siguen igual."
+    }
   }
 }

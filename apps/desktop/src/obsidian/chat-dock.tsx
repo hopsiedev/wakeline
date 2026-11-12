@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { useRef, useState, useEffect } from 'react';
@@ -51,6 +53,21 @@ export function ChatDock() {
   const { t } = useTranslation();
   const { github } = useWorkspace();
   const location = useLocation();
+  const reviewRoute =
+    location.pathname === '/pull-requests' || location.pathname.startsWith('/pull-requests/');
+  const dock = useRef<HTMLElement>(null);
+  const drag = useRef<{ x: number; width: number } | null>(null);
+  const [width, setWidth] = useState(() => {
+    const saved = Number(localStorage.getItem('wakeline-chat-width'));
+    return saved >= 300 && saved <= 1000 ? saved : 380;
+  });
+  const [resizing, setResizing] = useState(false);
+  const resize = (value: number) => {
+    const available = dock.current?.parentElement?.clientWidth ?? window.innerWidth;
+    const next = Math.round(Math.max(300, Math.min(value, Math.max(300, available - 280))));
+    setWidth(next);
+    localStorage.setItem('wakeline-chat-width', String(next));
+  };
   const [sessions, setSessions] = useState(savedSessions);
   const [current, setCurrent] = useState(
     () => localStorage.getItem('wakeline-review-session') ?? general.id
@@ -63,8 +80,8 @@ export function ChatDock() {
   );
   useEffect(() => {
     sessionStorage.setItem('wakeline-review-chat-open', String(open));
-    window.dispatchEvent(new CustomEvent('wakeline:chat-state', { detail: open }));
-  }, [open]);
+    window.dispatchEvent(new CustomEvent('wakeline:chat-state', { detail: open && reviewRoute }));
+  }, [open, reviewRoute]);
   useEffect(() => {
     const toggle = () =>
       setOpen((value) => {
@@ -134,9 +151,58 @@ export function ChatDock() {
     session.overview
       ? `${t('nav.pullRequests')} · ${session.repository || t('reviewChat.allRepositories')}`
       : `${session.repository} #${session.number} · ${github?.pull_requests.find((pr) => pr.repository === session.repository && pr.number === session.number)?.title ?? session.title ?? ''}`;
-  if (!open) return null;
+  if (!open || !reviewRoute) return null;
   return (
-    <section className="wk-chat-dock" aria-label={t('reviewChat.sessions')}>
+    <section
+      ref={dock}
+      className="wk-chat-dock"
+      data-resizing={resizing}
+      style={{ '--wk-chat-width': `${width}px` } as CSSProperties}
+      aria-label={t('reviewChat.sessions')}
+    >
+      <div
+        className="wk-chat-resize"
+        role="separator"
+        tabIndex={0}
+        aria-label={t('chatInput.resize')}
+        aria-orientation="vertical"
+        aria-valuemin={300}
+        aria-valuemax={Math.max(
+          300,
+          (dock.current?.parentElement?.clientWidth ?? window.innerWidth) - 280
+        )}
+        aria-valuenow={width}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          drag.current = {
+            x: event.clientX,
+            width: dock.current?.getBoundingClientRect().width ?? width,
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setResizing(true);
+        }}
+        onPointerMove={(event) => {
+          if (drag.current) resize(drag.current.width + drag.current.x - event.clientX);
+        }}
+        onLostPointerCapture={() => {
+          drag.current = null;
+          setResizing(false);
+        }}
+        onPointerUp={(event) => {
+          drag.current = null;
+          setResizing(false);
+          if (event.currentTarget.hasPointerCapture(event.pointerId))
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+        onDoubleClick={() => resize(380)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault();
+            resize(width + (event.key === 'ArrowLeft' ? 32 : -32));
+          }
+        }}
+      />
       <div className="wk-chat-sessions">
         <details ref={picker} className="wk-session-picker">
           <summary aria-label={t('reviewChat.sessions')}>
