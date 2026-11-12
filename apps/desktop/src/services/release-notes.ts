@@ -8,11 +8,35 @@ export type ReleaseFeature = {
 };
 export type Release = {
   version: string;
+  presentation?: 'patch';
   features: ReleaseFeature[];
   fixes: { es: string[]; en: string[] };
 };
 // Every release is required to carry both languages; tests enforce non-empty copy.
 export const RELEASES: Release[] = [
+  {
+    version: '0.1.8',
+    presentation: 'patch',
+    features: [],
+    fixes: {
+      es: [
+        'Presentaci?n animada de correcciones con seis escenas y cierre, en espa?ol e ingl?s.',
+        'MCP permite crear y mover tarjetas de cualquier proyecto sin leer carpetas ni a?adirlas a vigilancia.',
+        'To do se actualiza al cambiar tarjetas por MCP.',
+        'Los selectores de agente, modelo y esfuerzo se abren junto a su bot?n.',
+        'El selector de editor se cierra al hacer clic fuera.',
+        'Versiones muestra la versi?n instalada y las actualizaciones se comprueban cada hora.',
+      ],
+      en: [
+        'Animated patch presentation with six scenes and a wrap-up, in Spanish and English.',
+        'MCP creates and moves cards for any project without reading folders or adding watches.',
+        'To do refreshes after MCP card changes.',
+        'Agent, model and effort menus open beside their own trigger.',
+        'The editor picker dismisses on outside click.',
+        'Versions shows the installed version and update checks run hourly.',
+      ],
+    },
+  },
   {
     version: '0.1.7',
     features: [],

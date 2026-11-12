@@ -60,6 +60,30 @@ pub fn status(app: &AppHandle) -> WatchStatus {
 pub fn start(app: &AppHandle) {
     app.manage(Live::default());
     restart(app);
+    watch_mcp_signal(app);
+}
+
+/// The MCP server touches a signal file after changing To Do; reload when it moves.
+/// A metadata read every 1.5 s is cheap and never touches project folders.
+fn watch_mcp_signal(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let path = wakeline_core::todo_index::signal_path();
+        let stamp = || {
+            std::fs::metadata(&path)
+                .and_then(|meta| meta.modified())
+                .ok()
+        };
+        let mut last = stamp();
+        loop {
+            std::thread::sleep(Duration::from_millis(1500));
+            let now = stamp();
+            if now != last {
+                last = now;
+                let _ = app.emit(CHANGED_EVENT, ());
+            }
+        }
+    });
 }
 
 /// Para el vigilante anterior y arranca otro con las carpetas actuales.

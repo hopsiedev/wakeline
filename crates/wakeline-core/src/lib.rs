@@ -17,6 +17,7 @@ pub mod scan_state;
 pub mod sessions;
 pub mod signals;
 pub mod store;
+pub mod todo_index;
 pub mod watch;
 pub mod watcher;
 
