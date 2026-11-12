@@ -5,6 +5,7 @@
 //! exportar `docs/TODO.md` a pedido.
 
 mod alerts;
+mod daily_notice;
 mod distribution;
 #[cfg(windows)]
 mod folder_picker;
@@ -1056,6 +1057,7 @@ fn set_alert_prefs(
         prefs.errors = errors.unwrap_or(true);
         prefs.pull_requests = pull_requests.unwrap_or(true);
         prefs.spanish = lang.starts_with("es");
+        prefs.synced = true;
     }
 }
 
@@ -1359,6 +1361,13 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            // Inicio con Windows activado por defecto; nunca con el ejecutable de desarrollo.
+            if cfg!(windows) && !tauri::is_dev() {
+                startup::apply_default(
+                    &LocalState::default_path().with_file_name("startup-default"),
+                    || startup::set_enabled(true),
+                );
+            }
             let labels = shell::create_tray(app.handle())?;
             app.manage(labels);
             alerts::start(app.handle());

@@ -39,7 +39,7 @@ tauri-plugin-updater = "2.14.1"
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Security_Credentials", "Win32_Foundation"] }
 tauri-winrt-notification = "0.8.1"
-windows = { version = "0.62.2", features = ["Win32_System_Registry", "Win32_Foundation", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_UI_Shell", "Win32_UI_Shell_PropertiesSystem"] }
+windows = { version = "0.62.2", features = ["Win32_System_Registry", "Win32_System_SystemInformation", "Win32_Foundation", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_UI_Shell", "Win32_UI_Shell_PropertiesSystem"] }
 
 [target."cfg(not(windows))".dependencies]
 tauri-plugin-dialog = "2"

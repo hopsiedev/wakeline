@@ -7,7 +7,6 @@ export function validateImageSelection(
   if (incoming.some((file) => !IMAGE_TYPES.includes(file.type))) return 'type';
   const all = [...existing, ...incoming];
   if (
-    all.length > 3 ||
     all.some((f) => f.size > 5 * 1024 * 1024) ||
     all.reduce((sum, f) => sum + f.size, 0) > 10 * 1024 * 1024
   )

@@ -112,6 +112,7 @@ function Reel({ char, order, entering, rising, duration, stagger, spins, reduced
   const pos = useMotionValue(0);
   const width = useMotionValue<number | 'auto'>('auto');
   const sizer = useRef<HTMLSpanElement>(null);
+  const measuredSize = useRef(0);
   const [isPresent, safeToRemove] = usePresence();
   const [reel, setReel] = useState(() => ({
     char,
@@ -155,6 +156,7 @@ function Reel({ char, order, entering, rising, duration, stagger, spins, reduced
 
   useLayoutEffect(() => {
     const measured = sizer.current?.getBoundingClientRect().width ?? 0;
+    measuredSize.current = measured;
     const last = reel.strip.length - 1;
     if (reduced) {
       pos.jump(last);
@@ -178,6 +180,20 @@ function Reel({ char, order, entering, rising, duration, stagger, spins, reduced
       size.stop();
     };
   }, [reel, pos, width, reduced]);
+
+  // A hidden WebView/dialog can initially measure zero; fonts can change later too.
+  useLayoutEffect(() => {
+    const element = sizer.current;
+    if (!element || !isPresent) return undefined;
+    const observer = new ResizeObserver(([entry]) => {
+      const measured = entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
+      if (measured <= 0 || Math.abs(measured - measuredSize.current) < 0.1) return;
+      measuredSize.current = measured;
+      width.jump(measured);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [width, isPresent]);
 
   useLayoutEffect(() => {
     if (isPresent) return undefined;
