@@ -499,7 +499,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
     for mc in state
         .manual_cards
         .iter()
-        .filter(|mc| watched.iter().any(|w| w.name == mc.project))
+        .filter(|mc| mc.unwatched || watched.iter().any(|w| w.name == mc.project))
     {
         let status = state.status_for(&mc.fingerprint);
         let short_id = format!("W-{:03}", cards.len() + 1);
@@ -562,6 +562,7 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
             .then_with(|| b.occurrences.cmp(&a.occurrences))
     });
 
+    write_todo_index(&cards);
     let projects = build_project_summaries(&watched, &cards, &state);
     let megabytes_read = bytes as f64 / 1_048_576.0;
     let scan_ms = started.elapsed().as_millis() as u64;
@@ -575,6 +576,26 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
         megabytes_read,
         scan_ms,
     })
+}
+
+/// What the MCP server may list and move, without reading any project folder.
+fn write_todo_index(cards: &[UiCard]) {
+    let entries: Vec<_> = cards
+        .iter()
+        .map(|card| wakeline_core::todo_index::TodoEntry {
+            fingerprint: card.fingerprint.clone(),
+            fingerprints: card.fingerprints.clone(),
+            short_id: card.short_id.clone(),
+            title: card.title.clone(),
+            kind: card.kind,
+            status: card.status,
+            project: card.project.clone(),
+        })
+        .collect();
+    let path = wakeline_core::todo_index::index_path();
+    if wakeline_core::todo_index::load(&path) != entries {
+        let _ = wakeline_core::todo_index::save(&path, &entries);
+    }
 }
 
 #[tauri::command(async)]
@@ -621,6 +642,7 @@ fn create_card(input: CreateCardInput) -> Result<String, String> {
         project: input.project,
         branch: Some(branch),
         created_at: today_date(),
+        unwatched: false,
     });
     state.save(&path).map_err(|e| e.to_string())?;
     Ok(fp_str)

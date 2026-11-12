@@ -1,3 +1,5 @@
+import './release-patch.css';
+
 import { useTranslation } from 'react-i18next';
 import { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
@@ -24,8 +26,8 @@ import {
 } from 'src/services/release-notes';
 
 import { Github } from './brand-icons';
+import { usePatchSlides, ReleasePatchArt } from './release-patch';
 
-const changes = RELEASE_PRESENTATION;
 function Kind({ kind }: { kind: string }) {
   const { t } = useTranslation();
   const Icon = kind === 'feature' ? CirclePlus : kind === 'fix' ? Bug : CircleArrowUp;
@@ -155,7 +157,16 @@ function UpdateArt({ id }: { id: (typeof RELEASE_PRESENTATION)[number]['id'] }) 
 export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const release = RELEASES.find((item) => item.version === CONFIG.appVersion);
-  const patchOnly = release?.features.length === 0;
+  const patchSlides = usePatchSlides();
+  const patchPresentation = release?.presentation === 'patch';
+  const changes = patchPresentation
+    ? patchSlides.map((slide) => ({ id: slide.scene, kind: 'fix' as const, slide }))
+    : RELEASE_PRESENTATION.map((change) => ({ ...change, slide: null }));
+  const copy = (change: (typeof changes)[number], field: 'title' | 'text' | 'label') =>
+    change.slide
+      ? change.slide[field === 'label' ? 'caption' : field]
+      : t(`releasePresentation.features.${change.id}.${field}`);
+  const patchOnly = release?.features.length === 0 && !patchPresentation;
   const fixes = release?.fixes[i18n.language.startsWith('es') ? 'es' : 'en'] ?? [];
   const ref = useRef<HTMLDialogElement>(null);
   const [view, setView] = useState<'all' | 'story'>(patchOnly ? 'all' : 'story');
@@ -180,7 +191,7 @@ export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
   return (
     <dialog
       ref={ref}
-      className="wk-release"
+      className={'wk-release' + (patchPresentation ? ' wk-release-patch' : '')}
       data-view={view}
       aria-labelledby="wk-release-title"
       onCancel={(event) => {
@@ -218,14 +229,18 @@ export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
               {!patchOnly &&
                 changes.map((change, i) => (
                   <section className="wk-unified-change" data-change={i} key={change.id}>
-                    <UpdateArt id={change.id} />
+                    {change.slide ? (
+                      <ReleasePatchArt scene={change.slide.scene} caption={change.slide.caption} />
+                    ) : (
+                      <UpdateArt id={change.id as (typeof RELEASE_PRESENTATION)[number]['id']} />
+                    )}
                     <div>
                       <div className="wk-change-label">
                         <Kind kind={change.kind} />
-                        <span>{t(`releasePresentation.features.${change.id}.label`)}</span>
+                        <span>{copy(change, 'label')}</span>
                       </div>
-                      <h3>{t(`releasePresentation.features.${change.id}.title`)}</h3>
-                      <p>{t(`releasePresentation.features.${change.id}.text`)}</p>
+                      <h3>{copy(change, 'title')}</h3>
+                      <p>{copy(change, 'text')}</p>
                     </div>
                   </section>
                 ))}
@@ -292,16 +307,29 @@ export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
                     if (definition === 'center') setBusy(false);
                   }}
                 >
-                  <UpdateArt id={changes[step].id} />
+                  {changes[step].slide ? (
+                    <ReleasePatchArt
+                      scene={patchSlides[step].scene}
+                      caption={patchSlides[step].caption}
+                    />
+                  ) : (
+                    <UpdateArt
+                      id={changes[step].id as (typeof RELEASE_PRESENTATION)[number]['id']}
+                    />
+                  )}
                   <div className="wk-story-copy">
                     <div className="wk-change-label">
                       <Kind kind={changes[step].kind} />
-                      <span>{t('releasePresentation.ui.what_s_new')}</span>
+                      <span>
+                        {t(
+                          patchPresentation
+                            ? 'releasePresentation.ui.what_we_fixed'
+                            : 'releasePresentation.ui.what_s_new'
+                        )}
+                      </span>
                     </div>
-                    <h2 id="wk-release-title">
-                      {t(`releasePresentation.features.${changes[step].id}.title`)}
-                    </h2>
-                    <p>{t(`releasePresentation.features.${changes[step].id}.text`)}</p>
+                    <h2 id="wk-release-title">{copy(changes[step], 'title')}</h2>
+                    <p>{copy(changes[step], 'text')}</p>
                   </div>
                 </motion.div>
               </AnimatePresence>
@@ -312,7 +340,7 @@ export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
                   key={item.id}
                   type="button"
                   disabled={busy}
-                  aria-label={t(`releasePresentation.features.${item.id}.label`)}
+                  aria-label={copy(item, 'label')}
                   data-active={step === i}
                   onClick={() => next(i)}
                 >

@@ -584,7 +584,7 @@
     "intelligenceStatus": "Local service availability",
     "intelligencePending": "Detection uses local rules. Agent chat is not yet available in this candidate.",
     "protected": "Protected",
-    "reviewCandidate": "Review candidate; unpublished.",
+    "installedVersion": "Installed version.",
     "viewChanges": "View changes",
     "sessionsAvailable": "Local Claude Code sessions",
     "mcpConfigured": "Wakeline MCP configuration detected",
@@ -825,5 +825,34 @@
       "max": "Maximum"
     },
     "access": "Explicit versions or CLI aliases. Access depends on your account."
+  },
+  "releasePatch": {
+    "copy0": "Settings",
+    "copy1": "Keep browsing",
+    "copy2": "Importing history",
+    "copy3": "Review this PR",
+    "copy4": "Empty session",
+    "copy5": "Stable Settings",
+    "copy6": "PRs right away",
+    "copy7": "Claude and Codex",
+    "copy8": "Chat, chart and To do",
+    "copy9": "Stability",
+    "copy10": "Settings, always responsive.",
+    "copy11": "Import your whole history and keep moving through Settings without the window freezing.",
+    "copy12": "Your PRs, right away.",
+    "copy13": "Refresh asks GitHub again, and the app catches up on its own every two minutes.",
+    "copy14": "Authorship",
+    "copy15": "Credit where it is due.",
+    "copy16": "Commits made with Claude or Codex show their GitHub account and picture.",
+    "copy17": "Review chat",
+    "copy18": "Only real conversations.",
+    "copy19": "A session picker in the app’s style; empty sessions are not saved.",
+    "copy20": "Summary",
+    "copy21": "Every day in its place.",
+    "copy22": "Activity bars no longer overlap and Code review filters are compact again.",
+    "copy23": "Watch from To do.",
+    "copy24": "Add or remove your project folders without leaving To do.",
+    "copy25": "Six fixes, done.",
+    "copy26": "Stability, GitHub and interface. Your projects and preferences stay the same."
   }
 }

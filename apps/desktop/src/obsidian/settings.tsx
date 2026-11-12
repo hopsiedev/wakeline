@@ -700,7 +700,7 @@ export function SettingsPage() {
             )}
             {tab === 'versions' && (
               <>
-                <Row title={`Wakeline ${CONFIG.appVersion}`} detail={t('shell.reviewCandidate')}>
+                <Row title={`Wakeline ${CONFIG.appVersion}`} detail={t('shell.installedVersion')}>
                   <span className="wk-tag">{CONFIG.appVersion}</span>
                 </Row>
                 <UpdateCheck requested={params.get('checkUpdates') === '1'} />

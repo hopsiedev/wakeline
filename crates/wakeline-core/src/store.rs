@@ -23,6 +23,9 @@ pub struct ManualCard {
     pub project: String,
     pub branch: Option<String>,
     pub created_at: String,
+    /// Created by an agent for a project that is not watched; To do still shows it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub unwatched: bool,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
