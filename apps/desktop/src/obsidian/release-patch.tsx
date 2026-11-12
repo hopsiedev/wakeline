@@ -18,6 +18,16 @@ import { Github } from './brand-icons';
 
 type Scene = 'import' | 'refresh' | 'agents' | 'sessions' | 'activity' | 'folders' | 'all';
 type Slide = { scene: Scene; caption: string; title: string; text: string };
+/** One slide of a version's presentation. `closing` is the wrap-up, left out of All changes. */
+export type ReleaseSlide = {
+  id: string;
+  kind: 'feature' | 'fix' | 'update';
+  caption: string;
+  title: string;
+  text: string;
+  art: ReactNode;
+  closing?: boolean;
+};
 function Rows({ items }: { items: { icon?: ReactNode; label: string; off?: boolean }[] }) {
   return (
     <div className="wk-art-review">
@@ -190,7 +200,8 @@ export function ReleasePatchArt({ scene, caption }: { scene: Scene; caption: str
   );
 }
 
-export function usePatchSlides(): Slide[] {
+/** 0.1.8: six fixes from variant A and the wrap-up from C. */
+export function usePatchSlides(): ReleaseSlide[] {
   const { t } = useTranslation();
   const one: Slide[] = [
     {
@@ -230,7 +241,7 @@ export function usePatchSlides(): Slide[] {
       text: t('releasePatch.copy24'),
     },
   ];
-  return [
+  const slides: Slide[] = [
     ...one,
     {
       scene: 'all',
@@ -239,4 +250,13 @@ export function usePatchSlides(): Slide[] {
       text: t('releasePatch.copy26'),
     },
   ];
+  return slides.map((slide) => ({
+    id: slide.scene,
+    kind: 'fix',
+    caption: slide.caption,
+    title: slide.title,
+    text: slide.text,
+    art: <ReleasePatchArt scene={slide.scene} caption={slide.caption} />,
+    closing: slide.scene === 'all',
+  }));
 }

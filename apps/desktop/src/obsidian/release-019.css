@@ -1,0 +1,650 @@
+/* Wakeline 0.1.9 presentation: one scene per change. Every loop ends where it starts. */
+.wk-r19 {
+  --r19-loop: 6s;
+}
+.wk-r19 > :not(.wk-art-caption) {
+  margin-bottom: 14px;
+}
+
+/* Chat: the panel widens from its edge; user right, agent left without a bubble. */
+.wk-r19-chat {
+  display: flex;
+  width: min(280px, 100%);
+  min-height: 140px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--fill-1);
+}
+.wk-r19-diff {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  padding: 14px 12px;
+  min-width: 0;
+}
+.wk-r19-diff i {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--fill-3);
+}
+.wk-r19-diff i[data-add='true'] {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.wk-r19-panel {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44%;
+  box-sizing: border-box;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 12px 10px 12px 14px;
+  border-left: 1px solid var(--line);
+  background: var(--fill-2);
+  font-size: 9px;
+  line-height: 1.4;
+  animation: wk-r19-widen var(--r19-loop) ease-in-out infinite;
+}
+.wk-r19-grip {
+  position: absolute;
+  left: -7px;
+  top: 50%;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--fill-1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+.wk-r19 .wk-r19-panel p {
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.wk-r19 .wk-r19-user {
+  color: var(--text);
+  justify-self: end;
+  max-width: 85%;
+  padding: 6px 8px;
+  border-radius: 9px 9px 3px 9px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--fill-1));
+}
+.wk-r19 .wk-r19-agent {
+  justify-self: start;
+  color: var(--text-2);
+}
+@keyframes wk-r19-widen {
+  0%,
+  15% {
+    width: 44%;
+  }
+  45%,
+  75% {
+    width: 62%;
+  }
+  100% {
+    width: 44%;
+  }
+}
+
+/* Images: any number of attachments; one opens full size and closes again. */
+.wk-r19-images {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(260px, 100%);
+  min-height: 140px;
+}
+.wk-r19-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.wk-r19-thumbs > span {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: linear-gradient(
+    calc(120deg + var(--shot, 0) * 40deg),
+    color-mix(in srgb, var(--accent) calc(20% + var(--shot, 0) * 12%), var(--fill-2)),
+    var(--fill-1)
+  );
+}
+.wk-r19-thumbs > .wk-r19-add {
+  display: grid;
+  place-items: center;
+  background: var(--fill-1);
+  color: var(--accent);
+  border-style: dashed;
+}
+.wk-r19-viewer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, #000 55%, transparent);
+  opacity: 0;
+  animation: wk-r19-viewer var(--r19-loop) ease-in-out infinite;
+}
+.wk-r19-viewer > span {
+  width: min(150px, 80%);
+  height: 100px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--accent) 44%, var(--fill-2)),
+    var(--fill-1)
+  );
+}
+.wk-r19-viewer > svg {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  color: var(--text-2);
+}
+@keyframes wk-r19-viewer {
+  0%,
+  25% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  40%,
+  75% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  90%,
+  100% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+}
+
+/* To Do: the card moves at once and stays while a scan runs. */
+.wk-r19-todo {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: min(270px, 100%);
+  min-height: 130px;
+  font-size: 10px;
+}
+.wk-r19-column {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--fill-1);
+  padding: 9px;
+  color: var(--text-3);
+}
+.wk-r19-card {
+  position: absolute;
+  top: 34px;
+  left: 9px;
+  width: calc((100% - 10px) / 2 - 18px);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px;
+  border-radius: 7px;
+  background: var(--fill-2);
+  border: 1px solid var(--accent);
+  overflow-wrap: anywhere;
+  animation: wk-r19-move var(--r19-loop) ease-in-out infinite;
+}
+.wk-r19-card > svg {
+  flex: none;
+  color: var(--accent);
+}
+.wk-r19-scan {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  color: var(--text-3);
+  opacity: 0;
+  animation: wk-r19-scan var(--r19-loop) ease-in-out infinite;
+}
+.wk-r19-scan > svg {
+  animation: wk-patch-spin 1.2s linear infinite;
+}
+@keyframes wk-r19-move {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  8%,
+  18% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  26%,
+  86% {
+    opacity: 1;
+    transform: translateX(calc(100% + 28px));
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: translateX(calc(100% + 28px));
+  }
+}
+@keyframes wk-r19-scan {
+  0%,
+  32% {
+    opacity: 0;
+  }
+  40%,
+  72% {
+    opacity: 1;
+  }
+  80%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Summary numbers: the box measures its digits instead of staying at zero width. */
+.wk-r19-numbers {
+  display: grid;
+  gap: 6px;
+  width: min(190px, 100%);
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--fill-1);
+}
+.wk-r19-stat-label {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.wk-r19-measure {
+  display: inline-flex;
+  height: 30px;
+  overflow: hidden;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 30px;
+  font-variant-numeric: tabular-nums;
+  outline: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 3px;
+  border-radius: 2px;
+  animation: wk-r19-measure var(--r19-loop) ease-in-out infinite;
+}
+.wk-r19-roll {
+  display: grid;
+  animation: wk-r19-roll var(--r19-loop) ease-in-out infinite;
+}
+.wk-r19-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 46px;
+}
+.wk-r19-bars i {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  transform-origin: bottom;
+  animation: wk-spark 4s ease-in-out infinite;
+}
+@keyframes wk-r19-measure {
+  0%,
+  10% {
+    max-width: 16px;
+  }
+  25%,
+  100% {
+    max-width: 60px;
+  }
+}
+@keyframes wk-r19-roll {
+  0%,
+  45% {
+    transform: translateY(0);
+  }
+  60%,
+  90% {
+    transform: translateY(-30px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Long paths wrap inside the card at any width. */
+.wk-r19-path-card {
+  display: grid;
+  gap: 8px;
+  width: min(240px, 100%);
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--fill-1);
+  font-size: 10px;
+  animation: wk-r19-narrow var(--r19-loop) ease-in-out infinite;
+}
+.wk-r19-path-card > strong,
+.wk-r19-path-card > code {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.wk-r19-path-card > code {
+  color: var(--text-3);
+  font-size: 9px;
+  line-height: 1.5;
+}
+@keyframes wk-r19-narrow {
+  0%,
+  15%,
+  100% {
+    width: min(240px, 100%);
+  }
+  45%,
+  75% {
+    width: min(160px, 70%);
+  }
+}
+
+/* Refresh: several repositories progress at the same time. */
+.wk-r19-refresh {
+  display: grid;
+  gap: 8px;
+  width: min(240px, 100%);
+  font-size: 10px;
+}
+.wk-r19-badge {
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  color: var(--accent);
+}
+.wk-r19-badge > svg {
+  animation: wk-patch-spin 1.6s linear infinite;
+}
+.wk-r19-refresh > div {
+  display: grid;
+  grid-template-columns: 64px 1fr 12px;
+  align-items: center;
+  gap: 8px;
+}
+.wk-r19-refresh > div > span {
+  overflow-wrap: anywhere;
+  color: var(--text-2);
+}
+.wk-r19-refresh > div > i {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--line);
+  overflow: hidden;
+}
+.wk-r19-refresh > div > i > b {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  animation: wk-r19-fill var(--r19-loop) ease-in-out infinite;
+  animation-delay: calc(var(--repo) * 0.12s);
+}
+.wk-r19-refresh > div > svg {
+  color: var(--accent);
+  animation: wk-r19-done var(--r19-loop) ease-in-out infinite;
+  animation-delay: calc(var(--repo) * 0.12s);
+}
+@keyframes wk-r19-fill {
+  0%,
+  8% {
+    transform: scaleX(0);
+  }
+  45%,
+  88% {
+    transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(0);
+  }
+}
+@keyframes wk-r19-done {
+  0%,
+  42% {
+    opacity: 0;
+  }
+  50%,
+  85% {
+    opacity: 1;
+  }
+  95%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Start with Windows: the toggle is on and Wakeline lands in the tray. */
+.wk-r19-startup {
+  display: grid;
+  gap: 18px;
+  width: min(250px, 100%);
+  font-size: 11px;
+}
+.wk-r19-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--fill-1);
+}
+.wk-r19-toggle > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wk-r19-toggle > svg {
+  color: var(--accent);
+}
+.wk-r19-toggle > i {
+  flex: none;
+  width: 28px;
+  height: 16px;
+  border-radius: 99px;
+  background: var(--accent);
+  position: relative;
+}
+.wk-r19-toggle > i > b {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+}
+.wk-r19-taskbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--fill-2);
+  border: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 10px;
+}
+.wk-r19-taskbar svg rect {
+  fill: var(--text-3);
+}
+.wk-r19-tray {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  animation: wk-r19-tray var(--r19-loop) ease-out infinite;
+}
+@keyframes wk-r19-tray {
+  0%,
+  20% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  35%,
+  85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+
+/* Daily notice: a Windows toast slides in and out. */
+.wk-r19-daily {
+  display: grid;
+  align-items: end;
+  box-sizing: border-box;
+  width: min(270px, 100%);
+  min-height: 130px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--fill-1);
+  overflow: hidden;
+}
+.wk-r19-toast {
+  margin-left: 10%;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--fill-2);
+  font-size: 10px;
+  animation: wk-r19-toast var(--r19-loop) ease-in-out infinite;
+}
+.wk-r19-toast > img {
+  flex: none;
+  margin-top: 2px;
+}
+.wk-r19-toast > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.wk-r19-toast strong,
+.wk-r19-toast span {
+  overflow-wrap: anywhere;
+}
+.wk-r19-toast span {
+  color: var(--text-3);
+}
+.wk-r19-toast > svg {
+  flex: none;
+  color: var(--accent);
+}
+@keyframes wk-r19-toast {
+  0%,
+  10% {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+  25%,
+  80% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  95%,
+  100% {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+}
+
+/* Closing: the eight changes light up in turn around the count. */
+.wk-r19-all {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 38px));
+  gap: 8px;
+  justify-content: center;
+  position: relative;
+  padding-bottom: 40px;
+}
+.wk-r19-all > span {
+  display: grid;
+  place-items: center;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--fill-1);
+  color: var(--text-3);
+  animation: wk-r19-light var(--r19-loop) ease-in-out infinite;
+  animation-delay: calc(var(--item) * 0.25s);
+}
+.wk-r19-all > strong {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  translate: -50% 0;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--accent);
+}
+@keyframes wk-r19-light {
+  0%,
+  10%,
+  70%,
+  100% {
+    color: var(--text-3);
+    border-color: var(--line);
+  }
+  20%,
+  60% {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+}
+
+/* Reduced motion: each scene shows the change already done. */
+@media (prefers-reduced-motion: reduce) {
+  .wk-r19-panel {
+    width: 62%;
+  }
+  .wk-r19-card {
+    transform: translateX(calc(100% + 28px));
+  }
+  .wk-r19-measure {
+    max-width: 60px;
+  }
+  .wk-r19-roll {
+    transform: translateY(-30px);
+  }
+  .wk-r19-refresh > div > i > b {
+    transform: scaleX(1);
+  }
+  .wk-r19-all > span {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+}

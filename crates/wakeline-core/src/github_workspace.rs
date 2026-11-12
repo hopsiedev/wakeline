@@ -9,6 +9,7 @@ use crate::github::GhClient;
 
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use serde_json::{Value, json};
 
@@ -26,13 +27,24 @@ const MAX_PAGES: usize = 10;
 /// Only one sync at a time: the dashboard and the PR notifier share the cache.
 static SYNC: Mutex<()> = Mutex::new(());
 
+/// Repositories read at the same time during a sync.
+const PARALLEL_REPOS: usize = 8;
+
+/// The sync reads several repositories at once, so the client is shared between threads.
+type SharedGh<'a> = &'a (dyn GhClient + Sync);
+
 struct RateGuard<'a> {
-    inner: &'a dyn GhClient,
-    blocked: std::cell::Cell<bool>,
+    inner: SharedGh<'a>,
+    blocked: AtomicBool,
+}
+impl RateGuard<'_> {
+    fn is_blocked(&self) -> bool {
+        self.blocked.load(Ordering::Relaxed)
+    }
 }
 impl GhClient for RateGuard<'_> {
     fn run(&self, args: &[&str]) -> Result<String, crate::github::GhError> {
-        if self.blocked.get() {
+        if self.is_blocked() {
             return Err(crate::github::GhError::Failed("GITHUB_RATE_LIMITED".into()));
         }
         let result = self.inner.run(args);
@@ -40,7 +52,7 @@ impl GhClient for RateGuard<'_> {
             .as_ref()
             .is_err_and(|error| is_rate_limit(&error.to_string()))
         {
-            self.blocked.set(true);
+            self.blocked.store(true, Ordering::Relaxed);
             return Err(crate::github::GhError::Failed("GITHUB_RATE_LIMITED".into()));
         }
         result
@@ -92,7 +104,7 @@ fn cached_within(since: &str, fresh_secs: u64) -> Result<Value, String> {
 
 #[cfg(test)]
 fn decide(
-    gh: &dyn GhClient,
+    gh: SharedGh<'_>,
     since: &str,
     envelope: &Value,
     now: u64,
@@ -102,7 +114,7 @@ fn decide(
 
 /// Pure cache policy: what to answer and what to store, given the saved envelope.
 fn decide_within(
-    gh: &dyn GhClient,
+    gh: SharedGh<'_>,
     since: &str,
     envelope: &Value,
     now: u64,
@@ -305,14 +317,14 @@ enum Synced {
 }
 
 /// Full read, used by tests and by the first sync of an account.
-pub fn load(gh: &dyn GhClient, since: &str) -> Result<Value, String> {
+pub fn load(gh: SharedGh<'_>, since: &str) -> Result<Value, String> {
     match sync(gh, since, None, crate::github::unix_now())? {
         Synced::Complete(data) => Ok(data),
         Synced::Limited(..) => Err("GITHUB_RATE_LIMITED".into()),
     }
 }
 
-fn sync(gh: &dyn GhClient, since: &str, saved: Option<&Value>, now: u64) -> Result<Synced, String> {
+fn sync(gh: SharedGh<'_>, since: &str, saved: Option<&Value>, now: u64) -> Result<Synced, String> {
     if since.len() > 40
         || !since.ends_with('Z')
         || !since
@@ -332,7 +344,7 @@ fn sync(gh: &dyn GhClient, since: &str, saved: Option<&Value>, now: u64) -> Resu
     }
     let guarded = RateGuard {
         inner: gh,
-        blocked: std::cell::Cell::new(false),
+        blocked: AtomicBool::new(false),
     };
     let gh: &dyn GhClient = &guarded;
     let user: Value = serde_json::from_str(
@@ -370,80 +382,158 @@ fn sync(gh: &dyn GhClient, since: &str, saved: Option<&Value>, now: u64) -> Resu
         }
     }
 
-    let mut repos = Vec::new();
-    let mut prs = Vec::new();
-    let mut commits = Vec::new();
     let mut warnings = Vec::new();
-    let mut agents: HashMap<&str, Option<String>> = HashMap::new();
+    let mut jobs = Vec::new();
     for repo in repositories {
         let name = text(&repo, "full_name");
         if !valid_repository(&name) {
             warnings.push("INVALID_REPOSITORY".to_string());
             continue;
         }
-        let pushed_at = text(&repo, "pushed_at");
-        repos.push(json!({"name":name,"url":repo["html_url"],"description":repo["description"],"language":repo["language"],"private":repo["private"],"stars":repo["stargazers_count"],"pushed_at":repo["pushed_at"]}));
-        let previous = saved_prs.remove(&name);
-        let watermark = previous
-            .as_ref()
-            .and_then(|items| items.iter().map(|pr| text(pr, "updated_at")).max());
+        jobs.push(RepoJob {
+            unchanged: saved_pushed
+                .get(&name)
+                .is_some_and(|pushed| *pushed == text(&repo, "pushed_at")),
+            saved_prs: saved_prs.remove(&name),
+            saved_commits: saved_commits.remove(&name).unwrap_or_default(),
+            name,
+            repo,
+        });
+    }
 
-        // Pull requests: everything the first time, only what changed afterwards.
-        let fetched = match &watermark {
-            None => pages(
-                gh,
-                &format!("repos/{name}/pulls?state=all&sort=updated&direction=desc&per_page=100"),
-            ),
-            Some(mark) => changed_pulls(gh, &name, mark),
-        };
-        let mut merged: Vec<Value> = previous.unwrap_or_default();
-        match fetched {
-            Ok(pulls) => {
-                let stats = if pulls.is_empty() {
-                    HashMap::new()
-                } else {
-                    pr_stats(guarded.inner, &name, watermark.as_deref().unwrap_or(since))
-                };
-                for pr in pulls {
-                    let Some(number) = pr["number"].as_u64().filter(|n| *n > 0) else {
-                        warnings.push(format!("{name}: INVALID_PR"));
-                        continue;
-                    };
-                    let mut item = pull_request(gh, &name, number, &pr, since, &mut warnings);
-                    if let Some(stat) = stats.get(&number) {
-                        item["additions"] = stat["additions"].clone();
-                        item["deletions"] = stat["deletions"].clone();
-                        item["comments"] = stat["comments"].clone();
-                    }
-                    let known = merged
-                        .iter()
-                        .any(|old| old["number"].as_u64() == Some(number));
-                    if guarded.blocked.get() && known {
-                        // Reviews could not be read: keep the saved copy intact.
-                        continue;
-                    }
-                    merged.retain(|old| old["number"].as_u64() != Some(number));
-                    merged.push(item);
+    // Each repository costs at least one `gh` process (~0.5 s on Windows): read
+    // them a few at a time so a refresh of dozens of repositories takes seconds.
+    let agents = Mutex::new(HashMap::new());
+    let next = AtomicUsize::new(0);
+    let done: Vec<Mutex<Option<RepoSync>>> = jobs.iter().map(|_| Mutex::new(None)).collect();
+    std::thread::scope(|scope| {
+        for _ in 0..PARALLEL_REPOS.min(jobs.len()) {
+            scope.spawn(|| {
+                loop {
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    let Some(job) = jobs.get(index) else { break };
+                    let result = sync_repository(&guarded, job, since, &agents);
+                    *done[index]
+                        .lock()
+                        .unwrap_or_else(|error| error.into_inner()) = Some(result);
                 }
-            }
-            Err(_) if guarded.blocked.get() => {}
-            Err(error) if is_blocked(&error) => {}
-            Err(error) => warnings.push(format!("{name}: {error}")),
+            });
         }
-        merged.sort_by_key(|pr| std::cmp::Reverse(text(pr, "updated_at")));
-        prs.extend(merged);
+    });
 
-        // Commits: only when the repository received a push since the last sync.
-        let previous = saved_commits.remove(&name).unwrap_or_default();
-        if saved_pushed.get(&name) == Some(&pushed_at)
-            && !pushed_at.is_empty()
-            && previous
-                .iter()
-                .all(|commit| !commit["author"].is_null() && commit["agent"].is_string())
-        {
-            commits.extend(previous);
-            continue;
+    let mut repos = Vec::new();
+    let mut prs = Vec::new();
+    let mut commits = Vec::new();
+    for result in done
+        .into_iter()
+        .filter_map(|slot| slot.into_inner().unwrap_or_else(|error| error.into_inner()))
+    {
+        repos.push(result.repository);
+        prs.extend(result.pull_requests);
+        commits.extend(result.commits);
+        warnings.extend(result.warnings);
+    }
+    warnings.retain(|warning| !warning.contains("GITHUB_RATE_LIMITED"));
+    let data = prune(
+        &json!({"user":{"login":user["login"],"name":user["name"],"avatar_url":user["avatar_url"]},"repositories":repos,"pull_requests":prs,"commits":commits,"warnings":warnings}),
+        since,
+    );
+    if guarded.is_blocked() {
+        let reset = quota_reset(guarded.inner, u64::MAX).unwrap_or(now + COOLDOWN_SECS);
+        return Ok(Synced::Limited(data, reset.max(now + 60)));
+    }
+    Ok(Synced::Complete(data))
+}
+
+/// One repository to sync, with what was saved for it.
+struct RepoJob {
+    name: String,
+    repo: Value,
+    /// `pushed_at` did not move since the last sync.
+    unchanged: bool,
+    saved_prs: Option<Vec<Value>>,
+    saved_commits: Vec<Value>,
+}
+
+/// What one repository adds to the workspace.
+struct RepoSync {
+    repository: Value,
+    pull_requests: Vec<Value>,
+    commits: Vec<Value>,
+    warnings: Vec<String>,
+}
+
+fn sync_repository(
+    guarded: &RateGuard<'_>,
+    job: &RepoJob,
+    since: &str,
+    agents: &Mutex<HashMap<&'static str, Option<String>>>,
+) -> RepoSync {
+    let gh: &dyn GhClient = guarded;
+    let RepoJob { name, repo, .. } = job;
+    let mut warnings = Vec::new();
+    let pushed_at = text(repo, "pushed_at");
+    let repository = json!({"name":name,"url":repo["html_url"],"description":repo["description"],"language":repo["language"],"private":repo["private"],"stars":repo["stargazers_count"],"pushed_at":repo["pushed_at"]});
+    let watermark = job
+        .saved_prs
+        .as_ref()
+        .and_then(|items| items.iter().map(|pr| text(pr, "updated_at")).max());
+
+    // Pull requests: everything the first time, only what changed afterwards.
+    let fetched = match &watermark {
+        None => pages(
+            gh,
+            &format!("repos/{name}/pulls?state=all&sort=updated&direction=desc&per_page=100"),
+        ),
+        Some(mark) => changed_pulls(gh, name, mark),
+    };
+    let mut merged: Vec<Value> = job.saved_prs.clone().unwrap_or_default();
+    match fetched {
+        Ok(pulls) => {
+            let stats = if pulls.is_empty() {
+                HashMap::new()
+            } else {
+                pr_stats(guarded.inner, name, watermark.as_deref().unwrap_or(since))
+            };
+            for pr in pulls {
+                let Some(number) = pr["number"].as_u64().filter(|n| *n > 0) else {
+                    warnings.push(format!("{name}: INVALID_PR"));
+                    continue;
+                };
+                let mut item = pull_request(gh, name, number, &pr, since, &mut warnings);
+                if let Some(stat) = stats.get(&number) {
+                    item["additions"] = stat["additions"].clone();
+                    item["deletions"] = stat["deletions"].clone();
+                    item["comments"] = stat["comments"].clone();
+                }
+                let known = merged
+                    .iter()
+                    .any(|old| old["number"].as_u64() == Some(number));
+                if guarded.is_blocked() && known {
+                    // Reviews could not be read: keep the saved copy intact.
+                    continue;
+                }
+                merged.retain(|old| old["number"].as_u64() != Some(number));
+                merged.push(item);
+            }
         }
+        Err(_) if guarded.is_blocked() => {}
+        Err(error) if is_blocked(&error) => {}
+        Err(error) => warnings.push(format!("{name}: {error}")),
+    }
+    merged.sort_by_key(|pr| std::cmp::Reverse(text(pr, "updated_at")));
+
+    // Commits: only when the repository received a push since the last sync.
+    let previous = &job.saved_commits;
+    let mut commits = Vec::new();
+    if job.unchanged
+        && !pushed_at.is_empty()
+        && previous
+            .iter()
+            .all(|commit| !commit["author"].is_null() && commit["agent"].is_string())
+    {
+        commits.extend(previous.iter().cloned());
+    } else {
         match pages(
             gh,
             &format!("repos/{name}/commits?since={since}&per_page=100"),
@@ -462,6 +552,8 @@ fn sync(gh: &dyn GhClient, since: &str, saved: Option<&Value>, now: u64) -> Resu
                     if let Some(login) = agent {
                         author = Some(login.to_string());
                         avatar = agents
+                            .lock()
+                            .unwrap_or_else(|error| error.into_inner())
                             .entry(login)
                             .or_insert_with(|| agent_avatar(gh, login))
                             .clone()
@@ -470,25 +562,21 @@ fn sync(gh: &dyn GhClient, since: &str, saved: Option<&Value>, now: u64) -> Resu
                     commits.push(json!({"repository":name,"sha":commit["sha"],"at":commit["commit"]["author"]["date"],"author":author,"avatar_url":avatar,"agent":agent.unwrap_or("")}));
                 }
             }
-            Err(_) if guarded.blocked.get() => commits.extend(previous),
+            Err(_) if guarded.is_blocked() => commits.extend(previous.iter().cloned()),
             Err(error) => {
-                commits.extend(previous);
+                commits.extend(previous.iter().cloned());
                 if !is_blocked(&error) {
                     warnings.push(format!("{name}: {error}"));
                 }
             }
         }
     }
-    warnings.retain(|warning| !warning.contains("GITHUB_RATE_LIMITED"));
-    let data = prune(
-        &json!({"user":{"login":user["login"],"name":user["name"],"avatar_url":user["avatar_url"]},"repositories":repos,"pull_requests":prs,"commits":commits,"warnings":warnings}),
-        since,
-    );
-    if guarded.blocked.get() {
-        let reset = quota_reset(guarded.inner, u64::MAX).unwrap_or(now + COOLDOWN_SECS);
-        return Ok(Synced::Limited(data, reset.max(now + 60)));
+    RepoSync {
+        repository,
+        pull_requests: merged,
+        commits,
+        warnings,
     }
-    Ok(Synced::Complete(data))
 }
 
 /// Pages of pull requests updated after `mark`, newest first.
@@ -574,29 +662,28 @@ fn pull_request(
 mod tests {
     use super::*;
     use crate::github::{GhError, is_read_only};
-    use std::cell::RefCell;
 
     #[test]
     fn stops_network_calls_after_rate_limit() {
-        struct Limited(std::cell::Cell<usize>);
+        struct Limited(AtomicUsize);
         impl GhClient for Limited {
             fn run(&self, _: &[&str]) -> Result<String, GhError> {
-                self.0.set(self.0.get() + 1);
+                self.0.fetch_add(1, Ordering::Relaxed);
                 Err(GhError::Failed("API rate limit exceeded (HTTP 403)".into()))
             }
         }
-        let inner = Limited(std::cell::Cell::new(0));
+        let inner = Limited(AtomicUsize::new(0));
         let guard = RateGuard {
             inner: &inner,
-            blocked: std::cell::Cell::new(false),
+            blocked: AtomicBool::new(false),
         };
         assert!(guard.run(&["api", "user"]).is_err());
         assert!(guard.run(&["api", "user/repos"]).is_err());
-        assert_eq!(inner.0.get(), 1);
+        assert_eq!(inner.0.load(Ordering::Relaxed), 1);
     }
 
     struct Fixture {
-        calls: RefCell<Vec<String>>,
+        calls: Mutex<Vec<String>>,
     }
     #[test]
     fn commit_without_github_account_keeps_git_author_name() {
@@ -611,7 +698,7 @@ mod tests {
         }
         let data = load(
             &Unlinked(Fixture {
-                calls: RefCell::new(Vec::new()),
+                calls: Mutex::new(Vec::new()),
             }),
             "2026-11-01T00:00:00Z",
         )
@@ -642,7 +729,7 @@ mod tests {
         }
         let data = load(
             &Agents(Fixture {
-                calls: RefCell::new(Vec::new()),
+                calls: Mutex::new(Vec::new()),
             }),
             "2026-11-01T00:00:00Z",
         )
@@ -673,7 +760,7 @@ mod tests {
     impl GhClient for Fixture {
         fn run(&self, args: &[&str]) -> Result<String, GhError> {
             assert!(is_read_only(args));
-            self.calls.borrow_mut().push(args.join(" "));
+            self.calls.lock().unwrap().push(args.join(" "));
             let route = args[1];
             let json = if args[0] == "pr" {
                 if args[3] == "owner/remote" {
@@ -708,7 +795,7 @@ mod tests {
     #[test]
     fn remote_repos_and_full_pr_history_do_not_require_local_projects() {
         let gh = Fixture {
-            calls: RefCell::new(Vec::new()),
+            calls: Mutex::new(Vec::new()),
         };
         let data = load(&gh, "2026-09-01T00:00:00Z").unwrap();
         assert_eq!(data["repositories"].as_array().unwrap().len(), 2);
@@ -722,7 +809,7 @@ mod tests {
             data["pull_requests"][0]["first_review_at"],
             "2026-11-10T12:00:00Z"
         );
-        let calls = gh.calls.borrow();
+        let calls = gh.calls.lock().unwrap();
         assert!(calls.iter().any(|c| c.contains("state=all")));
         assert!(
             calls
@@ -747,11 +834,11 @@ mod tests {
     fn second_sync_only_reads_what_changed() {
         let since = "2026-09-01T00:00:00Z";
         let first = Fixture {
-            calls: RefCell::new(Vec::new()),
+            calls: Mutex::new(Vec::new()),
         };
         let data = load(&first, since).unwrap();
         let second = Fixture {
-            calls: RefCell::new(Vec::new()),
+            calls: Mutex::new(Vec::new()),
         };
         let envelope = json!({"at":0,"data":data});
         let (value, write) = decide(&second, since, &envelope, 1_000_000);
@@ -763,7 +850,7 @@ mod tests {
         );
         assert_eq!(value["commits"].as_array().unwrap().len(), 2);
         assert!(write.is_some());
-        let calls = second.calls.borrow();
+        let calls = second.calls.lock().unwrap();
         assert!(!calls.iter().any(|c| c.contains("/reviews")), "{calls:?}");
         // owner/remote was not pushed again: its commits come from the cache.
         assert!(
@@ -826,7 +913,7 @@ mod tests {
 
     #[test]
     fn rate_limit_mid_sync_keeps_saved_repositories() {
-        struct Midway(std::cell::Cell<usize>);
+        struct Midway(AtomicUsize);
         impl GhClient for Midway {
             fn run(&self, args: &[&str]) -> Result<String, GhError> {
                 match args[1] {
@@ -839,7 +926,7 @@ mod tests {
                             .into(),
                     ),
                     _ => {
-                        self.0.set(self.0.get() + 1);
+                        self.0.fetch_add(1, Ordering::Relaxed);
                         Err(GhError::Failed("API rate limit exceeded".into()))
                     }
                 }
@@ -850,7 +937,7 @@ mod tests {
             "pull_requests":[{"id":"owner/remote#1","repository":"owner/remote","number":1,"updated_at":"2026-11-10T00:00:00Z"}],
             "commits":[{"repository":"owner/remote","sha":"a","at":"2026-11-10T00:00:00Z"}]
         });
-        let gh = Midway(std::cell::Cell::new(0));
+        let gh = Midway(AtomicUsize::new(0));
         let (value, write) = decide(
             &gh,
             "2026-09-01T00:00:00Z",
@@ -858,10 +945,80 @@ mod tests {
             1000,
         );
         let value = value.unwrap();
-        assert_eq!(gh.0.get(), 1, "stops after the first limited call");
+        assert_eq!(
+            gh.0.load(Ordering::Relaxed),
+            1,
+            "stops after the first limited call"
+        );
         assert_eq!(value["pull_requests"].as_array().unwrap().len(), 1);
         assert_eq!(value["commits"].as_array().unwrap().len(), 1);
         assert_eq!(value["warnings"].as_array().unwrap().len(), 0);
         assert!(write.unwrap()["blocked_until"].as_u64().unwrap() > 1000);
+    }
+
+    #[test]
+    fn repositories_are_read_in_parallel_and_keep_their_order() {
+        struct Slow {
+            running: AtomicUsize,
+            peak: AtomicUsize,
+        }
+        impl GhClient for Slow {
+            fn run(&self, args: &[&str]) -> Result<String, GhError> {
+                let route = args[1];
+                if route == "rate_limit" {
+                    return Ok(r#"{"resources":{"core":{"remaining":5000,"reset":0}}}"#.into());
+                }
+                if route == "user" {
+                    return Ok(r#"{"login":"owner"}"#.into());
+                }
+                if route.starts_with("user/repos?") {
+                    let repos: Vec<Value> = (0..16)
+                        .map(|i| json!({"full_name":format!("owner/r{i:02}"),"pushed_at":"2026-11-11T00:00:00Z"}))
+                        .collect();
+                    return Ok(json!([repos]).to_string());
+                }
+                let now = self.running.fetch_add(1, Ordering::SeqCst) + 1;
+                self.peak.fetch_max(now, Ordering::SeqCst);
+                std::thread::sleep(std::time::Duration::from_millis(20));
+                self.running.fetch_sub(1, Ordering::SeqCst);
+                let name = route.split('/').nth(2).unwrap_or_default();
+                if route.contains("/pulls?") {
+                    // One unchanged pull request per repository.
+                    return Ok(json!([{"number":1,"updated_at":format!("2026-11-10T00:00:{}Z", &name[1..])}]).to_string());
+                }
+                Ok("[]".into())
+            }
+        }
+        let saved = json!({
+            "repositories": (0..16).map(|i| json!({"name":format!("owner/r{i:02}"),"pushed_at":"2026-11-11T00:00:00Z"})).collect::<Vec<_>>(),
+            "pull_requests": (0..16).map(|i| json!({"repository":format!("owner/r{i:02}"),"number":1,"updated_at":format!("2026-11-10T00:00:{i:02}Z")})).collect::<Vec<_>>(),
+            "commits": [],
+        });
+        let gh = Slow {
+            running: AtomicUsize::new(0),
+            peak: AtomicUsize::new(0),
+        };
+        let (value, _) = decide(
+            &gh,
+            "2026-09-01T00:00:00Z",
+            &json!({"at":0,"data":saved}),
+            1000,
+        );
+        let value = value.unwrap();
+        assert!(
+            gh.peak.load(Ordering::SeqCst) > 1,
+            "repositories read one by one"
+        );
+        let order = |key: &str, field: &str| -> Vec<String> {
+            value[key]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|item| text(item, field))
+                .collect()
+        };
+        let expected: Vec<String> = (0..16).map(|i| format!("owner/r{i:02}")).collect();
+        assert_eq!(order("repositories", "name"), expected);
+        assert_eq!(order("pull_requests", "repository"), expected);
     }
 }

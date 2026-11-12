@@ -72,6 +72,17 @@ mod registry {
         result.ok().map_err(|e| e.to_string())
     }
 }
+/// Activa el inicio con Windows la primera vez que abre la versión instalada.
+/// Deja una marca junto al estado: si luego lo apagas, no se vuelve a encender.
+pub fn apply_default(marker: &std::path::Path, enable: impl FnOnce() -> Result<bool, String>) {
+    if marker.exists() {
+        return;
+    }
+    if enable().is_ok() {
+        let _ = std::fs::write(marker, "1");
+    }
+}
+
 pub fn enabled() -> Result<bool, String> {
     #[cfg(windows)]
     {
@@ -98,5 +109,35 @@ pub fn set_enabled(enabled: bool) -> Result<bool, String> {
     {
         let _ = enabled;
         Err("Windows only".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_turns_startup_on_only_the_first_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let marker = dir.path().join("startup-default");
+        let mut calls = 0;
+        apply_default(&marker, || {
+            calls += 1;
+            Ok(true)
+        });
+        // Second launch, after the user turned it off: left alone.
+        apply_default(&marker, || {
+            calls += 1;
+            Ok(true)
+        });
+        assert_eq!(calls, 1);
+    }
+
+    #[test]
+    fn a_failed_default_is_retried_next_launch() {
+        let dir = tempfile::tempdir().unwrap();
+        let marker = dir.path().join("startup-default");
+        apply_default(&marker, || Err("registry".into()));
+        assert!(!marker.exists());
     }
 }

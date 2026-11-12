@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {pastedImages,validateImageSelection,modelLabel} from '../src/services/chat-input.ts';
-test('image selection enforces supported types, count and combined size',()=>{
+test('image selection has no count cap and preserves type and size validation',()=>{
  const image={type:'image/png',size:1024};
  assert.equal(validateImageSelection([], [image]),null);
- assert.equal(validateImageSelection([image,image,image],[image]),'limit');
+ assert.equal(validateImageSelection([image,image,image],Array(50).fill(image)),null);
  assert.equal(validateImageSelection([], [{type:'image/svg+xml',size:42}]),'type');
  assert.equal(validateImageSelection([], [{type:'image/png',size:6*1024*1024}]),'limit');
  assert.equal(validateImageSelection([{...image,size:5*1024*1024}],[{...image,size:5*1024*1024},image]),'limit');

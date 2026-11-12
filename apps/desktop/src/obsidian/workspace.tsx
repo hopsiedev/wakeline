@@ -3,9 +3,10 @@ import '@fontsource-variable/jetbrains-mono';
 import './dashboard.css';
 import './wakeline.css';
 import './app.css';
+import './chat-interactions.css';
 
 import type { ReactNode, CSSProperties } from 'react';
-import type { UiUpdate, AccountInfo, DashboardPayload } from 'src/services/wakeline';
+import type { UiUpdate, CardStatus, AccountInfo, DashboardPayload } from 'src/services/wakeline';
 
 import { useTranslation } from 'react-i18next';
 import { listen } from '@tauri-apps/api/event';
@@ -73,6 +74,8 @@ const GITHUB_POLL_MS = 2 * 60 * 1000;
 export function ObsidianLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const location = useLocation();
+  const reviewRoute =
+    location.pathname === '/pull-requests' || location.pathname.startsWith('/pull-requests/');
   const navigate = useNavigate();
   const { mode, systemMode } = useColorScheme();
   const dark = (mode === 'system' ? systemMode : mode) !== 'light';
@@ -107,6 +110,36 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLButtonElement>(null);
   const loading = useRef(false);
+  useEffect(() => {
+    const updateStatuses = (event: Event) => {
+      const inputs = (
+        event as CustomEvent<
+          {
+            fingerprint: string;
+            fingerprints: string[];
+            status: CardStatus;
+          }[]
+        >
+      ).detail;
+      setData((previous) =>
+        previous
+          ? {
+              ...previous,
+              cards: previous.cards.map((card) => {
+                const input = inputs.find((change) =>
+                  [card.fingerprint, ...card.fingerprints].some(
+                    (fp) => fp === change.fingerprint || change.fingerprints.includes(fp)
+                  )
+                );
+                return input ? { ...card, status: input.status } : card;
+              }),
+            }
+          : previous
+      );
+    };
+    window.addEventListener('wakeline:card-status', updateStatuses);
+    return () => window.removeEventListener('wakeline:card-status', updateStatuses);
+  }, []);
   const reload = useCallback(async () => {
     if (loading.current) return;
     loading.current = true;
@@ -389,14 +422,16 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
           />
           <main className="main">
             <header className="main-bar enter" style={{ '--i': 0 } as CSSProperties}>
-              <button
-                className="icon-btn"
-                aria-label={t('reviewChat.open')}
-                title={t('reviewChat.open')}
-                onClick={() => window.dispatchEvent(new Event('wakeline:chat-toggle'))}
-              >
-                <MessageSquare size={16} />
-              </button>
+              {reviewRoute && (
+                <button
+                  className="icon-btn"
+                  aria-label={t('reviewChat.open')}
+                  title={t('reviewChat.open')}
+                  onClick={() => window.dispatchEvent(new Event('wakeline:chat-toggle'))}
+                >
+                  <MessageSquare size={16} />
+                </button>
+              )}
               <button
                 className="icon-btn press shell-refresh"
                 disabled={busy}

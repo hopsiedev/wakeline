@@ -12,7 +12,7 @@ use tauri_plugin_notification::NotificationExt;
 use wakeline_core::alerts::{Alert, AlertTracker, ErrorSeen};
 use wakeline_core::{CardKind, CardStatus};
 
-use crate::shell;
+use crate::{daily_notice, shell};
 
 #[cfg(windows)]
 mod windows;
@@ -25,6 +25,8 @@ pub struct AlertPrefs {
     pub errors: bool,
     pub pull_requests: bool,
     pub spanish: bool,
+    /// La interfaz ya mandó idioma y preferencias (hasta entonces no hay aviso del día).
+    pub synced: bool,
 }
 
 impl Default for AlertPrefs {
@@ -34,6 +36,7 @@ impl Default for AlertPrefs {
             errors: true,
             pull_requests: true,
             spanish: true,
+            synced: false,
         }
     }
 }
@@ -52,6 +55,7 @@ pub fn start(app: &AppHandle) {
         let mut tracker = AlertTracker::new();
         loop {
             if let Ok(payload) = crate::scan_dashboard() {
+                notify_day(&app, &payload.cards);
                 let errors = payload
                     .cards
                     .into_iter()
@@ -79,6 +83,27 @@ fn send(app: &AppHandle, alert: &Alert) {
     if enabled {
         let (title, body) = texts(alert, spanish);
         let _ = deliver(app, title, body);
+    }
+}
+
+/// Lo pendiente del día, una vez por día local, cuando la interfaz ya dio el idioma.
+fn notify_day(app: &AppHandle, cards: &[crate::UiCard]) {
+    let (synced, enabled, spanish) = {
+        let prefs = app.state::<Mutex<AlertPrefs>>();
+        let prefs = prefs.lock().unwrap_or_else(|e| e.into_inner());
+        (prefs.synced, prefs.enabled, prefs.spanish)
+    };
+    if !synced || !enabled {
+        return;
+    }
+    let pending = daily_notice::Pending::count(cards.iter().map(|c| (&c.kind, &c.status)));
+    let today = daily_notice::local_day();
+    let marker = daily_notice::marker_path();
+    if daily_notice::due(&marker, &today, &pending) {
+        let (title, body) = daily_notice::texts(&pending, spanish);
+        if deliver(app, title, body).is_ok() {
+            daily_notice::mark(&marker, &today);
+        }
     }
 }
 
