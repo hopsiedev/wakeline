@@ -825,5 +825,34 @@
       "max": "Máximo"
     },
     "access": "Versiones explícitas o alias del CLI. El acceso depende de tu cuenta."
+  },
+  "releasePatch": {
+    "copy0": "Configuración",
+    "copy1": "Sigue navegando",
+    "copy2": "Importando historial",
+    "copy3": "Revisemos esta PR",
+    "copy4": "Sesión vacía",
+    "copy5": "Configuración estable",
+    "copy6": "PR al momento",
+    "copy7": "Claude y Codex",
+    "copy8": "Chat, gráfico y To do",
+    "copy9": "Estabilidad",
+    "copy10": "Configuración, siempre a mano.",
+    "copy11": "Importa todo tu historial y sigue navegando por Configuración sin que la ventana se congele.",
+    "copy12": "Tus PR, al momento.",
+    "copy13": "Actualizar pregunta de nuevo a GitHub y la app se pone al día sola cada dos minutos.",
+    "copy14": "Autoría",
+    "copy15": "Mérito a quien lo hizo.",
+    "copy16": "Los commits hechos con Claude o Codex muestran su cuenta y su foto de GitHub.",
+    "copy17": "Chat de revisión",
+    "copy18": "Solo las conversaciones reales.",
+    "copy19": "Un selector de sesiones con el estilo de la app; las sesiones vacías no se guardan.",
+    "copy20": "Resumen",
+    "copy21": "Cada día, en su sitio.",
+    "copy22": "Las barras de actividad ya no se montan y los filtros de Code review vuelven a ser compactos.",
+    "copy23": "Vigila desde To do.",
+    "copy24": "Añade o quita las carpetas de tus proyectos sin salir de To do.",
+    "copy25": "Seis correcciones, listas.",
+    "copy26": "Estabilidad, GitHub e interfaz. Tus proyectos y preferencias siguen igual."
   }
 }

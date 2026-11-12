@@ -91,7 +91,7 @@ Para Antigravity, incorpora esta entrada a su configuración MCP. Utiliza una ru
 }
 ```
 
-Puedes pedir al agente: «Lista los pendientes de este proyecto y muestra la evidencia del error de pagos repetidos». Las herramientas incluyen `list_cards`, `get_card`, `create_card` y `complete_card`; no hay herramienta de borrado. Actualiza Conexiones después de configurar un cliente. Desconectar muestra el comando correspondiente para que lo ejecutes; no reescribe silenciosamente la configuración de otras aplicaciones.
+Pídeselo al agente desde su chat o CLI: «Agrégame en To Do solucionar el bug del login en Wakeline» o «Mueve W-003 a en curso». Herramientas: `list_cards`, `get_card`, `create_card`, `move_card` y `complete_card`; no hay herramienta de borrado. El servidor MCP solo toca el To Do: nunca lee carpetas de proyectos y puede añadir tarjetas de proyectos que no vigilas. Actualiza Conexiones después de configurar un cliente. Desconectar muestra el comando correspondiente para que lo ejecutes; no reescribe silenciosamente la configuración de otras aplicaciones.
 
 Consultar tarjetas mediante MCP y revisar PR desde el chat aislado son capacidades distintas.
 
