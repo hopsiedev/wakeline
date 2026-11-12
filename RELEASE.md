@@ -9,7 +9,8 @@ Download published packages from [GitHub Releases](https://github.com/hopsiedev/
 
 Run `Wakeline_*_x64-setup.exe`. It installs Wakeline for the current user, with
 `wakeline.exe` beside the app for MCP. Installed copies check after one minute and
-every six hours, install new signed versions and restart automatically. To check
+every hour. A Windows notification and sidebar indicator announce a new version;
+choose Update now to install the signed update and restart. To check
 immediately, choose Check for updates in the account menu or Settings > Updates.
 The updater downloads `latest.json` from the
 latest published release and only installs an installer signed with Wakeline's key.
@@ -62,6 +63,6 @@ after the draft is published.
 
 ## Validation and preserved data
 
-Version 0.1.7 keeps the existing app identifier and state path. Automated upgrade tests cover a private copy of the previous installed state across two save/load cycles, preserving existing fields. Existing WebView workflow/preferences have regression tests. Keep a backup and do not delete your user profile during an update.
+Version 0.1.8 keeps the existing app identifier and state path. Automated upgrade tests cover a private copy of the previous installed state across two save/load cycles, preserving existing fields. Existing WebView workflow/preferences have regression tests. Keep a backup and do not delete your user profile during an update.
 
-The repository runs frontend tests, Rust tests, formatting, lint, clippy, package regressions, and Windows/Linux package builds. Linux smoke checks cover an X11 environment; desktop tray and notification behavior still depends on the user's distribution and permissions. See [0.1.6 release notes](RELEASE-NOTES.md) and the usage guides in [English](README.md) and [Spanish](README.es.md).
+The repository runs frontend tests, Rust tests, formatting, lint, clippy, package regressions, and Windows/Linux package builds. Linux smoke checks cover an X11 environment; desktop tray and notification behavior still depends on the user's distribution and permissions. See [0.1.8 release notes](RELEASE-NOTES.md) and the usage guides in [English](README.md) and [Spanish](README.es.md).

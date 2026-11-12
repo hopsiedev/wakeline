@@ -14,22 +14,22 @@ export function EditorOpen({
   const { t } = useTranslation();
   const [editor, setEditor] = useState(preferredEditor);
   const [error, setError] = useState('');
-  const root = useRef<HTMLDivElement>(null);
+  const picker = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const dismiss = (event: PointerEvent | KeyboardEvent) => {
       if (event.type === 'keydown' && (event as KeyboardEvent).key !== 'Escape') return;
-      if (event.type === 'pointerdown' && root.current?.contains(event.target as Node)) return;
-      root.current?.querySelector('details')?.removeAttribute('open');
+      if (event.type === 'pointerdown' && picker.current?.contains(event.target as Node)) return;
+      picker.current?.removeAttribute('open');
     };
-    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('pointerdown', dismiss, true);
     document.addEventListener('keydown', dismiss);
     return () => {
-      document.removeEventListener('pointerdown', dismiss);
+      document.removeEventListener('pointerdown', dismiss, true);
       document.removeEventListener('keydown', dismiss);
     };
   }, []);
   return (
-    <div className="wk-editor-open" ref={root}>
+    <div className="wk-editor-open">
       <div>
         <button
           type="button"
@@ -57,7 +57,7 @@ export function EditorOpen({
           {t('prEditor.open', { editor: editor.name })}
           <ExternalLink size={14} />
         </button>
-        <details>
+        <details ref={picker}>
           <summary className="btn" aria-label={t('prEditor.choose')}>
             <ChevronDown size={15} />
           </summary>

@@ -91,7 +91,7 @@ Para Antigravity, incorpora esta entrada a su configuración MCP. Utiliza una ru
 }
 ```
 
-Puedes pedir al agente: «Lista los pendientes de este proyecto y muestra la evidencia del error de pagos repetidos». Las herramientas incluyen `list_cards`, `get_card`, `create_card` y `complete_card`; no hay herramienta de borrado. Actualiza Conexiones después de configurar un cliente. Desconectar muestra el comando correspondiente para que lo ejecutes; no reescribe silenciosamente la configuración de otras aplicaciones.
+Pídeselo al agente desde su chat o CLI: «Agrégame en To Do solucionar el bug del login en Wakeline» o «Mueve W-003 a en curso». Herramientas: `list_cards`, `get_card`, `create_card`, `move_card` y `complete_card`; no hay herramienta de borrado. El servidor MCP solo toca el To Do: nunca lee carpetas de proyectos y puede añadir tarjetas de proyectos que no vigilas. Actualiza Conexiones después de configurar un cliente. Desconectar muestra el comando correspondiente para que lo ejecutes; no reescribe silenciosamente la configuración de otras aplicaciones.
 
 Consultar tarjetas mediante MCP y revisar PR desde el chat aislado son capacidades distintas.
 
@@ -138,7 +138,3 @@ Para regenerar las capturas, ejecuta `npm run dev` y, en otra terminal, `npx pla
 
 El núcleo Rust es compartido por la app de escritorio, el CLI y MCP. Consulta [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) para los créditos de interfaz, bibliotecas, fuentes y logos. Licencia [MIT](LICENSE-MIT).
 Desde la 0.1.6, una versión nueva activa un aviso del sistema y un indicador verde en el sidebar. Ábrelo y pulsa **Actualizar ahora**. La instalación espera tu acción; portable y Linux abren la descarga manual. Semana/mes muestran comparaciones si existe una base previa; Hoy no muestra porcentajes.
-
-![Resumen sin pendientes](assets/screenshots/daily-summary-empty-es.png)
-
-![Actualización disponible](assets/screenshots/update-available-es.png)

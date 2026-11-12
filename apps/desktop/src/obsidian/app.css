@@ -124,7 +124,16 @@
   position: relative;
 }
 .obsidian-analytics-dashboard .wk-chat-dock .wk-chat-picker {
-  position: static;
+  position: relative;
+}
+.obsidian-analytics-dashboard .wk-chat-dock .wk-chat-picker .wk-chat-options {
+  left: 0;
+  right: auto;
+  max-width: calc(100vw - 32px);
+}
+.obsidian-analytics-dashboard .wk-chat-dock .wk-chat-picker:last-child .wk-chat-options {
+  left: auto;
+  right: 0;
 }
 .obsidian-analytics-dashboard .wk-chat-dock .wk-chat-options button {
   white-space: normal;

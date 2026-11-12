@@ -39,7 +39,8 @@ fn manual_updates(app: &AppHandle) -> bool {
 
 /// Primera revisión un minuto después de arrancar, para no frenar el inicio.
 const FIRST_CHECK_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
-const CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(6 * 60 * 60);
+/// Hourly: the app lives in the tray for days and a new version should not wait 6 h.
+const CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(60 * 60);
 
 /// Checks in the background, announces availability, and waits for user installation.
 pub fn start(app: &AppHandle) {

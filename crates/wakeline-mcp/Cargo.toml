@@ -1,6 +1,6 @@
 [package]
 name = "wakeline-mcp"
-description = "MCP server for Wakeline: lets AI agents read and close cards"
+description = "MCP server for Wakeline To Do: lets AI agents add, list and move cards"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
