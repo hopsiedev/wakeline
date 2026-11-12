@@ -15,6 +15,8 @@ import {
 
 import { EvidenceMarkdown } from 'src/components/evidence-markdown';
 
+import { ChatImageViewer } from './chat-image-viewer';
+
 type Message = {
   id: number;
   role: 'user' | 'assistant';
@@ -130,6 +132,7 @@ export function PrChat({
   );
   const [value, setValue] = useState('');
   const [images, setImages] = useState<ChatAttachment[]>([]);
+  const [previewImage, setPreviewImage] = useState<ChatAttachment | null>(null);
   const [imageError, setImageError] = useState('');
   const [effort, setEffort] = useState(
     () => localStorage.getItem('wakeline-pr-chat-effort') ?? 'default'
@@ -228,15 +231,14 @@ export function PrChat({
     const history = (threads.get(key) ?? [])
       .filter((message) => !message.pending && !message.failed)
       .map(({ role, text }) => ({ role, text }));
-    const contextImages: ChatAttachment[] = [];
-    for (const image of [
-      ...(threads.get(key) ?? []).slice(-12).flatMap((m) => m.images ?? []),
-      ...images,
-    ].reverse()) {
+    const contextImages: ChatAttachment[] = [...images];
+    for (const image of (threads.get(key) ?? [])
+      .slice(-12)
+      .flatMap((m) => m.images ?? [])
+      .reverse()) {
       if (
-        contextImages.length < 3 &&
         contextImages.reduce((sum, i) => sum + i.size, 0) + image.size <= 10 * 1024 * 1024 &&
-        !contextImages.some((i) => i.data === image.data)
+        !contextImages.some((i) => i.id === image.id)
       )
         contextImages.unshift(image);
     }
@@ -343,17 +345,7 @@ export function PrChat({
             <li key={message.id} className={`msg msg-${message.role}`}>
               {message.role === 'assistant' ? (
                 <div className="wk-assistant" data-pending={!!message.pending}>
-                  <span className="wk-thinking-logo">
-                    <img src="/logo/wakeline-icon.svg" alt="" width="22" height="22" />
-                  </span>
                   <div className="wk-pr-chat-answer" data-failed={!!message.failed}>
-                    <div className="wk-message-meta">
-                      Wakeline{' '}
-                      <span>
-                        · Claude / {modelLabel(message.model ?? '')} /{' '}
-                        {t(`chatInput.effort.${message.effort ?? 'default'}`)}
-                      </span>
-                    </div>
                     {message.pending ? (
                       <span role="status" className="wk-thinking">
                         {t('prChat.thinking', { agent: 'Claude' })}
@@ -375,11 +367,15 @@ export function PrChat({
                   {message.images?.length ? (
                     <div className="wk-chat-images">
                       {message.images.map((image) => (
-                        <img
+                        <button
                           key={image.id}
-                          src={`data:${image.type};base64,${image.data}`}
-                          alt={image.name}
-                        />
+                          type="button"
+                          className="wk-image-thumbnail"
+                          aria-label={t('chatInput.preview', { name: image.name })}
+                          onClick={() => setPreviewImage(image)}
+                        >
+                          <img src={`data:${image.type};base64,${image.data}`} alt={image.name} />
+                        </button>
                       ))}
                     </div>
                   ) : null}
@@ -403,9 +399,17 @@ export function PrChat({
           <div className="wk-chat-images">
             {images.map((image) => (
               <div key={image.id}>
-                <img src={`data:${image.type};base64,${image.data}`} alt={image.name} />
                 <button
                   type="button"
+                  className="wk-image-thumbnail"
+                  aria-label={t('chatInput.preview', { name: image.name })}
+                  onClick={() => setPreviewImage(image)}
+                >
+                  <img src={`data:${image.type};base64,${image.data}`} alt={image.name} />
+                </button>
+                <button
+                  type="button"
+                  className="wk-image-remove"
                   aria-label={t('chatInput.remove', { name: image.name })}
                   onClick={() => setImages((old) => old.filter((i) => i.id !== image.id))}
                 >
@@ -546,6 +550,9 @@ export function PrChat({
         </div>
         <small className="wk-chat-model-note">{t('chatInput.access')}</small>
       </form>
+      {previewImage && (
+        <ChatImageViewer image={previewImage} onClose={() => setPreviewImage(null)} />
+      )}
     </aside>
   );
 }

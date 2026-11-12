@@ -520,6 +520,18 @@ mod review_input_tests {
         );
     }
     #[test]
+    fn more_than_three_images_are_embedded_without_a_count_limit() {
+        let images: Vec<_> = (0..12)
+            .map(|_| super::ChatImage {
+                media_type: "image/png".into(),
+                data: "iVBORw0KGgo=".into(),
+            })
+            .collect();
+        let input = super::review_input("question", &images).unwrap();
+        let json: serde_json::Value = serde_json::from_str(input.trim()).unwrap();
+        assert_eq!(json["message"]["content"].as_array().unwrap().len(), 13);
+    }
+    #[test]
     fn streamed_result_preserves_errors_instead_of_an_empty_success() {
         assert_eq!(super::review_result("{\"type\":\"system\"}\n{\"type\":\"result\",\"is_error\":false,\"result\":\"done\"}\n").unwrap(),"done");
         assert!(
@@ -574,9 +586,6 @@ pub fn review_arguments(options: &ReviewOptions) -> Result<Vec<String>, String> 
 }
 pub fn review_input(prompt: &str, images: &[ChatImage]) -> Result<String, String> {
     use base64::Engine;
-    if images.len() > 3 {
-        return Err("IMAGE_LIMIT".into());
-    }
     let mut total = 0;
     let mut content = vec![serde_json::json!({"type":"text","text":prompt})];
     for image in images {

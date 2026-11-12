@@ -531,6 +531,7 @@
 }
 .wk-release-intro {
   padding: 12px 24px 20px;
+  flex-shrink: 0;
 }
 .wk-release-intro h2 {
   font-size: 26px;
@@ -545,15 +546,42 @@
 .wk-release-scroll {
   overflow-y: auto;
   min-height: 0;
+  flex: 1 1 auto;
   padding: 0 24px 24px;
 }
 .wk-unified-change {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 28px;
   align-items: center;
   padding: 24px 0;
   border-top: 1px solid var(--line);
+}
+.wk-unified-change > div {
+  min-width: 0;
+}
+.wk-unified-change .wk-update-art {
+  height: auto;
+  min-height: 260px;
+  padding: 28px 16px 44px;
+  box-sizing: border-box;
+}
+.wk-unified-change .wk-update-art > :not(.wk-art-caption) {
+  max-width: 100%;
+}
+.wk-unified-change h3,
+.wk-unified-change p,
+.wk-release-fixes li {
+  overflow-wrap: anywhere;
+}
+.wk-release-fixes li > span:last-child {
+  min-width: 0;
+}
+@media (max-width: 840px) {
+  .wk-unified-change {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
 }
 .wk-change-label {
   display: flex;
@@ -651,9 +679,27 @@
 .wk-release[data-view='story'] {
   width: min(440px, calc(100vw - 32px));
 }
+/* In short windows the slide scrolls instead of cutting its text. */
 .wk-story-viewport {
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
   padding: 0 16px;
+}
+@media (max-height: 700px) {
+  .wk-story-viewport .wk-update-art {
+    height: 176px;
+  }
+  .wk-story-copy {
+    padding-top: 16px;
+  }
+  .wk-story-copy h2 {
+    min-height: 0;
+  }
+  .wk-story-copy p {
+    min-height: 0;
+  }
 }
 .wk-story-copy {
   padding: 24px 12px 8px;

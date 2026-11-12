@@ -810,7 +810,7 @@
   "chatInput": {
     "attach": "Add image or paste with Ctrl+V",
     "remove": "Remove {{name}}",
-    "limit": "Up to 3 images, 5 MB each and 10 MB total.",
+    "limit": "No image count limit; 5 MB per image and 10 MB total.",
     "type": "Use PNG, JPG, WebP or GIF images.",
     "invalid": "The image is invalid or exceeds the allowed limit.",
     "readFailed": "Could not read the image.",
@@ -824,7 +824,9 @@
       "xhigh": "Very high",
       "max": "Maximum"
     },
-    "access": "Explicit versions or CLI aliases. Access depends on your account."
+    "access": "Explicit versions or CLI aliases. Access depends on your account.",
+    "resize": "Resize chat",
+    "preview": "Enlarge image: {{name}}"
   },
   "releasePatch": {
     "copy0": "Settings",
@@ -854,5 +856,60 @@
     "copy24": "Add or remove your project folders without leaving To do.",
     "copy25": "Six fixes, done.",
     "copy26": "Stability, GitHub and interface. Your projects and preferences stay the same."
+  },
+  "release019": {
+    "chat": {
+      "caption": "Code review",
+      "title": "More room to talk it through.",
+      "text": "Drag the chat edge to make it wider. Your messages sit on the right and answers on the left, without a bubble and properly formatted. The chat only appears in Code review and pull requests.",
+      "question": "Is there a race condition?",
+      "answer": "Yes: two simultaneous deliveries can record the same payment."
+    },
+    "images": {
+      "caption": "Images",
+      "title": "Every screenshot you need.",
+      "text": "Attach as many images as you like and open them full size, before and after sending. Escape closes them."
+    },
+    "todo": {
+      "caption": "To Do",
+      "title": "Cards stay where you put them.",
+      "text": "Moving a card switches its column right away, and a scan that was already running no longer puts it back.",
+      "card": "Check the login",
+      "scanning": "Scanning…"
+    },
+    "numbers": {
+      "caption": "Summary",
+      "title": "Whole numbers, every time.",
+      "text": "Summary counters are no longer cut off when the window opens from the tray, and the chart no longer leaves an empty strip below."
+    },
+    "paths": {
+      "caption": "Cards",
+      "title": "Long paths stay inside their card.",
+      "text": "Long paths and names wrap onto several lines at any window size, without spilling out of the card.",
+      "card": "Type error in the checkout form"
+    },
+    "refresh": {
+      "caption": "Refresh",
+      "title": "Refresh in half the time.",
+      "text": "Wakeline reads several repositories at once. In our tests with 39 repositories, Refresh in Summary went from 6.3 to 3.4 seconds.",
+      "parallel": "8 at once"
+    },
+    "startup": {
+      "caption": "Start with Windows",
+      "title": "Ready when you switch on.",
+      "text": "Wakeline starts with Windows in the tray, turned on by default. If you turn it off in Settings, it stays off.",
+      "toggle": "Start with Windows"
+    },
+    "daily": {
+      "caption": "Daily notice",
+      "title": "Your day in one notification.",
+      "text": "Once a day, Wakeline tells you what is pending in To Do. Only when there is something to do and notifications are on.",
+      "noticeTitle": "Your day in Wakeline",
+      "noticeBody": "You have 2 tasks and 1 error pending in To Do."
+    },
+    "all": {
+      "title": "Eight changes, done.",
+      "text": "Chat, images, To Do, Summary and start with Windows. Your projects and preferences stay the same."
+    }
   }
 }
