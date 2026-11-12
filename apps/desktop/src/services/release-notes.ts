@@ -15,17 +15,37 @@ export type Release = {
 // Every release is required to carry both languages; tests enforce non-empty copy.
 export const RELEASES: Release[] = [
   {
+    // Its scenes, features included, live in obsidian/release-019.tsx.
+    version: '0.1.9',
+    presentation: 'patch',
+    features: [],
+    fixes: {
+      es: [
+        'Las tarjetas de To Do cambian de columna al instante y un escaneo en marcha ya no las devuelve.',
+        'Los números del Resumen ya no salen cortados al abrir la ventana desde la bandeja.',
+        'El gráfico de actividad ya no deja una franja vacía debajo.',
+        'Las rutas largas se ajustan dentro de sus tarjetas a cualquier tamaño de ventana.',
+      ],
+      en: [
+        'To Do cards switch columns right away and a running scan no longer puts them back.',
+        'Summary numbers are no longer cut off when the window opens from the tray.',
+        'The activity chart no longer leaves an empty strip below.',
+        'Long paths wrap inside their cards at any window size.',
+      ],
+    },
+  },
+  {
     version: '0.1.8',
     presentation: 'patch',
     features: [],
     fixes: {
       es: [
-        'Presentaci?n animada de correcciones con seis escenas y cierre, en espa?ol e ingl?s.',
-        'MCP permite crear y mover tarjetas de cualquier proyecto sin leer carpetas ni a?adirlas a vigilancia.',
+        'Presentación animada de correcciones con seis escenas y cierre, en español e inglés.',
+        'MCP permite crear y mover tarjetas de cualquier proyecto sin leer carpetas ni añadirlas a vigilancia.',
         'To do se actualiza al cambiar tarjetas por MCP.',
-        'Los selectores de agente, modelo y esfuerzo se abren junto a su bot?n.',
+        'Los selectores de agente, modelo y esfuerzo se abren junto a su botón.',
         'El selector de editor se cierra al hacer clic fuera.',
-        'Versiones muestra la versi?n instalada y las actualizaciones se comprueban cada hora.',
+        'Versiones muestra la versión instalada y las actualizaciones se comprueban cada hora.',
       ],
       en: [
         'Animated patch presentation with six scenes and a wrap-up, in Spanish and English.',
