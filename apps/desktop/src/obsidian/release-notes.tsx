@@ -26,7 +26,8 @@ import {
 } from 'src/services/release-notes';
 
 import { Github } from './brand-icons';
-import { usePatchSlides, ReleasePatchArt } from './release-patch';
+import { usePatchSlides } from './release-patch';
+import { useRelease019Slides } from './release-019';
 
 function Kind({ kind }: { kind: string }) {
   const { t } = useTranslation();
@@ -157,10 +158,13 @@ function UpdateArt({ id }: { id: (typeof RELEASE_PRESENTATION)[number]['id'] }) 
 export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const release = RELEASES.find((item) => item.version === CONFIG.appVersion);
-  const patchSlides = usePatchSlides();
+  // Each version has its own presentation; the installed version picks it.
+  const slides018 = usePatchSlides();
+  const slides019 = useRelease019Slides();
+  const patchSlides = release?.version === '0.1.9' ? slides019 : slides018;
   const patchPresentation = release?.presentation === 'patch';
   const changes = patchPresentation
-    ? patchSlides.map((slide) => ({ id: slide.scene, kind: 'fix' as const, slide }))
+    ? patchSlides.map((slide) => ({ id: slide.id, kind: slide.kind, slide }))
     : RELEASE_PRESENTATION.map((change) => ({ ...change, slide: null }));
   const copy = (change: (typeof changes)[number], field: 'title' | 'text' | 'label') =>
     change.slide
@@ -227,23 +231,25 @@ export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
             </div>
             <div className="wk-release-scroll">
               {!patchOnly &&
-                changes.map((change, i) => (
-                  <section className="wk-unified-change" data-change={i} key={change.id}>
-                    {change.slide ? (
-                      <ReleasePatchArt scene={change.slide.scene} caption={change.slide.caption} />
-                    ) : (
-                      <UpdateArt id={change.id as (typeof RELEASE_PRESENTATION)[number]['id']} />
-                    )}
-                    <div>
-                      <div className="wk-change-label">
-                        <Kind kind={change.kind} />
-                        <span>{copy(change, 'label')}</span>
+                changes
+                  .filter((change) => !change.slide?.closing)
+                  .map((change, i) => (
+                    <section className="wk-unified-change" data-change={i} key={change.id}>
+                      {change.slide ? (
+                        change.slide.art
+                      ) : (
+                        <UpdateArt id={change.id as (typeof RELEASE_PRESENTATION)[number]['id']} />
+                      )}
+                      <div>
+                        <div className="wk-change-label">
+                          <Kind kind={change.kind} />
+                          <span>{copy(change, 'label')}</span>
+                        </div>
+                        <h3>{copy(change, 'title')}</h3>
+                        <p>{copy(change, 'text')}</p>
                       </div>
-                      <h3>{copy(change, 'title')}</h3>
-                      <p>{copy(change, 'text')}</p>
-                    </div>
-                  </section>
-                ))}
+                    </section>
+                  ))}
               <section className="wk-release-fixes" data-patch={patchOnly}>
                 <h3>
                   <Kind kind="fix" />
@@ -308,10 +314,7 @@ export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
                   }}
                 >
                   {changes[step].slide ? (
-                    <ReleasePatchArt
-                      scene={patchSlides[step].scene}
-                      caption={patchSlides[step].caption}
-                    />
+                    changes[step].slide.art
                   ) : (
                     <UpdateArt
                       id={changes[step].id as (typeof RELEASE_PRESENTATION)[number]['id']}
@@ -322,9 +325,11 @@ export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
                       <Kind kind={changes[step].kind} />
                       <span>
                         {t(
-                          patchPresentation
-                            ? 'releasePresentation.ui.what_we_fixed'
-                            : 'releasePresentation.ui.what_s_new'
+                          !patchPresentation || changes[step].kind === 'feature'
+                            ? 'releasePresentation.ui.what_s_new'
+                            : changes[step].kind === 'fix'
+                              ? 'releasePresentation.ui.what_we_fixed'
+                              : 'releasePresentation.ui.update'
                         )}
                       </span>
                     </div>
