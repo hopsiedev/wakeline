@@ -1,11 +1,13 @@
 export type ImageSize = { type: string; size: number };
+export const MAX_CHAT_IMAGES = 10;
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 export function validateImageSelection(
   existing: ImageSize[],
   incoming: ImageSize[]
-): 'type' | 'limit' | null {
+): 'type' | 'count' | 'limit' | null {
   if (incoming.some((file) => !IMAGE_TYPES.includes(file.type))) return 'type';
   const all = [...existing, ...incoming];
+  if (all.length > MAX_CHAT_IMAGES) return 'count';
   if (
     all.some((f) => f.size > 5 * 1024 * 1024) ||
     all.reduce((sum, f) => sum + f.size, 0) > 10 * 1024 * 1024

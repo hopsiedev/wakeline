@@ -1,5 +1,6 @@
 {
   "nav": {
+    "stoppingWatch": "Stopping watch for {{name}}…",
     "showFiles": "Show files",
     "hideFiles": "Hide files",
     "summary": "Summary",
@@ -808,9 +809,19 @@
     "localOnly": "Opens your local copy; does not switch branches or download the PR."
   },
   "chatInput": {
+    "count": "You can attach up to 10 images.",
+    "gallery": "Image gallery",
+    "previousImage": "Previous image",
+    "nextImage": "Next image",
+    "imagePosition": "{{current}} of {{total}}",
+
+    "stop": "Stop response",
+    "stopped": "Response stopped.",
+    "stopFailed": "Could not stop the response. Try again.",
+
     "attach": "Add image or paste with Ctrl+V",
     "remove": "Remove {{name}}",
-    "limit": "No image count limit; 5 MB per image and 10 MB total.",
+    "limit": "Could not attach the images. Try other images or attach fewer.",
     "type": "Use PNG, JPG, WebP or GIF images.",
     "invalid": "The image is invalid or exceeds the allowed limit.",
     "readFailed": "Could not read the image.",
@@ -910,6 +921,47 @@
     "all": {
       "title": "Eight changes, done.",
       "text": "Chat, images, To Do, Summary and start with Windows. Your projects and preferences stay the same."
+    }
+  },
+  "release0110": {
+    "stop": {
+      "caption": "Chat",
+      "title": "Stop the answer whenever you like.",
+      "text": "While the agent is answering, the send button becomes Stop. One click cancels the answer and you can ask again right away."
+    },
+    "gallery": {
+      "caption": "Images",
+      "title": "Up to 10 images, one after another.",
+      "text": "Attach up to 10 images per message. Open one and move to the previous or next with the buttons or the arrow keys, before and after sending."
+    },
+    "drop": {
+      "caption": "Drag and drop",
+      "title": "Drop the screenshot on the chat.",
+      "text": "Drag images from File Explorer onto the chat to attach them. They are checked the same way as the ones you pick or paste."
+    },
+    "draft": {
+      "caption": "Draft",
+      "title": "Many images, text box in view.",
+      "text": "With many images attached, the thumbnails scroll on their own and the text box no longer disappears or loses its scrolling."
+    },
+    "layout": {
+      "caption": "Code review",
+      "title": "Code review makes room for the chat.",
+      "text": "When you widen the chat, the pull request list and its filters rearrange into the space left, with nothing cut off or overlapping."
+    },
+    "unwatch": {
+      "caption": "Folders",
+      "title": "Stop watching, no guessing.",
+      "text": "When you stop watching a folder, “Stopping watch…” shows from the first click, repeated clicks do nothing and the folder leaves the list without waiting for a full scan."
+    },
+    "summary": {
+      "caption": "Summary",
+      "title": "A more compact Summary.",
+      "text": "Activity and contributors take less room and keep their height. Each person’s repository list unfolds only when you need it."
+    },
+    "all": {
+      "title": "Seven changes, done.",
+      "text": "Chat, images, Code review, folders and Summary. Your projects and preferences stay the same."
     }
   }
 }

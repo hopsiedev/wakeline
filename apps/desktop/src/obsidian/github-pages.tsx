@@ -580,7 +580,16 @@ export function SummaryPage() {
                     />
                   </div>
                   <div className="leader-meta">
-                    <span className="leader-repositories">{p.repositories.join(' · ')}</span>
+                    <details className="leader-repository-list">
+                      <summary className="leader-repositories" title={p.repositories.join(' / ')}>
+                        {p.repositories.join(' / ')}
+                      </summary>
+                      <ul>
+                        {p.repositories.map((repository) => (
+                          <li key={repository}>{repository}</li>
+                        ))}
+                      </ul>
+                    </details>
                     <span className="leader-pct">
                       <Digits value={Math.round((p.total / total) * 100)} delay={700 + i * 80} />%{' '}
                       {t('githubDashboard.ofCommits')}
