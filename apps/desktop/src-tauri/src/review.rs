@@ -16,6 +16,7 @@ pub fn query(command: &str, input: Value) -> Result<Value, String> {
                 &history,
                 input["lang"].as_str().unwrap_or("en"),
                 input["repository"].as_str(),
+                &std::sync::atomic::AtomicBool::new(false),
             )
             .map(Value::String)
         }
@@ -55,6 +56,7 @@ pub fn query(command: &str, input: Value) -> Result<Value, String> {
                 input["question"].as_str().unwrap_or_default(),
                 &history,
                 input["lang"].as_str().unwrap_or("en"),
+                &std::sync::atomic::AtomicBool::new(false),
             )
             .map(Value::String)
         }

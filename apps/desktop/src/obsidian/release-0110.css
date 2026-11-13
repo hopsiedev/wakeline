@@ -1,0 +1,859 @@
+/* Wakeline 0.1.10 presentation: one scene per change. Every loop ends where it starts.
+   Without animation each scene rests on the change already done. */
+.wk-r110 {
+  --r110-loop: 6s;
+}
+.wk-r110 > :not(.wk-art-caption) {
+  margin-bottom: 14px;
+}
+.wk-r110-send {
+  flex: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+}
+.wk-r110-send > svg {
+  grid-area: 1 / 1;
+}
+
+/* Stop: while the agent answers, send becomes stop; pressing it ends the reply. */
+.wk-r110-stop {
+  display: grid;
+  gap: 14px;
+  width: min(240px, 100%);
+  font-size: 10px;
+}
+.wk-r110-reply {
+  display: grid;
+  align-items: center;
+  min-height: 34px;
+}
+.wk-r110-reply > * {
+  grid-area: 1 / 1;
+  justify-self: start;
+}
+.wk-r110-dots {
+  display: flex;
+  gap: 5px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--fill-1);
+  border: 1px solid var(--line);
+  opacity: 0;
+  animation: wk-r110-thinking var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-dots > i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-3);
+  animation: wk-r110-dot 1.2s ease-in-out infinite;
+}
+.wk-r110-dots > i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.wk-r110-dots > i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.wk-r110-stopped {
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+  animation: wk-r110-stopped var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-composer,
+.wk-r110-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--fill-1);
+}
+.wk-r110-composer > i,
+.wk-r110-input > i {
+  flex: 0 1 46%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--fill-3);
+}
+.wk-r110-composer > i {
+  margin-right: auto;
+}
+.wk-r110-composer .wk-r110-send {
+  animation: wk-r110-press var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-composer .wk-r110-send > svg:first-child {
+  fill: currentColor;
+  opacity: 0;
+  animation: wk-r110-square var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-composer .wk-r110-send > svg:last-child {
+  animation: wk-r110-arrow var(--r110-loop) ease-in-out infinite;
+}
+@keyframes wk-r110-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes wk-r110-thinking {
+  0%,
+  5% {
+    opacity: 0;
+  }
+  12%,
+  47% {
+    opacity: 1;
+  }
+  53%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes wk-r110-stopped {
+  0%,
+  51% {
+    opacity: 0;
+  }
+  58%,
+  88% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes wk-r110-square {
+  0%,
+  5% {
+    opacity: 0;
+  }
+  12%,
+  48% {
+    opacity: 1;
+  }
+  54%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes wk-r110-arrow {
+  0%,
+  5% {
+    opacity: 1;
+  }
+  12%,
+  48% {
+    opacity: 0;
+  }
+  54%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes wk-r110-press {
+  0%,
+  42%,
+  52%,
+  100% {
+    transform: scale(1);
+  }
+  47% {
+    transform: scale(0.82);
+  }
+}
+
+/* Gallery: the arrows move between up to ten images; the marker follows. */
+.wk-r110-gallery {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(230px, 100%);
+}
+.wk-r110-viewer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #000 45%, var(--fill-1));
+  color: var(--text-3);
+}
+.wk-r110-viewer > svg {
+  flex: none;
+}
+.wk-r110-viewer > svg:first-child {
+  animation: wk-r110-back var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-viewer > svg:last-child {
+  animation: wk-r110-forward var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-viewer > div {
+  flex: 1;
+  display: grid;
+  height: 84px;
+}
+.wk-r110-viewer > div > span {
+  grid-area: 1 / 1;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: linear-gradient(
+    calc(130deg + var(--shot) * 55deg),
+    color-mix(in srgb, var(--accent) calc(26% + var(--shot) * 14%), var(--fill-2)),
+    var(--fill-1)
+  );
+  opacity: 0;
+}
+.wk-r110-viewer > div > span:nth-child(1) {
+  opacity: 1;
+  animation: wk-r110-shot-a var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-viewer > div > span:nth-child(2) {
+  animation: wk-r110-shot-b var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-viewer > div > span:nth-child(3) {
+  animation: wk-r110-shot-c var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-pips {
+  position: relative;
+  display: flex;
+  gap: 5px;
+}
+.wk-r110-pips > i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fill-3);
+}
+.wk-r110-pips > b {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: wk-r110-pip var(--r110-loop) ease-in-out infinite;
+}
+@keyframes wk-r110-pip {
+  0%,
+  15%,
+  95%,
+  100% {
+    transform: translateX(0);
+  }
+  22%,
+  40%,
+  72%,
+  88% {
+    transform: translateX(13px);
+  }
+  47%,
+  65% {
+    transform: translateX(26px);
+  }
+}
+@keyframes wk-r110-shot-a {
+  0%,
+  15%,
+  95%,
+  100% {
+    opacity: 1;
+  }
+  22%,
+  88% {
+    opacity: 0;
+  }
+}
+@keyframes wk-r110-shot-b {
+  0%,
+  15%,
+  47%,
+  65%,
+  95%,
+  100% {
+    opacity: 0;
+  }
+  22%,
+  40%,
+  72%,
+  88% {
+    opacity: 1;
+  }
+}
+@keyframes wk-r110-shot-c {
+  0%,
+  40%,
+  72%,
+  100% {
+    opacity: 0;
+  }
+  47%,
+  65% {
+    opacity: 1;
+  }
+}
+@keyframes wk-r110-forward {
+  0%,
+  13%,
+  24%,
+  38%,
+  49%,
+  100% {
+    color: var(--text-3);
+  }
+  18%,
+  43% {
+    color: var(--accent);
+  }
+}
+@keyframes wk-r110-back {
+  0%,
+  63%,
+  74%,
+  86%,
+  97%,
+  100% {
+    color: var(--text-3);
+  }
+  68%,
+  91% {
+    color: var(--accent);
+  }
+}
+
+/* Drop: a file is dragged onto the chat and lands as one more thumbnail. */
+.wk-r110-drop {
+  position: relative;
+  width: min(230px, 100%);
+  height: 120px;
+}
+.wk-r110-file {
+  position: absolute;
+  top: 0;
+  left: 20px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--fill-2);
+  color: var(--accent);
+  opacity: 0;
+  animation: wk-r110-drag var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-zone {
+  position: absolute;
+  inset: auto 0 0;
+  box-sizing: border-box;
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: var(--fill-1);
+  animation: wk-r110-over var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-zone > div {
+  display: flex;
+  gap: 8px;
+}
+.wk-r110-zone > div > span {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--accent) 22%, var(--fill-2)),
+    var(--fill-1)
+  );
+}
+.wk-r110-zone > div > .wk-r110-dropped {
+  background: linear-gradient(
+    210deg,
+    color-mix(in srgb, var(--accent) 48%, var(--fill-2)),
+    var(--fill-1)
+  );
+  animation: wk-r110-landed var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-zone > i {
+  width: 52%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--fill-3);
+}
+@keyframes wk-r110-drag {
+  0%,
+  6% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  14%,
+  20% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  42% {
+    opacity: 1;
+    transform: translate(34px, 48px);
+  }
+  50%,
+  100% {
+    opacity: 0;
+    transform: translate(34px, 48px);
+  }
+}
+@keyframes wk-r110-over {
+  0%,
+  26%,
+  54%,
+  100% {
+    border-color: var(--line);
+  }
+  34%,
+  46% {
+    border-color: var(--accent);
+  }
+}
+@keyframes wk-r110-landed {
+  0%,
+  44% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  52%,
+  88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* Draft: many thumbnails scroll in their own strip; the text box stays in view. */
+.wk-r110-draft {
+  display: grid;
+  gap: 7px;
+  width: min(190px, 100%);
+  box-sizing: border-box;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--fill-1);
+}
+.wk-r110-scroller {
+  position: relative;
+  height: 57px;
+  overflow: hidden;
+  padding-right: 9px;
+}
+.wk-r110-scroller > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  animation: wk-r110-scroll var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-scroller > div > span {
+  height: 26px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: linear-gradient(
+    calc(120deg + var(--shot) * 40deg),
+    color-mix(in srgb, var(--accent) calc(18% + var(--shot) * 11%), var(--fill-2)),
+    var(--fill-1)
+  );
+}
+.wk-r110-scroller > i {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--line);
+}
+.wk-r110-scroller > i > b {
+  display: block;
+  height: 64%;
+  border-radius: 3px;
+  background: var(--accent);
+  animation: wk-r110-bar var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-draft .wk-r110-input {
+  padding: 5px 5px 5px 9px;
+  gap: 3px;
+  background: var(--fill-2);
+}
+.wk-r110-input > b {
+  width: 1px;
+  height: 12px;
+  margin-right: auto;
+  background: var(--accent);
+  animation: wk-r110-caret 1s steps(1) infinite;
+}
+@keyframes wk-r110-scroll {
+  0%,
+  15%,
+  100% {
+    transform: translateY(0);
+  }
+  45%,
+  70% {
+    transform: translateY(-31px);
+  }
+}
+@keyframes wk-r110-bar {
+  0%,
+  15%,
+  100% {
+    transform: translateY(0);
+  }
+  45%,
+  70% {
+    transform: translateY(56%);
+  }
+}
+@keyframes wk-r110-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Layout: as the chat widens, the review list reflows into the space left. */
+.wk-r110-layout {
+  display: flex;
+  width: min(280px, 100%);
+  height: 116px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--fill-1);
+}
+.wk-r110-list {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
+  padding: 10px;
+}
+.wk-r110-list > div {
+  flex: 1 1 62px;
+  min-width: 0;
+  height: 26px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--fill-2);
+  color: var(--accent);
+}
+.wk-r110-list > div > svg {
+  flex: none;
+}
+.wk-r110-list > div > i {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--fill-3);
+}
+.wk-r110-panel {
+  position: relative;
+  flex: none;
+  width: 62%;
+  box-sizing: border-box;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 14px 10px 12px 14px;
+  border-left: 1px solid var(--line);
+  background: var(--fill-2);
+  animation: wk-r110-widen var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-panel > i {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--fill-3);
+}
+.wk-r110-panel > i:nth-of-type(1) {
+  width: 55%;
+  justify-self: end;
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.wk-r110-panel > i:nth-of-type(2) {
+  width: 80%;
+}
+.wk-r110-panel > i:nth-of-type(3) {
+  width: 60%;
+}
+.wk-r110-grip {
+  position: absolute;
+  left: -7px;
+  top: 50%;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--fill-1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+@keyframes wk-r110-widen {
+  0%,
+  15%,
+  100% {
+    width: 34%;
+  }
+  45%,
+  78% {
+    width: 62%;
+  }
+}
+
+/* Unwatch: the folder shows it is being removed from the first click. */
+.wk-r110-unwatch {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+  width: min(250px, 100%);
+  font-size: 10px;
+}
+.wk-r110-folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wk-r110-folders > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--fill-1);
+  color: var(--text-2);
+}
+.wk-r110-folders > span > svg:first-child {
+  color: var(--accent);
+}
+.wk-r110-folders > span:first-child {
+  opacity: 0.45;
+  animation: wk-r110-leaving var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--fill-2);
+  color: var(--text-2);
+  animation: wk-r110-status var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-status > svg {
+  flex: none;
+  color: var(--accent);
+  animation: wk-patch-spin 1.2s linear infinite;
+}
+.wk-r110-status > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@keyframes wk-r110-leaving {
+  0%,
+  15%,
+  100% {
+    opacity: 1;
+  }
+  21%,
+  58% {
+    opacity: 0.45;
+  }
+  66%,
+  90% {
+    opacity: 0;
+  }
+}
+@keyframes wk-r110-status {
+  0%,
+  16% {
+    opacity: 0;
+  }
+  22%,
+  58% {
+    opacity: 1;
+  }
+  65%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Summary: a compact card whose repository list unfolds on demand. */
+.wk-r110-summary {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  width: min(220px, 100%);
+  height: 124px;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--fill-1);
+  font-size: 10px;
+}
+.wk-r110-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wk-r110-person > b {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 45%, var(--fill-2));
+}
+.wk-r110-person > i {
+  flex: 0 1 44%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--fill-3);
+}
+.wk-r110-person > strong {
+  margin-left: auto;
+  color: var(--accent);
+}
+.wk-r110-repos {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--text-2);
+}
+.wk-r110-repos > svg {
+  flex: none;
+  rotate: 90deg;
+  animation: wk-r110-chevron var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-repos > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wk-r110-summary > ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 0 0 16px;
+  list-style: none;
+  color: var(--text-3);
+  overflow: hidden;
+  max-height: 54px;
+  animation: wk-r110-unfold var(--r110-loop) ease-in-out infinite;
+}
+.wk-r110-summary > ul > li {
+  line-height: 14px;
+  overflow-wrap: anywhere;
+}
+@keyframes wk-r110-chevron {
+  0%,
+  15%,
+  95%,
+  100% {
+    rotate: 0deg;
+  }
+  30%,
+  80% {
+    rotate: 90deg;
+  }
+}
+@keyframes wk-r110-unfold {
+  0%,
+  15%,
+  95%,
+  100% {
+    max-height: 0;
+    opacity: 0;
+  }
+  35%,
+  80% {
+    max-height: 54px;
+    opacity: 1;
+  }
+}
+
+/* Closing: the seven changes light up in turn above the count. */
+.wk-r110-all {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+.wk-r110-all > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: 176px;
+  max-width: 100%;
+}
+.wk-r110-all > div > span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background: var(--fill-1);
+  color: var(--accent);
+  animation: wk-r110-light var(--r110-loop) ease-in-out infinite;
+  animation-delay: calc(var(--item) * 0.25s);
+}
+.wk-r110-all > strong {
+  font-size: 28px;
+  line-height: 1;
+  color: var(--accent);
+}
+@keyframes wk-r110-light {
+  0%,
+  10%,
+  70%,
+  100% {
+    color: var(--text-3);
+    border-color: var(--line);
+  }
+  20%,
+  60% {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+}

@@ -145,3 +145,177 @@
     display: none;
   }
 }
+
+/* Attachment count must not displace the input or collapse the history. */
+.obsidian-analytics-dashboard .wk-pr-chat > .composer,
+.obsidian-analytics-dashboard .wk-pr-chat-head,
+.obsidian-analytics-dashboard .wk-chat-sessions {
+  flex-shrink: 0;
+}
+.obsidian-analytics-dashboard .wk-pr-chat .composer > .wk-chat-images {
+  max-height: min(128px, 18dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  scrollbar-width: thin;
+}
+.obsidian-analytics-dashboard .wk-pr-chat-scroll {
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+}
+@container workspace-area (max-width: 900px) {
+  .obsidian-analytics-dashboard .review-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  .obsidian-analytics-dashboard .review-row > .status-dot {
+    display: none;
+  }
+  .obsidian-analytics-dashboard .review-main {
+    grid-column: 1 / -1;
+  }
+  .obsidian-analytics-dashboard .review-main .pr-title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .obsidian-analytics-dashboard .review-meta {
+    overflow-wrap: anywhere;
+  }
+  .obsidian-analytics-dashboard .review-author {
+    min-width: 0;
+  }
+  .obsidian-analytics-dashboard .review-row .diffstat {
+    display: none;
+  }
+  .obsidian-analytics-dashboard .wk-workspace-body .seg-wide {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 100%;
+  }
+  .obsidian-analytics-dashboard .wk-workspace-body .seg-wide .seg-btn {
+    flex: 1 0 auto;
+    white-space: nowrap;
+    min-height: 32px;
+    padding: 4px 8px;
+  }
+}
+
+@container workspace-area (max-width: 900px) {
+  .obsidian-analytics-dashboard .seg-wide .seg-thumb {
+    display: none;
+  }
+  .obsidian-analytics-dashboard .seg-wide .seg-btn[aria-checked='true'] {
+    background: rgb(var(--ad-ink) / 0.1);
+    border-radius: 7px;
+  }
+}
+.obsidian-analytics-dashboard .wk-removing-folders {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  flex-shrink: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--line);
+}
+.wk-removal-spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 2px solid #777;
+  border-top-color: #2fd0b5;
+  border-radius: 50%;
+  animation: wk-removal-spin 1s linear infinite;
+}
+@keyframes wk-removal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wk-removal-spinner {
+    animation: none;
+  }
+}
+.obsidian-analytics-dashboard .overview-grid {
+  align-items: start;
+}
+.obsidian-analytics-dashboard .overview-grid > .card {
+  height: 340px;
+  min-width: 0;
+  min-height: 0;
+}
+.obsidian-analytics-dashboard .overview-grid .chart {
+  min-height: 0;
+}
+.obsidian-analytics-dashboard .overview-grid .card-head {
+  flex-shrink: 0;
+}
+.obsidian-analytics-dashboard .overview-grid .legend {
+  max-height: 48px;
+  overflow-y: auto;
+}
+.obsidian-analytics-dashboard .overview-grid .leaders {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.obsidian-analytics-dashboard .leader-line {
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+.obsidian-analytics-dashboard .leader-name {
+  overflow-wrap: anywhere;
+}
+.obsidian-analytics-dashboard .leader-repository-list {
+  min-width: 0;
+  max-width: 100%;
+}
+.obsidian-analytics-dashboard .leader-repositories {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.obsidian-analytics-dashboard .leader-repository-list ul {
+  margin: 6px 0;
+  padding-left: 16px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.wk-image-navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin-left: auto;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.wk-image-viewer header > span {
+  flex: 1;
+}
+.wk-image-viewer header > button {
+  flex: none;
+}
+@media (max-width: 600px) {
+  .wk-image-viewer header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .wk-image-viewer header > span {
+    flex-basis: calc(100% - 50px);
+  }
+  .wk-image-navigation {
+    margin-left: 0;
+    order: 2;
+  }
+  .wk-image-viewer > img {
+    max-height: calc(100dvh - 160px);
+  }
+}
