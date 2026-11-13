@@ -54,6 +54,7 @@ import {
 } from 'src/services/wakeline';
 
 import { EvidenceMarkdown } from 'src/components/evidence-markdown';
+import { useRemovingFolders } from 'src/components/folder-removal-status';
 
 import { toggleCardSelection, selectedStatusInputs } from 'src/sections/cards/card-selection';
 
@@ -459,6 +460,7 @@ export function SummaryPage() {
 }
 
 export function TodoPage() {
+  const removingFolders = useRemovingFolders();
   const { t } = useTranslation();
   const { data, reload, busy } = useWorkspace();
   const { id } = useParams();
@@ -574,6 +576,8 @@ export function TodoPage() {
                 <button
                   type="button"
                   aria-label={`${t('nav.stopWatching')}: ${folder.name}`}
+                  disabled={removingFolders.includes(folder.path)}
+                  aria-busy={removingFolders.includes(folder.path)}
                   onClick={() => run(() => removeWatchFolder(folder.path))}
                 >
                   <X size={12} />

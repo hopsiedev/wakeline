@@ -1,27 +1,25 @@
-# Wakeline 0.1.9 — Review chat, daily notice and start with Windows
+# Wakeline 0.1.10 — Stop the answer, image gallery and drag and drop
 
-- Code review chat: drag its edge to make it wider. Your messages sit on the right and answers on the left, without a bubble and properly formatted. The chat only appears in Code review and pull requests.
-- Attach as many images as you like to the chat and open them full size, before and after sending. Escape closes them.
-- Wakeline starts with Windows in the tray, turned on by default. If you turn it off in Settings, it stays off.
-- Once a day, a Windows notification tells you what is pending in To Do, only when there is something to do and notifications are on.
-- Refresh in Summary reads several repositories at once: with 39 repositories it went from 6.3 to 3.4 seconds in our tests.
-- To Do cards switch columns right away and a running scan no longer puts them back.
-- Summary numbers are no longer cut off when the window opens from the tray, and the activity chart no longer leaves an empty strip below.
-- Long paths wrap inside their cards at any window size.
+- Stop the answer: while the agent is answering in the review chat, the send button becomes Stop. One click cancels it and you can ask again right away.
+- Attach up to 10 images per message and move between them full size with the buttons or the arrow keys, before and after sending.
+- Drag images from File Explorer onto the chat to attach them.
+- Summary is more compact: activity and contributors keep a stable height, and each person's repository list unfolds on demand.
+- With many images attached, the thumbnails scroll on their own and the text box stays in view.
+- Code review rearranges when the chat is widened, with nothing cut off.
+- Stopping a folder watch shows "Stopping watch…" from the first click, ignores repeated clicks and updates the list without waiting for a full scan.
 - Patch notes for this version open as their own animated presentation, one scene per change. Existing projects, cards and preferences are preserved.
 
 Windows installed builds use the signed updater. Portable ZIP and Linux packages update manually.
 
-# Wakeline 0.1.9 — Chat de revisión, aviso del día e inicio con Windows
+# Wakeline 0.1.10 — Detener la respuesta, galería de imágenes y arrastrar y soltar
 
-- Chat de Revisión de código: arrastra su borde para ampliarlo. Tus mensajes van a la derecha y las respuestas a la izquierda, sin globo y bien formateadas. El chat solo aparece en Revisión de código y en las PR.
-- Adjunta tantas imágenes como quieras al chat y ábrelas en grande, antes y después de enviarlas. Escape las cierra.
-- Wakeline arranca con Windows en la bandeja, activado por defecto. Si lo apagas en Configuración, se queda apagado.
-- Una vez al día, una notificación de Windows te dice lo que tienes pendiente en To Do, solo si hay algo que hacer y con las notificaciones activadas.
-- Actualizar en Resumen lee varios repositorios a la vez: con 39 repositorios pasó de 6,3 a 3,4 segundos en nuestras pruebas.
-- Las tarjetas de To Do cambian de columna al instante y un escaneo en marcha ya no las devuelve.
-- Los números del Resumen ya no salen cortados al abrir la ventana desde la bandeja, y el gráfico de actividad ya no deja una franja vacía debajo.
-- Las rutas largas se ajustan dentro de sus tarjetas a cualquier tamaño de ventana.
+- Detén la respuesta: mientras el agente responde en el chat de revisión, el botón de enviar pasa a ser Detener. Un clic la cancela y puedes volver a preguntar al momento.
+- Adjunta hasta 10 imágenes por mensaje y recórrelas en grande con los botones o las flechas del teclado, antes y después de enviarlas.
+- Arrastra imágenes desde el Explorador hasta el chat para adjuntarlas.
+- El Resumen es más compacto: actividad y colaboradores mantienen una altura estable y la lista de repositorios de cada persona se despliega cuando la necesitas.
+- Con muchas imágenes adjuntas, las miniaturas tienen su propio scroll y la caja de texto sigue a la vista.
+- Revisión de código se reorganiza al ampliar el chat, sin cortarse.
+- Dejar de vigilar una carpeta muestra «Dejando de vigilar…» desde el primer clic, ignora los clics repetidos y actualiza la lista sin esperar un escaneo completo.
 - Las notas de esta versión abren su propia presentación animada, una escena por cambio. Se conservan proyectos, tarjetas y preferencias.
 
 Windows instalado usa el actualizador firmado. ZIP portable y Linux se actualizan manualmente.

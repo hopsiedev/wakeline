@@ -1,3 +1,11 @@
+pub(crate) use crate::review_requests::ReviewRequest;
+use std::sync::atomic::AtomicBool;
+
+#[tauri::command]
+pub fn cancel_review_agent(request_id: String) {
+    crate::review_requests::cancel_review_agent(request_id);
+}
+
 use serde_json::{Value, json};
 use wakeline_core::{agents, github, store::LocalState};
 
@@ -23,6 +31,7 @@ pub fn answer_workspace(
     history: &[agents::ChatTurn],
     lang: &str,
     repository: Option<&str>,
+    cancel: &AtomicBool,
 ) -> Result<String, String> {
     if question.trim().is_empty() || question.len() > 8_000 {
         return Err("INVALID_QUESTION".into());
@@ -43,21 +52,30 @@ pub fn answer_workspace(
         .collect::<Vec<_>>();
     let prompt =
         agents::workspace_chat_prompt(&json!(prs), history, question, lang.starts_with("es"));
-    agents::ask_review(options, &prompt, &std::sync::atomic::AtomicBool::new(false))
+    agents::ask_review(options, &prompt, cancel)
 }
 fn github_workspace_valid(repo: &str) -> bool {
     wakeline_core::github_workspace::valid_repository(repo)
 }
 #[tauri::command]
 pub async fn ask_review_agent(
+    request_id: String,
     options: agents::ReviewOptions,
     question: String,
     history: Vec<agents::ChatTurn>,
     lang: String,
     repository: Option<String>,
 ) -> Result<String, String> {
+    let request = ReviewRequest::start(request_id)?;
     tauri::async_runtime::spawn_blocking(move || {
-        answer_workspace(&options, &question, &history, &lang, repository.as_deref())
+        answer_workspace(
+            &options,
+            &question,
+            &history,
+            &lang,
+            repository.as_deref(),
+            &request.cancel,
+        )
     })
     .await
     .map_err(|e| e.to_string())?

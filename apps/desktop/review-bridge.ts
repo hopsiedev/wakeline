@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
 import path from 'node:path';
 import { existsSync, mkdirSync, copyFileSync } from 'node:fs';
-import { execFile } from 'node:child_process';
+import { execFile, type ChildProcess } from 'node:child_process';
 
 // Development only. No arbitrary command dispatch, cross-origin reads or writes
 // to the installed profile. gh keeps using the user's existing configuration.
@@ -15,6 +15,7 @@ export function reviewBridge(): Plugin {
     'debug',
     process.platform === 'win32' ? 'wakeline-review.exe' : 'wakeline-review'
   );
+  const activeReviews = new Map<string, ChildProcess>();
   const allowed = new Set([
     'get_account',
     'get_intelligence',
@@ -24,6 +25,7 @@ export function reviewBridge(): Plugin {
     'ask_pr_agent',
     'get_review_agents',
     'ask_review_agent',
+    'cancel_review_agent',
     'get_mcp_executable',
     'history_import_status',
     'check_update',
@@ -77,6 +79,19 @@ export function reviewBridge(): Plugin {
             finish(403, { error: 'DESKTOP_ACTION_REQUIRED' });
             return;
           }
+          const args = input.args as { requestId?: string } | undefined;
+          const requestId = args?.requestId;
+          if (input.command === 'cancel_review_agent') {
+            const child = requestId && activeReviews.get(requestId);
+            child && child.kill();
+            finish(200, null);
+            return;
+          }
+          const isReview = input.command === 'ask_review_agent' || input.command === 'ask_pr_agent';
+          if (isReview && (!requestId || activeReviews.has(requestId))) {
+            finish(400, { error: 'INVALID_REQUEST_ID' });
+            return;
+          }
           const ghConfig =
             process.env.GH_CONFIG_DIR ||
             (process.env.XDG_CONFIG_HOME
@@ -105,6 +120,7 @@ export function reviewBridge(): Plugin {
               },
             },
             (error, stdout) => {
+              if (isReview && requestId) activeReviews.delete(requestId);
               if (error) {
                 finish(503, { error: error.killed ? 'REVIEW_TIMEOUT' : 'REVIEW_BACKEND_FAILED' });
                 return;
@@ -117,6 +133,7 @@ export function reviewBridge(): Plugin {
               }
             }
           );
+          if (isReview && requestId) activeReviews.set(requestId, child);
           child.stdin?.on('error', () => {});
           child.stdin?.end(JSON.stringify(input.args ?? {}));
         });

@@ -7,6 +7,7 @@ import i18n from 'src/locales/i18n';
 import { CONFIG } from 'src/config-global';
 
 import { publishUpdate } from './update-status';
+import { folderRemovals } from './folder-removal';
 import { preferredEditor } from './editor-preference';
 import { CardStatusJournal, type StatusChange } from './card-status-journal';
 
@@ -204,6 +205,10 @@ export function isTauri(): boolean {
 let cachedDashboard: DashboardPayload | null = null;
 let dashboardRequest: Promise<DashboardPayload> | null = null;
 let importingFolder: string | null = null;
+const removedFolders = new Set<string>();
+export function visibleWatchedProjects(projects: UiProjectSummary[]) {
+  return projects.filter((project) => !removedFolders.has(project.path));
+}
 
 function setImportingFolder(folder: string | null): void {
   importingFolder = folder;
@@ -261,6 +266,7 @@ export async function chooseWatchFolder(): Promise<void> {
   if (!isTauri()) throw new Error(i18n.t('errors.desktopFolderPicker'));
   const selected = await invoke<string | null>('choose_watch_folder');
   if (selected) {
+    removedFolders.delete(selected);
     const folderName = selected.split(/[\\/]/).filter(Boolean).pop() ?? selected;
     setImportingFolder(folderName);
     try {
@@ -273,11 +279,21 @@ export async function chooseWatchFolder(): Promise<void> {
   }
 }
 
-export async function removeWatchFolder(path: string): Promise<void> {
-  if (!isTauri()) return;
-  await invoke('remove_watch_folder', { path });
-  invalidateDashboardCache();
-  window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+export function removeWatchFolder(path: string): Promise<void> {
+  if (!isTauri() && !import.meta.env.DEV) return Promise.resolve();
+  return folderRemovals.run(path, async () => {
+    await invoke('remove_watch_folder', { path });
+    removedFolders.add(path);
+    if (cachedDashboard) {
+      cachedDashboard = {
+        ...cachedDashboard,
+        projects: visibleWatchedProjects(cachedDashboard.projects),
+      };
+    }
+    window.dispatchEvent(new CustomEvent('wakeline:folder-removed', { detail: path }));
+    invalidateDashboardCache();
+    window.dispatchEvent(new CustomEvent('wakeline:rescan'));
+  });
 }
 
 // El backend avisa cuando cambian archivos de las carpetas vigiladas o las sesiones.
@@ -335,7 +351,11 @@ export function fetchDashboardData(options?: { force?: boolean }): Promise<Dashb
     const startedAt = cardStatusJournal.revision;
     const request = loadDashboardData().then(
       (payload) => {
-        payload = { ...payload, cards: cardStatusJournal.apply(payload.cards, startedAt) };
+        payload = {
+          ...payload,
+          projects: visibleWatchedProjects(payload.projects),
+          cards: cardStatusJournal.apply(payload.cards, startedAt),
+        };
         if (dashboardRequest === request) {
           cachedDashboard = payload;
           dashboardRequest = null;

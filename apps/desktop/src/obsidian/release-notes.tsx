@@ -28,6 +28,7 @@ import {
 import { Github } from './brand-icons';
 import { usePatchSlides } from './release-patch';
 import { useRelease019Slides } from './release-019';
+import { useRelease0110Slides } from './release-0110';
 
 function Kind({ kind }: { kind: string }) {
   const { t } = useTranslation();
@@ -161,7 +162,13 @@ export function WakelineReleaseDialog({ onClose }: { onClose: () => void }) {
   // Each version has its own presentation; the installed version picks it.
   const slides018 = usePatchSlides();
   const slides019 = useRelease019Slides();
-  const patchSlides = release?.version === '0.1.9' ? slides019 : slides018;
+  const slides0110 = useRelease0110Slides();
+  const patchSlides =
+    release?.version === '0.1.10'
+      ? slides0110
+      : release?.version === '0.1.9'
+        ? slides019
+        : slides018;
   const patchPresentation = release?.presentation === 'patch';
   const changes = patchPresentation
     ? patchSlides.map((slide) => ({ id: slide.id, kind: slide.kind, slide }))

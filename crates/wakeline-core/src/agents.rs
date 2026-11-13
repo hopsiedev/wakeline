@@ -520,8 +520,8 @@ mod review_input_tests {
         );
     }
     #[test]
-    fn more_than_three_images_are_embedded_without_a_count_limit() {
-        let images: Vec<_> = (0..12)
+    fn ten_images_are_embedded_and_an_eleventh_is_rejected() {
+        let mut images: Vec<_> = (0..10)
             .map(|_| super::ChatImage {
                 media_type: "image/png".into(),
                 data: "iVBORw0KGgo=".into(),
@@ -529,7 +529,12 @@ mod review_input_tests {
             .collect();
         let input = super::review_input("question", &images).unwrap();
         let json: serde_json::Value = serde_json::from_str(input.trim()).unwrap();
-        assert_eq!(json["message"]["content"].as_array().unwrap().len(), 13);
+        assert_eq!(json["message"]["content"].as_array().unwrap().len(), 11);
+        images.push(images[0].clone());
+        assert_eq!(
+            super::review_input("question", &images),
+            Err("IMAGE_COUNT_LIMIT".into())
+        );
     }
     #[test]
     fn streamed_result_preserves_errors_instead_of_an_empty_success() {
@@ -586,6 +591,9 @@ pub fn review_arguments(options: &ReviewOptions) -> Result<Vec<String>, String> 
 }
 pub fn review_input(prompt: &str, images: &[ChatImage]) -> Result<String, String> {
     use base64::Engine;
+    if images.len() > 10 {
+        return Err("IMAGE_COUNT_LIMIT".into());
+    }
     let mut total = 0;
     let mut content = vec![serde_json::json!({"type":"text","text":prompt})];
     for image in images {

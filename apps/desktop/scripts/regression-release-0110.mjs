@@ -17,14 +17,14 @@ try {
     await page.route('**/__wakeline/read', route => route.fulfill({ json: response(route.request().postDataJSON().command) }));
     await page.goto('http://127.0.0.1:3039/');
     await page.evaluate(() => window.dispatchEvent(new Event('wakeline:release-history')));
-    await expect(page.locator('.wk-story-dots button')).toHaveCount(9);
+    await expect(page.locator('.wk-story-dots button')).toHaveCount(8);
     const titles = language === 'es'
-      ? ["Más espacio para conversar.","Todas las capturas que necesites.","La tarjeta se queda donde la dejas.","Números completos, siempre.","Rutas largas, dentro de su tarjeta.","Actualizar, en la mitad de tiempo.","Listo desde que enciendes.","Tu día, en una notificación.","Ocho cambios, listos."]
-      : ["More room to talk it through.","Every screenshot you need.","Cards stay where you put them.","Whole numbers, every time.","Long paths stay inside their card.","Refresh in half the time.","Ready when you switch on.","Your day in one notification.","Eight changes, done."];
+      ? ["Detén la respuesta cuando quieras.","Hasta 10 imágenes, una tras otra.","Suelta la captura en el chat.","Muchas imágenes, la caja a la vista.","Revisión de código se acomoda al chat.","Dejar de vigilar, sin dudas.","Un Resumen más compacto.","Siete cambios, listos."]
+      : ["Stop the answer whenever you like.","Up to 10 images, one after another.","Drop the screenshot on the chat.","Many images, text box in view.","Code review makes room for the chat.","Stop watching, no guessing.","A more compact Summary.","Seven changes, done."];
     for (const [index, title] of titles.entries()) {
       await page.locator('.wk-story-dots button').nth(index).click();
       await expect(page.locator('#wk-release-title')).toHaveText(title);
-      await expect(page.locator('.wk-release-footer > span')).toHaveText(`${index + 1} / 9`);
+      await expect(page.locator('.wk-release-footer > span')).toHaveText(`${index + 1} / 8`);
     }
     await expect(page.locator('.wk-release-head')).toContainText(`v${version}`);
     await page.locator('.wk-story-next').click();
@@ -49,7 +49,7 @@ try {
         await page.locator('.wk-story-viewport').evaluate((element) => element.scrollTo(0, 0));
         for (const motion of ['reduce', 'no-preference']) {
           await page.emulateMedia({ reducedMotion: motion });
-          for (const time of motion === 'reduce' ? [0] : [0, 1500, 3000, 4500, 5900]) {
+          for (const time of motion === 'reduce' ? [0] : [0, 1000, 2000, 2700, 3500, 4500, 5900]) {
             const problems = await page.evaluate((time) => {
               const art = document.querySelector('.wk-story-viewport .wk-update-art');
               for (const animation of art.getAnimations({ subtree: true })) {
@@ -84,7 +84,7 @@ try {
       }
     }
     await page.keyboard.press('Escape');
-    console.log(`${language}: 0.1.9 presentation: nine slides, titles, counter, Escape, reopening and scene bounds at three sizes passed`);
+    console.log(`${language}: 0.1.10 presentation: eight slides, titles, counter, Escape, reopening and scene bounds at three sizes passed`);
     await context.close();
   }
 } finally {

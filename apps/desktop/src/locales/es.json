@@ -1,5 +1,6 @@
 {
   "nav": {
+    "stoppingWatch": "Dejando de vigilar {{name}}…",
     "showFiles": "Ver archivos",
     "hideFiles": "Ocultar archivos",
     "summary": "Resumen",
@@ -808,9 +809,19 @@
     "localOnly": "Abre tu copia local; no cambia de rama ni descarga la PR."
   },
   "chatInput": {
+    "count": "Puedes adjuntar hasta 10 imágenes.",
+    "gallery": "Galería de imágenes",
+    "previousImage": "Imagen anterior",
+    "nextImage": "Imagen siguiente",
+    "imagePosition": "{{current}} de {{total}}",
+
+    "stop": "Detener respuesta",
+    "stopped": "Respuesta detenida.",
+    "stopFailed": "No se pudo detener la respuesta. Vuelve a intentarlo.",
+
     "attach": "Agregar imagen o pegar con Ctrl+V",
     "remove": "Quitar {{name}}",
-    "limit": "Sin limite de cantidad; 5 MB por imagen y 10 MB en total.",
+    "limit": "No se pudieron adjuntar las imágenes. Prueba con otras imágenes o adjunta menos.",
     "type": "Usa imágenes PNG, JPG, WebP o GIF.",
     "invalid": "La imagen no es válida o supera el límite permitido.",
     "readFailed": "No se pudo leer la imagen.",
@@ -910,6 +921,47 @@
     "all": {
       "title": "Ocho cambios, listos.",
       "text": "Chat, imágenes, To Do, Resumen e inicio con Windows. Tus proyectos y preferencias siguen igual."
+    }
+  },
+  "release0110": {
+    "stop": {
+      "caption": "Chat",
+      "title": "Detén la respuesta cuando quieras.",
+      "text": "Mientras el agente responde, el botón de enviar pasa a ser Detener. Un clic cancela la respuesta y puedes volver a preguntar al momento."
+    },
+    "gallery": {
+      "caption": "Imágenes",
+      "title": "Hasta 10 imágenes, una tras otra.",
+      "text": "Adjunta hasta 10 imágenes por mensaje. Al abrir una, pasa a la anterior o a la siguiente con los botones o con las flechas del teclado, antes y después de enviarlas."
+    },
+    "drop": {
+      "caption": "Arrastrar y soltar",
+      "title": "Suelta la captura en el chat.",
+      "text": "Arrastra imágenes desde el Explorador hasta el chat para adjuntarlas. Se comprueban igual que las que eliges o pegas."
+    },
+    "draft": {
+      "caption": "Borrador",
+      "title": "Muchas imágenes, la caja a la vista.",
+      "text": "Con muchas imágenes adjuntas, las miniaturas tienen su propio scroll y la caja de texto ya no desaparece ni pierde el suyo."
+    },
+    "layout": {
+      "caption": "Revisión de código",
+      "title": "Revisión de código se acomoda al chat.",
+      "text": "Al ampliar el chat, la lista de PR y sus filtros se reorganizan en el espacio que queda, sin cortarse ni encimarse."
+    },
+    "unwatch": {
+      "caption": "Carpetas",
+      "title": "Dejar de vigilar, sin dudas.",
+      "text": "Al dejar de vigilar una carpeta aparece «Dejando de vigilar…» desde el primer clic, los clics repetidos no hacen nada y la carpeta sale de la lista sin esperar un escaneo completo."
+    },
+    "summary": {
+      "caption": "Resumen",
+      "title": "Un Resumen más compacto.",
+      "text": "Actividad y colaboradores ocupan menos y mantienen su altura. La lista de repositorios de cada persona se despliega solo cuando la necesitas."
+    },
+    "all": {
+      "title": "Siete cambios, listos.",
+      "text": "Chat, imágenes, Revisión de código, carpetas y Resumen. Tus proyectos y preferencias siguen igual."
     }
   }
 }

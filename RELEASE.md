@@ -63,6 +63,6 @@ after the draft is published.
 
 ## Validation and preserved data
 
-Version 0.1.9 keeps the existing app identifier and state path. Automated upgrade tests cover a private copy of the previous installed state across two save/load cycles, preserving existing fields. Existing WebView workflow/preferences have regression tests. Keep a backup and do not delete your user profile during an update.
+Version 0.1.10 keeps the existing app identifier and state path. Automated upgrade tests cover a private copy of the previous installed state across two save/load cycles, preserving existing fields. Existing WebView workflow/preferences have regression tests. Keep a backup and do not delete your user profile during an update.
 
-The repository runs frontend tests, Rust tests, formatting, lint, clippy, package regressions, and Windows/Linux package builds. Linux smoke checks cover an X11 environment; desktop tray and notification behavior still depends on the user's distribution and permissions. See [0.1.9 release notes](RELEASE-NOTES.md) and the usage guides in [English](README.md) and [Spanish](README.es.md).
+The repository runs frontend tests, Rust tests, formatting, lint, clippy, package regressions, and Windows/Linux package builds. Linux smoke checks cover an X11 environment; desktop tray and notification behavior still depends on the user's distribution and permissions. See [0.1.10 release notes](RELEASE-NOTES.md) and the usage guides in [English](README.md) and [Spanish](README.es.md).

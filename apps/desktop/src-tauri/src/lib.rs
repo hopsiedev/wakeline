@@ -16,6 +16,7 @@ mod live;
 mod project_commands;
 #[cfg(debug_assertions)]
 pub mod review;
+mod review_requests;
 mod review_tools;
 mod shell;
 mod startup;
@@ -875,6 +876,7 @@ fn remove_watch_folder(app: tauri::AppHandle, path: String) -> Result<(), String
         return Err("La carpeta no estaba vigilada".into());
     }
     state.save(&state_path).map_err(|error| error.to_string())?;
+    drop(_guard);
     live::restart(&app);
     Ok(())
 }
@@ -972,6 +974,7 @@ async fn get_remote_pr_details(
 
 /// Pregunta a Claude sobre una PR. El agente no tiene herramientas: solo ve el
 /// título, la descripción y el diff (sin archivos excluidos y con secretos tapados).
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn answer_pr_question(
     repository: &str,
     number: u64,
@@ -980,6 +983,7 @@ pub(crate) fn answer_pr_question(
     question: &str,
     history: &[wakeline_core::agents::ChatTurn],
     lang: &str,
+    cancel: &std::sync::atomic::AtomicBool,
 ) -> Result<String, String> {
     if !wakeline_core::github_workspace::valid_repository(repository) {
         return Err("INVALID_REPOSITORY".into());
@@ -998,12 +1002,13 @@ pub(crate) fn answer_pr_question(
         question,
         lang.starts_with("es"),
     );
-    wakeline_core::agents::ask_review(options, &prompt, &std::sync::atomic::AtomicBool::new(false))
+    wakeline_core::agents::ask_review(options, &prompt, cancel)
 }
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 async fn ask_pr_agent(
+    request_id: String,
     repository: String,
     number: u64,
     title: String,
@@ -1012,6 +1017,7 @@ async fn ask_pr_agent(
     history: Vec<wakeline_core::agents::ChatTurn>,
     lang: String,
 ) -> Result<String, String> {
+    let request = review_tools::ReviewRequest::start(request_id)?;
     tauri::async_runtime::spawn_blocking(move || {
         answer_pr_question(
             &repository,
@@ -1021,6 +1027,7 @@ async fn ask_pr_agent(
             &question,
             &history,
             &lang,
+            &request.cancel,
         )
     })
     .await
@@ -1404,6 +1411,7 @@ pub fn run() {
             ask_pr_agent,
             review_tools::get_review_agents,
             review_tools::ask_review_agent,
+            review_tools::cancel_review_agent,
             review_tools::open_pr_editor,
             get_startup_enabled,
             set_startup_enabled,

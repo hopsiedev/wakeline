@@ -50,8 +50,11 @@ import {
   fetchDashboardData,
   subscribeToChanges,
   getCachedDashboardData,
+  visibleWatchedProjects,
   invalidateDashboardCache,
 } from 'src/services/wakeline';
+
+import { FolderRemovalStatus } from 'src/components/folder-removal-status';
 
 import { Modal } from './views';
 import { ChatDock } from './chat-dock';
@@ -140,6 +143,14 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
     window.addEventListener('wakeline:card-status', updateStatuses);
     return () => window.removeEventListener('wakeline:card-status', updateStatuses);
   }, []);
+  useEffect(() => {
+    const removed = () =>
+      setData((previous) =>
+        previous ? { ...previous, projects: visibleWatchedProjects(previous.projects) } : previous
+      );
+    window.addEventListener('wakeline:folder-removed', removed);
+    return () => window.removeEventListener('wakeline:folder-removed', removed);
+  }, []);
   const reload = useCallback(async () => {
     if (loading.current) return;
     loading.current = true;
@@ -148,7 +159,7 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
       const next = await fetchDashboardData({ force: true });
       if (next.scan_error) throw new Error(next.scan_error);
       observeCards(next.cards);
-      setData(next);
+      setData({ ...next, projects: visibleWatchedProjects(next.projects) });
       setError(null);
     } catch (cause) {
       setError(String(cause));
@@ -444,6 +455,7 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
                 <RefreshCw size={15} className={busy ? 'wk-update-spin' : ''} />
               </button>
             </header>
+            <FolderRemovalStatus />
             <div className="wk-workspace-body">
               <div className="main-scroll">
                 {error && (
