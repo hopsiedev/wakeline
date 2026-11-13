@@ -50,6 +50,8 @@ import {
   approveProjectCommands,
 } from 'src/services/wakeline';
 
+import { useRemovingFolders } from 'src/components/folder-removal-status';
+
 import { Github } from './brand-icons';
 import { CopyControl, ErrorNotice } from './views';
 import { IntelligenceSettings } from './intelligence';
@@ -366,6 +368,7 @@ export function UpdateCheck({
 }
 
 export function SettingsPage() {
+  const removingFolders = useRemovingFolders();
   const { t, i18n } = useTranslation();
   const { data, notice, accent, setAccent } = useWorkspace();
   const { mode, setMode } = useColorScheme();
@@ -506,6 +509,8 @@ export function SettingsPage() {
                       <code>{p.path}</code>
                       <button
                         aria-label={t('nav.stopWatching') + ': ' + p.name}
+                        disabled={removingFolders.includes(p.path)}
+                        aria-busy={removingFolders.includes(p.path)}
                         onClick={() =>
                           removeWatchFolder(p.path).catch((cause) => setError(String(cause)))
                         }

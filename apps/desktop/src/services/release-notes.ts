@@ -15,6 +15,24 @@ export type Release = {
 // Every release is required to carry both languages; tests enforce non-empty copy.
 export const RELEASES: Release[] = [
   {
+    // Its scenes, features included, live in obsidian/release-0110.tsx.
+    version: '0.1.10',
+    presentation: 'patch',
+    features: [],
+    fixes: {
+      es: [
+        'Con muchas imágenes adjuntas, la caja de texto sigue visible y conserva su scroll.',
+        'Revisión de código se reorganiza al ampliar el chat, sin cortarse.',
+        'Dejar de vigilar una carpeta muestra su progreso y no se repite con varios clics.',
+      ],
+      en: [
+        'With many images attached, the text box stays in view and keeps its scrolling.',
+        'Code review rearranges when the chat is widened, with nothing cut off.',
+        'Stopping a folder watch shows its progress and does not repeat on extra clicks.',
+      ],
+    },
+  },
+  {
     // Its scenes, features included, live in obsidian/release-019.tsx.
     version: '0.1.9',
     presentation: 'patch',

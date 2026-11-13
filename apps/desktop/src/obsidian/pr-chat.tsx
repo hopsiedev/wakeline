@@ -1,7 +1,7 @@
 import type { FormEvent, KeyboardEvent } from 'react';
 
 import { useTranslation } from 'react-i18next';
-import { X, ArrowUp, ImagePlus, ShieldCheck, ChevronDown } from 'lucide-react';
+import { X, Square, ArrowUp, ImagePlus, ShieldCheck, ChevronDown } from 'lucide-react';
 import { useId, useRef, useState, useEffect, useCallback, useLayoutEffect } from 'react';
 
 import { invoke } from 'src/services/wakeline';
@@ -9,6 +9,7 @@ import {
   readImage,
   modelLabel,
   pastedImages,
+  MAX_CHAT_IMAGES,
   type ChatAttachment,
   validateImageSelection,
 } from 'src/services/chat-input';
@@ -26,6 +27,7 @@ type Message = {
   model?: string;
   effort?: string;
   images?: ChatAttachment[];
+  requestId?: string;
 };
 
 type Agent = {
@@ -132,7 +134,7 @@ export function PrChat({
   );
   const [value, setValue] = useState('');
   const [images, setImages] = useState<ChatAttachment[]>([]);
-  const [previewImage, setPreviewImage] = useState<ChatAttachment | null>(null);
+  const [preview, setPreview] = useState<{ images: ChatAttachment[]; index: number } | null>(null);
   const [imageError, setImageError] = useState('');
   const [effort, setEffort] = useState(
     () => localStorage.getItem('wakeline-pr-chat-effort') ?? 'default'
@@ -238,6 +240,7 @@ export function PrChat({
       .reverse()) {
       if (
         contextImages.reduce((sum, i) => sum + i.size, 0) + image.size <= 10 * 1024 * 1024 &&
+        contextImages.length < MAX_CHAT_IMAGES &&
         !contextImages.some((i) => i.id === image.id)
       )
         contextImages.unshift(image);
@@ -245,6 +248,7 @@ export function PrChat({
     const userImages = images;
     setImages([]);
     setImageError('');
+    const requestId = crypto.randomUUID();
     const userId = nextId++;
     const botId = nextId++;
     setMessages((previous) => [
@@ -255,11 +259,13 @@ export function PrChat({
         role: 'assistant',
         text: '',
         pending: true,
+        requestId,
         model: selectedModel,
         effort: selectedEffort,
       },
     ]);
     invoke<string>(overview ? 'ask_review_agent' : 'ask_pr_agent', {
+      requestId,
       repository: repository || null,
       number,
       title,
@@ -274,17 +280,34 @@ export function PrChat({
     }).then(
       (text) =>
         setMessages((previous) =>
-          previous.map((m) => (m.id === botId ? { ...m, pending: false, text } : m))
+          previous.map((m) => (m.id === botId && m.pending ? { ...m, pending: false, text } : m))
         ),
       (cause) =>
         setMessages((previous) =>
           previous.map((m) =>
-            m.id === botId
+            m.id === botId && m.pending
               ? { ...m, pending: false, failed: true, text: errorText(String(cause), t) }
               : m
           )
         )
     );
+  };
+
+  const stop = async () => {
+    const pending = messages.find((message) => message.pending);
+    if (!pending?.requestId) return;
+    try {
+      await invoke('cancel_review_agent', { requestId: pending.requestId });
+      setMessages((previous) =>
+        previous.map((message) =>
+          message.id === pending.id
+            ? { ...message, pending: false, failed: true, text: t('chatInput.stopped') }
+            : message
+        )
+      );
+    } catch {
+      setImageError(t('chatInput.stopFailed'));
+    }
   };
 
   const submit = (event?: FormEvent) => {
@@ -306,7 +329,22 @@ export function PrChat({
     (target as HTMLElement).closest('details')?.removeAttribute('open');
 
   return (
-    <aside className="wk-pr-chat" aria-label={t('prChat.title')}>
+    <aside
+      className="wk-pr-chat"
+      aria-label={t('prChat.title')}
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes('Files')) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = busy ? 'none' : 'copy';
+        }
+      }}
+      onDrop={(event) => {
+        if (!event.dataTransfer.files.length) return;
+        event.preventDefault();
+        event.stopPropagation();
+        void addImages(Array.from(event.dataTransfer.files));
+      }}
+    >
       <header className="wk-pr-chat-head">
         <img src="/logo/wakeline-icon.svg" alt="" width="22" height="22" />
         <div>
@@ -372,7 +410,13 @@ export function PrChat({
                           type="button"
                           className="wk-image-thumbnail"
                           aria-label={t('chatInput.preview', { name: image.name })}
-                          onClick={() => setPreviewImage(image)}
+                          onClick={() => {
+                            const gallery = messages.flatMap((item) => item.images ?? []);
+                            setPreview({
+                              images: gallery,
+                              index: gallery.findIndex((item) => item.id === image.id),
+                            });
+                          }}
                         >
                           <img src={`data:${image.type};base64,${image.data}`} alt={image.name} />
                         </button>
@@ -403,7 +447,9 @@ export function PrChat({
                   type="button"
                   className="wk-image-thumbnail"
                   aria-label={t('chatInput.preview', { name: image.name })}
-                  onClick={() => setPreviewImage(image)}
+                  onClick={() =>
+                    setPreview({ images, index: images.findIndex((item) => item.id === image.id) })
+                  }
                 >
                   <img src={`data:${image.type};base64,${image.data}`} alt={image.name} />
                 </button>
@@ -540,18 +586,23 @@ export function PrChat({
             </details>
           </div>
           <button
-            type="submit"
+            type={busy ? 'button' : 'submit'}
+            onClick={busy ? () => void stop() : undefined}
             className="send press"
-            aria-label={t('prChat.send')}
-            disabled={(!value.trim() && !images.length) || busy || !agent?.available}
+            aria-label={t(busy ? 'chatInput.stop' : 'prChat.send')}
+            disabled={!busy && ((!value.trim() && !images.length) || !agent?.available)}
           >
-            <ArrowUp size={15} />
+            {busy ? <Square size={15} /> : <ArrowUp size={15} />}
           </button>
         </div>
         <small className="wk-chat-model-note">{t('chatInput.access')}</small>
       </form>
-      {previewImage && (
-        <ChatImageViewer image={previewImage} onClose={() => setPreviewImage(null)} />
+      {preview && (
+        <ChatImageViewer
+          images={preview.images}
+          initialIndex={preview.index}
+          onClose={() => setPreview(null)}
+        />
       )}
     </aside>
   );
