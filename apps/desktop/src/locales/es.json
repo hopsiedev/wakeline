@@ -401,6 +401,7 @@
     "unexpected": "Error inesperado de la aplicación",
     "unknown": "Error desconocido",
     "clipboard": "No se pudo copiar. Selecciona el texto y cópialo manualmente.",
+    "reload": "Recargar",
     "desktopRuntime": "Abre la aplicación de escritorio para consultar tus datos."
   },
   "dailySummary": {
@@ -634,6 +635,7 @@
     "searchPrs": "Buscar PR, repositorio o autor…",
     "rateLimited": "GitHub ha limitado temporalmente las consultas. Se muestran los datos guardados; Wakeline volverá a consultar cuando termine la pausa.",
     "rateLimitedUntil": "GitHub ha limitado temporalmente las consultas. Se muestran los datos guardados; Wakeline volverá a consultar a las {{time}}.",
+    "syncFailed": "No se pudo sincronizar con GitHub. Se muestran los datos guardados; Wakeline lo reintentará solo.",
     "retry": "Reintentar",
     "todayPrs": "PR de hoy",
     "openedBy": "PR de {{author}}",

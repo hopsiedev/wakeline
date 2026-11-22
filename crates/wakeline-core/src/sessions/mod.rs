@@ -48,6 +48,8 @@ pub struct IncrementalScanReport {
     pub events_read: usize,
     /// Tarjetas consolidadas entre los archivos indicados.
     pub cards: Vec<SessionCard>,
+    /// Archivos que no se pudieron leer en esta pasada; conservan lo que ya se sabía.
+    pub unreadable_files: usize,
 }
 
 /// Acumula eventos en un vector de tarjetas (sin filtrar todavía por `MIN_REPEATED_ERRORS`).
@@ -181,36 +183,19 @@ pub fn scan_files_incremental_with_progress(
 
     on_progress(0, files.len());
     for (file_index, file) in files.iter().enumerate() {
-        let key = file.path.to_string_lossy().into_owned();
-        let file_len = std::fs::metadata(&file.path)?.len();
-        let saved_offset = state.session_offsets.get(&key).copied().unwrap_or(0);
-        let has_cached_cards = state.session_file_cards.contains_key(&key);
-
-        let (start_offset, mut file_cards) =
-            if saved_offset == 0 || file_len < saved_offset || !has_cached_cards {
-                (0, Vec::new())
-            } else {
-                (
-                    saved_offset,
-                    state
-                        .session_file_cards
-                        .get(&key)
-                        .cloned()
-                        .unwrap_or_default(),
-                )
-            };
-
-        if start_offset < file_len || start_offset == 0 {
-            let read = claude::read_from(&file.path, start_offset)?;
-            let delta = read.offset.saturating_sub(start_offset);
-            report.bytes_read += delta;
-            report.bad_lines += read.bad_lines;
-            report.events_read += read.events.len();
-            ingest_events(&mut file_cards, &read.events);
-            state.session_offsets.insert(key.clone(), read.offset);
-            state.session_file_cards.insert(key, file_cards.clone());
-        }
-
+        // Un archivo que no se puede leer (borrado a medias, sin permiso, bloqueado) se
+        // queda con lo que ya se sabía de él; no deja a los demás sin tarjetas.
+        let file_cards = match scan_file(file, state, &mut report) {
+            Ok(cards) => cards,
+            Err(_) => {
+                report.unreadable_files += 1;
+                state
+                    .session_file_cards
+                    .get(file.path.to_string_lossy().as_ref())
+                    .cloned()
+                    .unwrap_or_default()
+            }
+        };
         for card in file_cards {
             merge_session_card(&mut merged, &mut merged_index, card);
         }
@@ -220,6 +205,44 @@ pub fn scan_files_incremental_with_progress(
     merged.retain(|c| c.kind != CardKind::Error || c.occurrences >= MIN_REPEATED_ERRORS);
     report.cards = merged;
     Ok(report)
+}
+
+/// Lee lo nuevo de un archivo y devuelve todas sus tarjetas, guardando offset y caché.
+fn scan_file(
+    file: &SessionFile,
+    state: &mut LocalState,
+    report: &mut IncrementalScanReport,
+) -> io::Result<Vec<SessionCard>> {
+    let key = file.path.to_string_lossy().into_owned();
+    let file_len = std::fs::metadata(&file.path)?.len();
+    let saved_offset = state.session_offsets.get(&key).copied().unwrap_or(0);
+    let has_cached_cards = state.session_file_cards.contains_key(&key);
+
+    let (start_offset, mut file_cards) =
+        if saved_offset == 0 || file_len < saved_offset || !has_cached_cards {
+            (0, Vec::new())
+        } else {
+            (
+                saved_offset,
+                state
+                    .session_file_cards
+                    .get(&key)
+                    .cloned()
+                    .unwrap_or_default(),
+            )
+        };
+
+    if start_offset < file_len || start_offset == 0 {
+        let read = claude::read_from(&file.path, start_offset)?;
+        let delta = read.offset.saturating_sub(start_offset);
+        report.bytes_read += delta;
+        report.bad_lines += read.bad_lines;
+        report.events_read += read.events.len();
+        ingest_events(&mut file_cards, &read.events);
+        state.session_offsets.insert(key.clone(), read.offset);
+        state.session_file_cards.insert(key, file_cards.clone());
+    }
+    Ok(file_cards)
 }
 
 #[cfg(test)]
@@ -371,6 +394,43 @@ mod tests {
         assert_eq!(fourth.cards.len(), 1);
         assert!(fourth.cards[0].title.contains("prueba de humo"));
         assert_eq!(fourth.cards[0].occurrences, 1);
+    }
+
+    #[test]
+    fn an_unreadable_file_keeps_its_cards_and_does_not_stop_the_others() {
+        let dir = std::env::temp_dir().join(format!("wakeline-unreadable-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let line = |session: &str, text: &str| {
+            format!(
+                "{{\"type\":\"assistant\",\"sessionId\":\"{session}\",\"cwd\":\"C:/proj\",\"message\":{{\"stop_reason\":\"end_turn\",\"content\":[{{\"type\":\"text\",\"text\":\"{text}\"}}]}}}}\n"
+            )
+        };
+        let files = ["a", "b"].map(|name| SessionFile {
+            path: dir.join(format!("{name}.jsonl")),
+            is_subagent: false,
+        });
+        std::fs::write(
+            &files[0].path,
+            line("a", "Queda pendiente revisar el cierre."),
+        )
+        .unwrap();
+        std::fs::write(&files[1].path, line("b", "Falta añadir prueba de humo.")).unwrap();
+        let mut state = LocalState::default();
+        assert_eq!(
+            scan_files_incremental(&files, &mut state)
+                .unwrap()
+                .cards
+                .len(),
+            2
+        );
+
+        // El primero desaparece entre el listado y la lectura.
+        std::fs::remove_file(&files[0].path).unwrap();
+        let report = scan_files_incremental(&files, &mut state).unwrap();
+        assert_eq!(report.unreadable_files, 1);
+        assert_eq!(report.cards.len(), 2);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

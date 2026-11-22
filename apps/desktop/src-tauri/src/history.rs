@@ -63,9 +63,8 @@ pub async fn import_all_history(app: AppHandle) -> Result<ImportResult, String> 
         let mut files = Vec::new();
         if root.is_dir() {
             for file in claude::discover(&root).map_err(|error| error.to_string())? {
-                if claude::belongs_to_watched(&file, &state.watched_folders)
-                    .map_err(|error| error.to_string())?
-                {
+                // Un archivo de sesión ilegible se salta; no detiene la importación.
+                if claude::belongs_to_watched(&file, &state.watched_folders).unwrap_or(false) {
                     files.push(file);
                 }
             }

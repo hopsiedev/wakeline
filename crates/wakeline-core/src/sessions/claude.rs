@@ -30,12 +30,14 @@ pub fn session_cwd(path: &Path) -> io::Result<Option<String>> {
         cwd: Option<String>,
     }
     let mut reader = BufReader::new(File::open(path)?);
-    let mut line = String::new();
+    let mut raw = Vec::new();
     loop {
-        line.clear();
-        if reader.read_line(&mut line)? == 0 {
+        raw.clear();
+        if reader.read_until(b'\n', &mut raw)? == 0 {
             return Ok(None);
         }
+        // Bytes que no son UTF-8 en una línea no impiden leer las demás.
+        let line = String::from_utf8_lossy(&raw);
         if line.contains("\"cwd\"")
             && let Ok(metadata) = serde_json::from_str::<Metadata>(&line)
             && let Some(cwd) = metadata.cwd.filter(|cwd| !cwd.is_empty())
@@ -123,7 +125,11 @@ pub fn discover(projects_root: &Path) -> io::Result<Vec<SessionFile>> {
         if !project.is_dir() || crate::exclusions::is_excluded(&project) {
             continue;
         }
-        for entry in read_dir_sorted(&project)? {
+        // Una carpeta ilegible se salta; no impide leer las demás.
+        let Ok(entries) = read_dir_sorted(&project) else {
+            continue;
+        };
+        for entry in entries {
             if is_jsonl(&entry) {
                 files.push(SessionFile {
                     path: entry,
@@ -131,8 +137,10 @@ pub fn discover(projects_root: &Path) -> io::Result<Vec<SessionFile>> {
                 });
             } else if entry.is_dir() {
                 let subagents = entry.join("subagents");
-                if subagents.is_dir() {
-                    for sub in read_dir_sorted(&subagents)? {
+                if subagents.is_dir()
+                    && let Ok(subs) = read_dir_sorted(&subagents)
+                {
+                    for sub in subs {
                         if is_jsonl(&sub) {
                             files.push(SessionFile {
                                 path: sub,
@@ -161,16 +169,18 @@ pub fn read_from(path: &Path, offset: u64) -> io::Result<ReadResult> {
         offset: start,
         ..Default::default()
     };
-    let mut line = String::new();
+    let mut raw = Vec::new();
     let mut tool_names: HashMap<String, String> = HashMap::new();
 
     loop {
-        line.clear();
-        let read = reader.read_line(&mut line)?;
-        if read == 0 || !line.ends_with('\n') {
+        raw.clear();
+        let read = reader.read_until(b'\n', &mut raw)?;
+        if read == 0 || !raw.ends_with(b"\n") {
             break; // fin o línea a medio escribir
         }
         result.offset += read as u64;
+        // Una línea con bytes que no son UTF-8 cuenta como defectuosa y se sigue leyendo.
+        let line = String::from_utf8_lossy(&raw);
         match parse_line(&line, &mut tool_names) {
             Ok(Some(event)) => result.events.push(event),
             Ok(None) => {}
@@ -472,6 +482,21 @@ mod tests {
             ]
         );
         assert_eq!(result.events[0].cwd.as_deref(), Some("C:\\proj"));
+    }
+
+    #[test]
+    fn a_line_that_is_not_utf8_does_not_stop_the_file() {
+        let dir = temp_dir("utf8");
+        let file = dir.join("s1.jsonl");
+        let good = assistant("end_turn", r#"{"type":"text","text":"Respuesta legible."}"#);
+        let mut bytes = b"{\"type\":\"user\",\"note\":\"\xff\xfe\"}\n".to_vec();
+        bytes.extend_from_slice(format!("{good}\n").as_bytes());
+        std::fs::write(&file, &bytes).unwrap();
+
+        let read = read_from(&file, 0).unwrap();
+        assert_eq!(read.events.len(), 1);
+        assert_eq!(read.offset, bytes.len() as u64);
+        assert_eq!(session_cwd(&file).unwrap().as_deref(), Some("C:\\proj"));
     }
 
     #[test]
