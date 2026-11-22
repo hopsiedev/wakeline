@@ -47,6 +47,8 @@ export type GithubWorkspace = {
   sync_error?: string;
 };
 let request: Promise<GithubWorkspace> | null = null;
+/** Whether the request in flight skips the backend cache. */
+let requestForced = false;
 let cached: GithubWorkspace | null = null;
 /** Saved copy as text, to tell whether a new answer changes anything. */
 let cachedText = '';
@@ -74,7 +76,17 @@ export function getCachedGithubWorkspace(): GithubWorkspace | null {
  * The copy kept here is only for the first paint.
  */
 export function fetchGithubWorkspace(force = false): Promise<GithubWorkspace> {
-  if (request) return request;
+  if (request) {
+    // Refresh pressed during a background poll: wait for it, then skip the cache.
+    if (force && !requestForced) {
+      return request.then(
+        () => fetchGithubWorkspace(true),
+        () => fetchGithubWorkspace(true)
+      );
+    }
+    return request;
+  }
+  requestForced = force;
   const since = new Date();
   since.setUTCHours(0, 0, 0, 0);
   since.setUTCDate(since.getUTCDate() - 60);

@@ -91,7 +91,10 @@ fn announces(word: &str) -> Pending {
         .next()
         .unwrap_or(word)
         .to_ascii_lowercase();
-    let (name, has_separator) = match tail.strip_suffix([':', '=']) {
+    let (name, has_separator) = match [":=", "=>", ":", "="]
+        .iter()
+        .find_map(|separator| tail.strip_suffix(separator))
+    {
         Some(name) => (name, true),
         None => (tail.as_str(), false),
     };
@@ -114,7 +117,9 @@ fn mask_spaced_value(word: &str) -> Option<String> {
         None => (word, ""),
     };
     let unquoted = head.strip_prefix(QUOTES).unwrap_or(head);
-    let value = unquoted.trim_end_matches(|c| QUOTES.contains(&c) || matches!(c, ',' | ';'));
+    // También se recorta lo que cierra el objeto o la lista (`"valor"}`, `"valor"],`).
+    let value = unquoted
+        .trim_end_matches(|c| QUOTES.contains(&c) || matches!(c, ',' | ';' | '}' | ']' | ')'));
     if !looks_secret(value) {
         return None;
     }
@@ -211,6 +216,18 @@ mod tests {
             redact("{\"client_secret\": \"s3cr3t-value\", \"name\": \"demo\"}"),
             "{\"client_secret\": \"••••\", \"name\": \"demo\"}"
         );
+        // El secreto es la última clave del objeto o de la lista.
+        assert_eq!(
+            redact("{\"name\": \"demo\", \"client_secret\": \"s3cr3t-value\"}"),
+            "{\"name\": \"demo\", \"client_secret\": \"••••\"}"
+        );
+        assert_eq!(
+            redact("[{\"api_key\": \"abc123def456\"}]"),
+            "[{\"api_key\": \"••••\"}]"
+        );
+        // El operador va pegado a la clave.
+        assert_eq!(redact("token:= 'P@ssword!'"), "token:= '••••'");
+        assert_eq!(redact("secret=> \"abc123def456\","), "secret=> \"••••\",");
     }
 
     #[test]

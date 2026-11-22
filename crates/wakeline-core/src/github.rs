@@ -115,6 +115,21 @@ fn run_bounded(mut command: Command, timeout: Duration) -> Result<String, GhErro
         std::thread::sleep(pause);
         pause = (pause * 2).min(Duration::from_millis(50));
     };
+    // Un proceso hijo de `gh` que herede las tuberías y siga vivo las mantiene abiertas:
+    // el límite también vale para terminar de leerlas.
+    while !(stdout.is_finished() && stderr.is_finished()) {
+        if started.elapsed() >= timeout {
+            #[cfg(windows)]
+            if let Some(job) = &job {
+                job.terminate();
+            }
+            return Err(GhError::Failed(format!(
+                "gh no respondió en {} s",
+                timeout.as_secs()
+            )));
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
     let stdout = stdout.join().unwrap_or_default();
     let stderr = stderr.join().unwrap_or_default();
     if status.success() {

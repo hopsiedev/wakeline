@@ -145,12 +145,15 @@ impl CodeScanner {
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(error) => {
-                    // Sin permiso es el estado normal de esa subcarpeta; cualquier otro fallo
-                    // (la unidad se va a mitad) deja el recorrido incompleto.
-                    if error
-                        .io_error()
-                        .is_some_and(|io| io.kind() != std::io::ErrorKind::PermissionDenied)
-                    {
+                    // Sin permiso es el estado normal de esa subcarpeta, y algo borrado a mitad
+                    // del recorrido (temporales, builds) ya no tiene tarjetas que guardar.
+                    // Cualquier otro fallo deja el recorrido incompleto.
+                    if error.io_error().is_some_and(|io| {
+                        !matches!(
+                            io.kind(),
+                            std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::NotFound
+                        )
+                    }) {
                         self.read_errors += 1;
                     }
                     continue;
@@ -159,6 +162,10 @@ impl CodeScanner {
             if entry.file_type().is_some_and(|t| t.is_file()) {
                 cards.extend(self.scan_file(root, entry.path()));
             }
+        }
+        // Si la unidad se fue a mitad, los `NotFound` de arriba no eran borrados normales.
+        if std::fs::read_dir(root).is_err() {
+            self.read_errors += 1;
         }
         cards
     }
