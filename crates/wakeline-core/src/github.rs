@@ -5,9 +5,10 @@
 //! fuente simplemente no aporta nada.
 
 use std::collections::HashMap;
-use std::io;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -26,6 +27,9 @@ pub const LIST_LIMIT: usize = 100;
 pub const POLL_SECS: u64 = 60;
 /// Un PR abierto más tiempo que esto genera una Tarea (Q48).
 pub const STALE_PR_DAYS: u64 = 7;
+/// Lo máximo que se espera a una llamada de `gh`. Sin límite, una red colgada dejaba
+/// parado para siempre el hilo que consulta GitHub, sin mostrar ningún error.
+const GH_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GhError {
@@ -70,18 +74,67 @@ impl GhClient for SystemGh {
             const CREATE_NO_WINDOW: u32 = 0x0800_0000;
             command.creation_flags(CREATE_NO_WINDOW);
         }
-        let output = command.output().map_err(|error| match error.kind() {
-            io::ErrorKind::NotFound => GhError::NotInstalled,
-            _ => GhError::Failed(error.to_string()),
-        })?;
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-        } else {
-            Err(GhError::Failed(
-                String::from_utf8_lossy(&output.stderr).trim().to_string(),
-            ))
-        }
+        run_bounded(command, GH_TIMEOUT)
     }
+}
+
+/// Ejecuta el comando y devuelve su salida, como `Command::output`, pero lo corta si
+/// pasa de `timeout`.
+fn run_bounded(mut command: Command, timeout: Duration) -> Result<String, GhError> {
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = command.spawn().map_err(|error| match error.kind() {
+        io::ErrorKind::NotFound => GhError::NotInstalled,
+        _ => GhError::Failed(error.to_string()),
+    })?;
+    // En Windows el job corta también los procesos que `gh` haya lanzado.
+    #[cfg(windows)]
+    let job = crate::commands::exec::job::Job::assign(&child);
+    let stdout = read_all(child.stdout.take());
+    let stderr = read_all(child.stderr.take());
+
+    let started = Instant::now();
+    let mut pause = Duration::from_millis(2);
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => {}
+            Err(error) => return Err(GhError::Failed(error.to_string())),
+        }
+        if started.elapsed() >= timeout {
+            #[cfg(windows)]
+            if let Some(job) = &job {
+                job.terminate();
+            }
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(GhError::Failed(format!(
+                "gh no respondió en {} s",
+                timeout.as_secs()
+            )));
+        }
+        std::thread::sleep(pause);
+        pause = (pause * 2).min(Duration::from_millis(50));
+    };
+    let stdout = stdout.join().unwrap_or_default();
+    let stderr = stderr.join().unwrap_or_default();
+    if status.success() {
+        Ok(String::from_utf8_lossy(&stdout).into_owned())
+    } else {
+        Err(GhError::Failed(
+            String::from_utf8_lossy(&stderr).trim().to_string(),
+        ))
+    }
+}
+
+/// Lee una salida entera en otro hilo para que el proceso nunca se bloquee al escribir.
+fn read_all<R: Read + Send + 'static>(pipe: Option<R>) -> std::thread::JoinHandle<Vec<u8>> {
+    std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        if let Some(mut pipe) = pipe {
+            let _ = pipe.read_to_end(&mut bytes);
+        }
+        bytes
+    })
 }
 
 /// Solo consultas: listar issues y PRs, ver runs y leer la API con GET.
@@ -1058,6 +1111,37 @@ mod tests {
         format!(
             r#"[{{"number":12,"title":"Paso 5","url":"https://github.com/o/r/pull/12","headRefName":"feat","createdAt":"{created}","isDraft":false,"latestReviews":{reviews},"statusCheckRollup":{checks}}}]"#
         )
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_bounded_call_returns_its_output_or_its_error() {
+        let shell = |script: &str| {
+            let mut command = Command::new("/bin/sh");
+            command.args(["-c", script]).stdin(Stdio::null());
+            run_bounded(command, Duration::from_secs(30))
+        };
+        assert_eq!(shell("echo listo"), Ok("listo\n".into()));
+        assert_eq!(
+            shell("echo roto >&2; exit 3"),
+            Err(GhError::Failed("roto".into()))
+        );
+        // Una salida mayor que el búfer de la tubería no bloquea al proceso.
+        let big = shell("head -c 300000 /dev/zero | tr '\\0' 'a'").unwrap();
+        assert_eq!(big.len(), 300_000);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_call_that_never_answers_is_cut_off() {
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "exec sleep 30"]).stdin(Stdio::null());
+        let started = Instant::now();
+        let result = run_bounded(command, Duration::from_millis(300));
+        assert!(
+            matches!(result, Err(GhError::Failed(message)) if message.contains("no respondió"))
+        );
+        assert!(started.elapsed() < Duration::from_secs(10));
     }
 
     #[test]
