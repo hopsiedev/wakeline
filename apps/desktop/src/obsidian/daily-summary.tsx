@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import { CONFIG } from 'src/config-global';
+import { originLabel } from 'src/services/wakeline';
 import { remoteDetail } from 'src/services/github-pr';
 import { RELEASE_SHOWN, shouldShowRelease } from 'src/services/release-notes';
 import { isSnoozed, getWorkflow, priorityCards } from 'src/services/card-workflow';
@@ -191,11 +192,7 @@ export function DailySummary() {
                       <span>
                         <strong>{card.title}</strong>
                         <small>
-                          {card.project} ·{' '}
-                          {t(`connectors.${card.source_label}`, {
-                            defaultValue: card.source_label,
-                          })}{' '}
-                          ·{' '}
+                          {card.project} · {originLabel(t, card.source_kind, card.source_label)} ·{' '}
                           {t(`workflow.reason.${reason}`, {
                             count: reason === 'aging' ? age : card.occurrences,
                           })}
