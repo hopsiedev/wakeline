@@ -202,9 +202,8 @@ fn scan_dashboard() -> Result<DashboardPayload, String> {
     });
     let mut scoped_files = Vec::new();
     for file in files {
-        if claude::belongs_to_watched(&file, &state.watched_folders)
-            .map_err(|error| error.to_string())?
-        {
+        // Un archivo de sesión ilegible se salta; no deja el panel entero sin tarjetas.
+        if claude::belongs_to_watched(&file, &state.watched_folders).unwrap_or(false) {
             scoped_files.push(file);
         }
     }
