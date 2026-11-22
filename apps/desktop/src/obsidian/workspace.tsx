@@ -87,14 +87,19 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
   const [githubError, setGithubError] = useState<string | null>(null);
   // Only the Refresh button skips the backend cache; the rest reads it.
   const reloadGithub = useCallback(async (force = true) => {
-    setGithubBusy(true);
-    setGithubError(null);
+    // The background poll keeps what is on screen: no busy state, no error over saved data.
+    const quiet = !force && !!getCachedGithubWorkspace();
+    if (!quiet) {
+      setGithubBusy(true);
+      setGithubError(null);
+    }
     try {
       setGithub(await fetchGithubWorkspace(force));
+      setGithubError(null);
     } catch (cause) {
-      setGithubError(String(cause));
+      if (!quiet) setGithubError(String(cause));
     } finally {
-      setGithubBusy(false);
+      if (!quiet) setGithubBusy(false);
     }
   }, []);
   const [data, setData] = useState<DashboardPayload | null>(getCachedDashboardData);
