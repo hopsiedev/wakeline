@@ -124,6 +124,12 @@ impl CodeScanner {
     /// Recorre el proyecto entero y devuelve sus tarjetas de código.
     pub fn scan_project(&mut self, root: &Path) -> Vec<CodeCard> {
         self.read_errors = 0;
+        // Una carpeta que no se puede abrir (disco desconectado, red caída, renombrada) no
+        // dice nada sobre sus tarjetas: el recorrido no cuenta como completo (Q54).
+        if std::fs::read_dir(root).is_err() {
+            self.read_errors += 1;
+            return Vec::new();
+        }
         let walker = ignore::WalkBuilder::new(root)
             .require_git(false)
             .filter_entry(|entry| {
@@ -135,7 +141,21 @@ impl CodeScanner {
             .build();
 
         let mut cards = Vec::new();
-        for entry in walker.flatten() {
+        for entry in walker {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    // Sin permiso es el estado normal de esa subcarpeta; cualquier otro fallo
+                    // (la unidad se va a mitad) deja el recorrido incompleto.
+                    if error
+                        .io_error()
+                        .is_some_and(|io| io.kind() != std::io::ErrorKind::PermissionDenied)
+                    {
+                        self.read_errors += 1;
+                    }
+                    continue;
+                }
+            };
             if entry.file_type().is_some_and(|t| t.is_file()) {
                 cards.extend(self.scan_file(root, entry.path()));
             }
@@ -313,6 +333,20 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn a_folder_that_cannot_be_opened_is_not_a_complete_scan() {
+        let dir = temp_project("gone");
+        std::fs::write(dir.join("a.rs"), "// TODO: sigue aquí\n").unwrap();
+        let mut scanner = CodeScanner::new();
+        assert_eq!(scanner.scan_project(&dir).len(), 1);
+        assert!(scanner.last_scan_complete());
+
+        // La carpeta desaparece (unidad desconectada): sin tarjetas, pero sin cerrar nada.
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(scanner.scan_project(&dir).is_empty());
+        assert!(!scanner.last_scan_complete());
     }
 
     fn scan(lang: Lang, source: &str) -> Vec<CodeCard> {
