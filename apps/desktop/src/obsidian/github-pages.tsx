@@ -250,7 +250,11 @@ export function useAgo() {
 export function GithubStatus() {
   const { t, i18n } = useTranslation();
   const { githubBusy, githubError, github, reloadGithub } = useWorkspace();
-  const until = github?.rate_limited_until;
+  // A saved copy can carry a limit that has already passed.
+  const until =
+    github?.rate_limited_until && github.rate_limited_until * 1000 > Date.now()
+      ? github.rate_limited_until
+      : undefined;
   const time = until
     ? new Intl.DateTimeFormat(i18n.language, { timeStyle: 'short' }).format(until * 1000)
     : '';
@@ -279,6 +283,12 @@ export function GithubStatus() {
             {t('githubDashboard.retry')}
           </button>
         </div>
+      )}
+      {!limited && !githubError && github?.sync_error && (
+        <p className="gh-notice" role="status" title={github.sync_error}>
+          <RefreshCw size={14} />
+          {t('githubDashboard.syncFailed')}
+        </p>
       )}
       {!!github?.warnings.length && (
         <details className="gh-partial">

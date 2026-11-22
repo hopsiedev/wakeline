@@ -17,7 +17,18 @@ export function ErrorBoundary() {
       {inputGlobalStyles()}
 
       <div className={errorBoundaryClasses.root}>
-        <div className={errorBoundaryClasses.container}>{renderErrorMessage(error, t)}</div>
+        <div className={errorBoundaryClasses.container}>
+          {renderErrorMessage(error, t)}
+          {/* F5 is blocked in the desktop app: without these there is no way out. */}
+          <div className={errorBoundaryClasses.actions}>
+            <button type="button" onClick={() => window.location.reload()}>
+              {t('errors.reload')}
+            </button>
+            <button type="button" onClick={() => window.location.assign('/')}>
+              {t('notFound.back')}
+            </button>
+          </div>
+        </div>
       </div>
     </>
   );
@@ -80,6 +91,7 @@ const errorBoundaryClasses = {
   details: 'error-boundary-details',
   message: 'error-boundary-message',
   filePath: 'error-boundary-file-path',
+  actions: 'error-boundary-actions',
 };
 
 const cssVars: CSSObject = {
@@ -151,6 +163,24 @@ const filePathStyles = (): CSSObject => ({
   color: 'var(--info-color)',
 });
 
+const actionsStyles = (theme: Theme): CSSObject => ({
+  gap: 12,
+  display: 'flex',
+  flexWrap: 'wrap',
+  '& button': {
+    color: 'white',
+    cursor: 'pointer',
+    borderRadius: 6,
+    padding: '8px 14px',
+    fontFamily: 'inherit',
+    backgroundColor: 'transparent',
+    border: '1px solid rgba(255, 255, 255, 0.24)',
+    fontSize: theme.typography.pxToRem(14),
+    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.08)' },
+    '&:focus-visible': { outline: '2px solid var(--info-color)', outlineOffset: 2 },
+  },
+});
+
 const inputGlobalStyles = () => (
   <GlobalStyles
     styles={(theme) => ({
@@ -165,6 +195,7 @@ const inputGlobalStyles = () => (
         [`& .${errorBoundaryClasses.message}`]: messageStyles(theme),
         [`& .${errorBoundaryClasses.filePath}`]: filePathStyles(),
         [`& .${errorBoundaryClasses.details}`]: detailsStyles(),
+        [`& .${errorBoundaryClasses.actions}`]: actionsStyles(theme),
       },
     })}
   />

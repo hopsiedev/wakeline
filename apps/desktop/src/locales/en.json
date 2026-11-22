@@ -401,6 +401,7 @@
     "unexpected": "Unexpected application error",
     "unknown": "Unknown error",
     "clipboard": "Could not copy. Select the text and copy it manually.",
+    "reload": "Reload",
     "desktopRuntime": "Open the desktop app to access your data."
   },
   "dailySummary": {
@@ -634,6 +635,7 @@
     "searchPrs": "Search PRs, repository, or author…",
     "rateLimited": "GitHub has temporarily rate-limited requests. Showing saved data; Wakeline will query again when the pause ends.",
     "rateLimitedUntil": "GitHub has temporarily rate-limited requests. Showing saved data; Wakeline will query again at {{time}}.",
+    "syncFailed": "Could not sync with GitHub. Showing saved data; Wakeline will retry on its own.",
     "retry": "Retry",
     "todayPrs": "Today PRs",
     "openedBy": "PR opened by {{author}}",

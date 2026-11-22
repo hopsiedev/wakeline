@@ -87,14 +87,19 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
   const [githubError, setGithubError] = useState<string | null>(null);
   // Only the Refresh button skips the backend cache; the rest reads it.
   const reloadGithub = useCallback(async (force = true) => {
-    setGithubBusy(true);
-    setGithubError(null);
+    // The background poll keeps what is on screen: no busy state, no error over saved data.
+    const quiet = !force && !!getCachedGithubWorkspace();
+    if (!quiet) {
+      setGithubBusy(true);
+      setGithubError(null);
+    }
     try {
       setGithub(await fetchGithubWorkspace(force));
+      setGithubError(null);
     } catch (cause) {
-      setGithubError(String(cause));
+      if (!quiet) setGithubError(String(cause));
     } finally {
-      setGithubBusy(false);
+      if (!quiet) setGithubBusy(false);
     }
   }, []);
   const [data, setData] = useState<DashboardPayload | null>(getCachedDashboardData);
@@ -113,6 +118,7 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLButtonElement>(null);
   const loading = useRef(false);
+  const rescanQueued = useRef(false);
   useEffect(() => {
     const updateStatuses = (event: Event) => {
       const inputs = (
@@ -152,17 +158,26 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('wakeline:folder-removed', removed);
   }, []);
   const reload = useCallback(async () => {
-    if (loading.current) return;
+    // A change that arrives mid-scan is not in that scan's result: run once more after it.
+    if (loading.current) {
+      rescanQueued.current = true;
+      return;
+    }
     loading.current = true;
     setBusy(true);
     try {
-      const next = await fetchDashboardData({ force: true });
-      if (next.scan_error) throw new Error(next.scan_error);
-      observeCards(next.cards);
-      setData({ ...next, projects: visibleWatchedProjects(next.projects) });
-      setError(null);
-    } catch (cause) {
-      setError(String(cause));
+      do {
+        rescanQueued.current = false;
+        try {
+          const next = await fetchDashboardData({ force: true });
+          if (next.scan_error) throw new Error(next.scan_error);
+          observeCards(next.cards);
+          setData({ ...next, projects: visibleWatchedProjects(next.projects) });
+          setError(null);
+        } catch (cause) {
+          setError(String(cause));
+        }
+      } while (rescanQueued.current);
     } finally {
       loading.current = false;
       setBusy(false);
