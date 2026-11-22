@@ -118,6 +118,7 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLButtonElement>(null);
   const loading = useRef(false);
+  const rescanQueued = useRef(false);
   useEffect(() => {
     const updateStatuses = (event: Event) => {
       const inputs = (
@@ -157,17 +158,26 @@ export function ObsidianLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('wakeline:folder-removed', removed);
   }, []);
   const reload = useCallback(async () => {
-    if (loading.current) return;
+    // A change that arrives mid-scan is not in that scan's result: run once more after it.
+    if (loading.current) {
+      rescanQueued.current = true;
+      return;
+    }
     loading.current = true;
     setBusy(true);
     try {
-      const next = await fetchDashboardData({ force: true });
-      if (next.scan_error) throw new Error(next.scan_error);
-      observeCards(next.cards);
-      setData({ ...next, projects: visibleWatchedProjects(next.projects) });
-      setError(null);
-    } catch (cause) {
-      setError(String(cause));
+      do {
+        rescanQueued.current = false;
+        try {
+          const next = await fetchDashboardData({ force: true });
+          if (next.scan_error) throw new Error(next.scan_error);
+          observeCards(next.cards);
+          setData({ ...next, projects: visibleWatchedProjects(next.projects) });
+          setError(null);
+        } catch (cause) {
+          setError(String(cause));
+        }
+      } while (rescanQueued.current);
     } finally {
       loading.current = false;
       setBusy(false);
