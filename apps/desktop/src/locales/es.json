@@ -401,6 +401,7 @@
     "unexpected": "Error inesperado de la aplicación",
     "unknown": "Error desconocido",
     "clipboard": "No se pudo copiar. Selecciona el texto y cópialo manualmente.",
+    "reload": "Recargar",
     "desktopRuntime": "Abre la aplicación de escritorio para consultar tus datos."
   },
   "dailySummary": {

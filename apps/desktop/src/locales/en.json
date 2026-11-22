@@ -401,6 +401,7 @@
     "unexpected": "Unexpected application error",
     "unknown": "Unknown error",
     "clipboard": "Could not copy. Select the text and copy it manually.",
+    "reload": "Reload",
     "desktopRuntime": "Open the desktop app to access your data."
   },
   "dailySummary": {
