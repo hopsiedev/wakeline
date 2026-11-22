@@ -1,4 +1,9 @@
-import hljs from 'highlight.js/lib/common';
+import { common } from 'lowlight';
+import hljs from 'highlight.js/lib/core';
+
+// Same language modules the Markdown renderer (rehype-highlight) already bundles;
+// `highlight.js/lib/common` would ship a second copy of all of them.
+for (const [name, language] of Object.entries(common)) hljs.registerLanguage(name, language);
 
 export type DiffLine = {
   kind: 'hunk' | 'context' | 'added' | 'removed' | 'note';
