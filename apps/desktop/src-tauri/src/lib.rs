@@ -1284,17 +1284,12 @@ fn resume_session(project: String, session_id: Option<String>) -> Result<(), Str
             Some(id) => format!("claude --resume {id}"),
             None => "claude --continue".into(),
         };
+        // La carpeta va como directorio de trabajo y nunca como texto del comando: una
+        // ruta sin espacios no se entrecomilla y `cmd` ejecutaría lo que siga a un `&`.
+        // `start` abre la ventana nueva en la carpeta actual.
         std::process::Command::new("cmd")
-            .args([
-                "/C",
-                "start",
-                "Claude Code",
-                "/D",
-                &base_dir.to_string_lossy(),
-                "cmd",
-                "/K",
-                &claude_cmd,
-            ])
+            .current_dir(&base_dir)
+            .args(["/C", "start", "Claude Code", "cmd", "/K", &claude_cmd])
             .spawn()
             .map(|_| ())
             .map_err(|e| e.to_string())
